@@ -95,7 +95,7 @@ Todos em Mermaid e verificados (20 diagramas renderizados sem erro).
 2. **Protótipo:** substituir a simulação Z1–Z4 pelas zonas reais (Fase 1).
 3. **Equipe:** preencher nomes dos integrantes e responsáveis no [07](07-roadmap.md) e cadastrar o projeto no Geproj.
 4. **Fase 1:** componentes React + Storybook; fixar versões no `package.json`; incluir verificação de contraste não textual (3:1) no script.
-5. **Repositório:** versionado em Git localmente (branch `main`); falta publicar em um repositório remoto da equipe.
+5. **Repositório:** ✅ publicado em https://github.com/ElitondeSousa/parkvision (branch `main`).
 
 ## 9. Ferramentas utilizadas na produção desta entrega
 
