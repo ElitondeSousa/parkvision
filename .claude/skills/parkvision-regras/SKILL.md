@@ -19,7 +19,7 @@ description: Regras de negócio e de projeto do ParkVision (MVP de distribuiçã
 `CARRO_PEQUENO`, `CARRO_GRANDE` (carro grande, SUV ou caminhonete) e `MOTO`. Motos vão para a região de motos (`SS1M`); carros para as demais, salvo restrição validada pela equipe.
 
 ## Algoritmo
-1. Filtros: categoria compatível · região operacional · `livres > 0` · dados válidos (0 ≤ ocupadas ≤ capacidade; atualizados há menos de 60 s) · rota existente no grafo.
+1. Filtros: categoria compatível · região operacional · `livres > 0` · dados válidos (0 ≤ ocupadas ≤ capacidade; e, se `VALIDADE_DADOS_MS` estiver definido, atualizados dentro desse prazo — desligado até o simulador enviar sinais periódicos) · rota existente no grafo.
 2. `Score = 0,50·Disp + 0,30·(1 − DistNorm) + 0,20·(1 − FluxoNorm)`
    - `Disp = livres / capacidade`
    - `DistNorm = custoRota / maior custoRota entre as elegíveis` (menor caminho no grafo do mapa)

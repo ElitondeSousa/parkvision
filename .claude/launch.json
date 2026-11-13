@@ -6,6 +6,12 @@
       "runtimeExecutable": "python",
       "runtimeArgs": ["-m", "http.server", "4173", "--bind", "127.0.0.1"],
       "port": 4173
+    },
+    {
+      "name": "api",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--filter", "@parkvision/api", "inicio"],
+      "port": 3333
     }
   ]
 }

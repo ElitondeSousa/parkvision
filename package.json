@@ -1,0 +1,23 @@
+{
+  "name": "parkvision",
+  "private": true,
+  "description": "ParkVision — distribuição inteligente de veículos no estacionamento (MVP)",
+  "packageManager": "pnpm@10.22.0",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "db:up": "docker compose up -d postgres",
+    "db:down": "docker compose down",
+    "db:push": "pnpm --filter @parkvision/api db:push",
+    "db:seed": "pnpm --filter @parkvision/api db:seed",
+    "dev:api": "pnpm --filter @parkvision/api dev",
+    "test": "pnpm -r --workspace-concurrency=1 test",
+    "typecheck": "pnpm -r typecheck"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.6",
+    "typescript": "^7.0.2",
+    "vitest": "^5.1.0"
+  }
+}

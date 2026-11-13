@@ -1,0 +1,27 @@
+{
+  "name": "@parkvision/api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch --env-file=.env src/servidor.ts",
+    "inicio": "tsx --env-file=.env src/servidor.ts",
+    "db:push": "prisma db push --skip-generate && prisma generate",
+    "db:seed": "tsx --env-file=.env src/seed.ts",
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@parkvision/core": "workspace:*",
+    "@parkvision/shared": "workspace:*",
+    "@prisma/client": "6.19.0",
+    "fastify": "^5.12.8",
+    "socket.io": "^4.8.4",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "prisma": "6.19.0",
+    "socket.io-client": "^4.8.4",
+    "tsx": "^4.23.15"
+  }
+}

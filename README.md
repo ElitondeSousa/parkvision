@@ -87,12 +87,55 @@ node design-system/scripts/build-tokens.mjs
 node design-system/scripts/check-contrast.mjs
 ```
 
+## Como rodar o MVP (Etapa 1 — back-end e algoritmo)
+
+Pré-requisitos: Node.js 22+, pnpm 10 e Docker Desktop.
+
+```bash
+pnpm install
+```
+
+```bash
+cp .env.example apps/api/.env
+```
+
+```bash
+pnpm db:up
+```
+
+```bash
+pnpm db:push
+```
+
+```bash
+pnpm db:seed
+```
+
+```bash
+pnpm dev:api
+```
+
+A API sobe em `http://localhost:3333` (ex.: `GET /api/regioes`, `POST /api/entradas`). Para rodar todos os testes (o banco de testes `parkvision_teste` precisa estar no ar):
+
+```bash
+pnpm test
+```
+
+Contratos da API e dos eventos em tempo real: [docs/mvp/02-contratos.md](docs/mvp/02-contratos.md). Relatório da etapa: [docs/mvp/07-relatorio-etapa-1.md](docs/mvp/07-relatorio-etapa-1.md).
+
 ## Estrutura de pastas
 
 ```
 .
 ├── README.md
+├── package.json, pnpm-workspace.yaml, docker-compose.yml   # monorepo pnpm + PostgreSQL
+├── apps/
+│   └── api/                      # Fastify + Socket.IO + Prisma (Etapa 1)
+├── packages/
+│   ├── shared/                   # contratos (tipos + Zod) e mapa digital oficial
+│   └── core/                     # algoritmo de distribuição e rotas (funções puras)
 ├── docs/                         # documentação da 1ª entrega (01–10, checklist, diagramas)
+│   ├── mvp/                      # documentação do MVP (etapas, mapa, simulação 3D)
 │   ├── diagrams/                 # diagramas Mermaid
 │   └── planta/                   # planta recebida (PDF + imagens)
 ├── design-system/

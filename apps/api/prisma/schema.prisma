@@ -1,0 +1,122 @@
+// ParkVision — modelo de dados do MVP (Etapa 1)
+// Substitui, para o MVP, o esquema de planejamento em backend/prisma/schema.prisma.
+// Regras: ocupação muda só na confirmação de estacionamento e na saída (sem reserva).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Categoria {
+  CARRO_PEQUENO
+  CARRO_GRANDE
+  MOTO
+}
+
+enum StatusTicket {
+  AGUARDANDO
+  ESTACIONADO
+  SAIU
+  CANCELADO
+}
+
+enum TipoEvento {
+  ENTRADA_VAGA
+  SAIDA_VAGA
+  AJUSTE
+}
+
+model Regiao {
+  id              String            @id // N1, N2, ..., SS2L (ids do mapa digital)
+  nome            String
+  nivel           String // terreo | ss1 | ss2
+  capacidade      Int
+  ocupadas        Int               @default(0)
+  operacional     Boolean           @default(true)
+  fonteCapacidade String // planta | desenho | simulada
+  atualizadoEm    DateTime          @default(now()) @updatedAt
+  categorias      RegiaoCategoria[]
+  eventos         EventoOcupacao[]
+  recomendadas    Ticket[]          @relation("recomendada")
+  estacionadas    Ticket[]          @relation("estacionada")
+  recomendacoes   Recomendacao[]
+
+  @@map("regiao")
+}
+
+model RegiaoCategoria {
+  regiaoId  String
+  categoria Categoria
+  regiao    Regiao    @relation(fields: [regiaoId], references: [id], onDelete: Cascade)
+
+  @@id([regiaoId, categoria])
+  @@map("regiao_categoria")
+}
+
+model Acesso {
+  id      String   @id // A_NE, A_ROT, A_S1, A_S2, ...
+  nome    String
+  nivel   String
+  noMapa  String
+  tickets Ticket[]
+
+  @@map("acesso")
+}
+
+model Ticket {
+  numero              Int           @id @default(autoincrement())
+  codigo              String        @unique // PV-0001 (impresso)
+  tokenHash           String        @unique // SHA-256 do token do QR Code (o token em claro não é guardado)
+  categoria           Categoria
+  acessoId            String
+  acesso              Acesso        @relation(fields: [acessoId], references: [id])
+  placa               String?
+  entradaEm           DateTime      @default(now())
+  regiaoRecomendadaId String
+  regiaoRecomendada   Regiao        @relation("recomendada", fields: [regiaoRecomendadaId], references: [id])
+  regiaoEstacionadaId String?
+  regiaoEstacionada   Regiao?       @relation("estacionada", fields: [regiaoEstacionadaId], references: [id])
+  estacionadoEm       DateTime?
+  saidaEm             DateTime?
+  status              StatusTicket  @default(AGUARDANDO)
+  recomendacao        Recomendacao?
+  eventos             EventoOcupacao[]
+
+  @@index([status, entradaEm])
+  @@map("ticket")
+}
+
+model Recomendacao {
+  id            String   @id @default(uuid())
+  ticketNumero  Int      @unique
+  ticket        Ticket   @relation(fields: [ticketNumero], references: [numero], onDelete: Cascade)
+  regiaoId      String
+  regiao        Regiao   @relation(fields: [regiaoId], references: [id])
+  score         Float
+  pesos         Json
+  avaliacoes    Json // avaliação de todas as regiões (transparência)
+  justificativa String
+  rota          Json
+  criadaEm      DateTime @default(now())
+
+  @@index([regiaoId, criadaEm])
+  @@map("recomendacao")
+}
+
+model EventoOcupacao {
+  id           BigInt     @id @default(autoincrement())
+  regiaoId     String
+  regiao       Regiao     @relation(fields: [regiaoId], references: [id])
+  tipo         TipoEvento
+  origem       String // totem | simulador | operador | sistema
+  ticketNumero Int?
+  ticket       Ticket?    @relation(fields: [ticketNumero], references: [numero])
+  ocorridoEm   DateTime   @default(now())
+
+  @@index([regiaoId, ocorridoEm])
+  @@map("evento_ocupacao")
+}

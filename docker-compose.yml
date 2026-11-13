@@ -1,0 +1,21 @@
+# PostgreSQL do ParkVision (desenvolvimento e testes)
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: parkvision-postgres
+    environment:
+      POSTGRES_USER: parkvision
+      POSTGRES_PASSWORD: parkvision
+      POSTGRES_DB: parkvision
+    ports:
+      - "5433:5432"   # 5433 para não conflitar com um PostgreSQL local
+    volumes:
+      - parkvision-dados:/var/lib/postgresql/data
+      - ./apps/api/prisma/criar-banco-teste.sql:/docker-entrypoint-initdb.d/criar-banco-teste.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U parkvision"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+volumes:
+  parkvision-dados:
