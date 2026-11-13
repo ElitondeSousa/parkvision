@@ -1,0 +1,622 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Simulação 3D ParkVision</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@600;700&family=IBM+Plex+Mono:wght@500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../../../prototype/assets/tokens.css">
+<style>
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;overflow:hidden;background:var(--pv-color-asfalto-950);color:var(--pv-color-asfalto-25);font-family:var(--pv-font-family-sans);font-size:var(--pv-font-size-sm)}
+#cena{position:fixed;inset:0}
+h1,h2{font-family:var(--pv-font-family-display);margin:0;line-height:var(--pv-line-height-tight)}
+.painel{position:fixed;top:12px;left:12px;bottom:12px;width:330px;overflow-y:auto;display:flex;flex-direction:column;gap:var(--pv-space-3);padding:var(--pv-space-4);background:color-mix(in srgb,var(--pv-color-asfalto-950) 88%,transparent);border:1px solid var(--pv-color-asfalto-800);border-radius:var(--pv-radius-lg);backdrop-filter:blur(6px)}
+.painel h1{font-size:var(--pv-font-size-xl)}
+.sub{color:var(--pv-color-asfalto-300);font-size:var(--pv-font-size-xs);margin:2px 0 0}
+.selo{display:inline-flex;align-items:center;height:24px;padding:0 var(--pv-space-2);border-radius:var(--pv-radius-pill);background:var(--pv-color-faixa-500);color:var(--pv-color-asfalto-950);font-weight:var(--pv-font-weight-semibold);font-size:var(--pv-font-size-xs)}
+.linha{display:flex;gap:var(--pv-space-2);flex-wrap:wrap;align-items:center}
+button,select{font:inherit;height:34px;border-radius:var(--pv-radius-md);border:1px solid var(--pv-color-asfalto-700);background:var(--pv-color-asfalto-900);color:var(--pv-color-asfalto-25);padding:0 var(--pv-space-3);cursor:pointer}
+button:hover{background:var(--pv-color-asfalto-800)}
+button.prim{background:var(--pv-color-vision-600);border-color:var(--pv-color-vision-600);font-weight:var(--pv-font-weight-semibold)}
+button[aria-pressed="true"]{background:var(--pv-color-vision-700);border-color:var(--pv-color-vision-400)}
+button:focus-visible,select:focus-visible{outline:3px solid var(--pv-color-vision-400);outline-offset:2px}
+label{font-size:var(--pv-font-size-xs);color:var(--pv-color-asfalto-300)}
+.sec{border-top:1px solid var(--pv-color-asfalto-800);padding-top:var(--pv-space-3);display:flex;flex-direction:column;gap:var(--pv-space-2)}
+.sec h2{font-size:var(--pv-font-size-md)}
+.kpis{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--pv-space-2)}
+.kpi{background:var(--pv-color-asfalto-900);border-radius:var(--pv-radius-md);padding:var(--pv-space-2) var(--pv-space-3)}
+.kpi b{display:block;font-family:var(--pv-font-family-display);font-size:var(--pv-font-size-2xl);font-variant-numeric:tabular-nums}
+.kpi span{font-size:var(--pv-font-size-xs);color:var(--pv-color-asfalto-300)}
+.reg{display:grid;grid-template-columns:44px minmax(0,1fr) 78px;gap:var(--pv-space-2);align-items:center;font-size:var(--pv-font-size-xs)}
+.reg b{font-family:var(--pv-font-family-display);font-size:var(--pv-font-size-md)}
+.bar{height:8px;border-radius:var(--pv-radius-pill);background:var(--pv-color-asfalto-800);position:relative;overflow:hidden}
+.bar i{position:absolute;inset:0 auto 0 0;border-radius:inherit}
+.reg .num{text-align:right;font-variant-numeric:tabular-nums;color:var(--pv-color-asfalto-300)}
+.reg.off b{text-decoration:line-through;color:var(--pv-color-asfalto-500)}
+.rec{background:var(--pv-color-asfalto-900);border-left:4px solid var(--pv-color-faixa-500);border-radius:var(--pv-radius-md);padding:var(--pv-space-3);font-size:var(--pv-font-size-xs);line-height:1.45}
+.rec strong{display:block;font-family:var(--pv-font-family-display);font-size:var(--pv-font-size-lg);color:var(--pv-color-faixa-300)}
+.aviso{font-size:var(--pv-font-size-xs);color:var(--pv-color-asfalto-300);line-height:1.45}
+.leg{display:flex;gap:var(--pv-space-3);flex-wrap:wrap;font-size:var(--pv-font-size-xs)}
+.leg i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:4px;vertical-align:-1px}
+.vistas{position:fixed;top:12px;right:12px;display:flex;gap:var(--pv-space-2);flex-wrap:wrap;justify-content:flex-end;max-width:calc(100vw - 370px)}
+#erro{position:fixed;inset:0;display:none;place-items:center;text-align:center;padding:24px}
+@media (max-width:700px){.painel{width:auto;right:12px;top:auto;height:46%}.vistas{top:12px;left:12px;right:12px;max-width:none;justify-content:flex-start}}
+</style>
+</head>
+<body>
+<div id="cena" aria-label="Cena 3D do estacionamento"></div>
+<div class="vistas" role="group" aria-label="Vistas da câmera">
+  <button data-vista="geral">Visão geral</button>
+  <button data-vista="terreo">Térreo</button>
+  <button data-vista="norte">Pátio norte (perto)</button>
+  <button data-vista="sul">Pátio sul (perto)</button>
+  <button data-vista="subsolos">Subsolos</button>
+  <button id="ocultar" aria-pressed="false">Ocultar térreo</button>
+  <button id="cores" aria-pressed="true">Cores de ocupação</button>
+  <button id="predio" aria-pressed="true">Maquete do shopping</button>
+  <button data-vista="maquete">Shopping (perto)</button>
+</div>
+<aside class="painel">
+  <div>
+    <h1>ParkVision · Simulação 3D</h1>
+    <p class="sub">Capim Dourado Shopping · vagas e vias extraídas da planta</p>
+  </div>
+  <div class="linha"><span class="selo">Dados simulados</span></div>
+  <div class="linha">
+    <button class="prim" id="play" aria-pressed="false">▶ Iniciar</button>
+    <button id="reset">Reiniciar</button>
+    <select id="vel" aria-label="Velocidade"><option value="1">1×</option><option value="5" selected>5×</option><option value="20">20×</option></select>
+  </div>
+  <div class="sec">
+    <h2>Cenário</h2>
+    <div class="linha">
+      <label for="cen">Movimento</label>
+      <select id="cen"><option value="normal">Normal</option><option value="pico">Pico de chegadas</option><option value="calmo">Saída em massa</option></select>
+    </div>
+    <div class="linha" role="group" aria-label="Estratégia de distribuição">
+      <button id="est-pv" aria-pressed="true">ParkVision</button>
+      <button id="est-tr" aria-pressed="false">Tradicional (mais próxima)</button>
+    </div>
+    <div class="linha">
+      <select id="alvo" aria-label="Região alvo"></select>
+      <button id="lotar">Lotar</button>
+      <button id="fechar">Fechar / reabrir</button>
+    </div>
+  </div>
+  <div class="sec">
+    <h2>Indicadores</h2>
+    <div class="kpis">
+      <div class="kpi"><b id="k-livres">—</b><span>vagas livres</span></div>
+      <div class="kpi"><b id="k-ocup">—</b><span>ocupação geral</span></div>
+      <div class="kpi"><b id="k-desvio">—</b><span>desequilíbrio entre regiões (desvio da ocupação)</span></div>
+      <div class="kpi"><b id="k-circ">—</b><span>veículos circulando agora</span></div>
+    </div>
+  </div>
+  <div class="sec">
+    <h2>Última recomendação</h2>
+    <div class="rec" id="rec"><strong>—</strong>Inicie a simulação.</div>
+  </div>
+  <div class="sec">
+    <h2>Regiões</h2>
+    <div class="leg"><span><i style="background:var(--pv-occupancy-normal)"></i>&lt; 70%</span><span><i style="background:var(--pv-occupancy-alta)"></i>70–89%</span><span><i style="background:var(--pv-occupancy-lotada)"></i>≥ 90%</span><span><i style="background:var(--pv-color-asfalto-500)"></i>fechada</span></div>
+    <div id="regs" style="display:flex;flex-direction:column;gap:6px"></div>
+  </div>
+  <p class="aviso"><b>Leia antes de apresentar:</b> as posições das vagas e as capacidades dos pátios foram <b>contadas automaticamente no desenho da planta</b> (mínimo detectado, a confirmar). SS1 = 140 e SS2 = 216 estão escritos na planta; motos = 374 contadas no desenho. A movimentação é <b>simulada</b>. Os subsolos aparecem abaixo do térreo em <b>posição ilustrativa</b> e a ligação das rampas (linhas tracejadas) ainda precisa ser confirmada.</p>
+</aside>
+<div id="erro"><div><h2>Não foi possível carregar a cena 3D</h2><p class="sub">É preciso internet para baixar a biblioteca Three.js e um navegador com WebGL.</p></div></div>
+
+<script src="dados.js"></script>
+<script type="importmap">
+{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+               "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/" } }
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+
+const B = window.PV_BASE, M = window.PV_MAPA, VAGAS = (window.PV_VAGAS || { vagas: {} }).vagas;
+const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const COR = {
+  normal: css('--pv-occupancy-normal'), alta: css('--pv-occupancy-alta'), lotada: css('--pv-occupancy-lotada'),
+  fechada: css('--pv-color-asfalto-500'), faixa: css('--pv-color-faixa-500'), vision: css('--pv-color-vision-400'),
+};
+let semente = 7; const rnd = () => ((semente = (semente * 16807) % 2147483647) / 2147483647);
+const sortear = (lista) => { let x = rnd(), acc = 0; for (const [v, p] of lista) { acc += p; if (x <= acc) return v; } return lista[lista.length - 1][0]; };
+
+/* ---------- Níveis (vista explodida; posição horizontal dos subsolos é ilustrativa) ---------- */
+const CX = 1227, CZ = 715;
+const NIVEL = {
+  terreo: { y: 0,    dx: 0,    dz: 0,   escala: 1 },
+  ss1:    { y: -280, dx: 393,  dz: 537, escala: 1.2 },  // vagas do recorte do subsolo são desenhadas ~20% maiores
+  ss2:    { y: -560, dx: -197, dz: 558, escala: 1.2 },
+};
+const W = (nivel, [x, y], h = 0) => new THREE.Vector3(x + NIVEL[nivel].dx - CX, NIVEL[nivel].y + h, y + NIVEL[nivel].dz - CZ);
+
+/* ---------- Renderizador e ambiente ---------- */
+let renderer;
+try { renderer = new THREE.WebGLRenderer({ antialias: true }); } catch (e) { document.getElementById('erro').style.display = 'grid'; throw e; }
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setSize(innerWidth, innerHeight);
+renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.05;
+renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+document.getElementById('cena').append(renderer.domElement);
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x0b0f17);
+scene.fog = new THREE.Fog(scene.background, 2600, 5600);
+const pmrem = new THREE.PMREMGenerator(renderer);
+scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+const camera = new THREE.PerspectiveCamera(40, innerWidth / innerHeight, 2, 9000);
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true; controls.maxPolarAngle = Math.PI * 0.495;
+scene.add(new THREE.HemisphereLight(0xe8eeff, 0x20242c, 0.55));
+const sol = new THREE.DirectionalLight(0xfff3e0, 2.2);
+sol.position.set(-700, 1300, 500); sol.castShadow = true;
+sol.shadow.mapSize.set(2048, 2048);
+Object.assign(sol.shadow.camera, { left: -1100, right: 1100, top: 1100, bottom: -1100, near: 100, far: 3500 });
+sol.shadow.bias = -0.0004; sol.shadow.normalBias = 0.6;
+scene.add(sol);
+
+const grupos = { terreo: new THREE.Group(), ss1: new THREE.Group(), ss2: new THREE.Group() };
+Object.values(grupos).forEach(g => scene.add(g));
+let terreoVisivel = true, coresVisiveis = true;
+
+/* ---------- Pisos e traçado da planta (pintura das faixas) ---------- */
+function pisos() {
+  for (const nv of M.niveis) {
+    const [x, y, w, h] = nv.viewBox, terreo = nv.id === 'terreo';
+    const mat = new THREE.MeshStandardMaterial({ color: terreo ? 0x2b2f36 : 0x3a3d43, roughness: 0.95, metalness: 0, transparent: false });
+    const m = new THREE.Mesh(new THREE.BoxGeometry(w, 6, h), mat);
+    m.position.copy(W(nv.id, [x + w / 2, y + h / 2], -3.2)); m.receiveShadow = true;
+    grupos[nv.id].add(m);
+    rotulo(nv.nome.replace(/ \(.*\)/, ''), W(nv.id, terreo ? [x + 20, y + 60] : [x + 20, y + h + 45], 10), 26, '#ffffff', 'left', grupos[nv.id]);
+  }
+}
+function tracado(nivel) {
+  const d = B[nivel].d, tok = d.match(/[MLCHVhvz]|-?\d*\.?\d+(?:e-?\d+)?/g);
+  const [vx, vy, vw, vh] = M.niveis.find(n => n.id === nivel).viewBox;
+  const fora = (x, y) => x < vx - 10 || x > vx + vw + 10 || y < vy - 10 || y > vy + vh + 10;
+  const pts = []; let i = 0, cx = 0, cy = 0, sx = 0, sy = 0, cmd = '';
+  const num = () => parseFloat(tok[i++]);
+  const seg = (x1, y1, x2, y2) => { if (fora(x1, y1) || fora(x2, y2)) return; pts.push(W(nivel, [x1, y1], 0.25), W(nivel, [x2, y2], 0.25)); };
+  while (i < tok.length) {
+    if (/[A-Za-z]/.test(tok[i])) cmd = tok[i++];
+    if (cmd === 'M') { cx = sx = num(); cy = sy = num(); cmd = 'L'; continue; }
+    if (cmd === 'L') { const x = num(), y = num(); seg(cx, cy, x, y); cx = x; cy = y; }
+    else if (cmd === 'h') { const x = cx + num(); seg(cx, cy, x, cy); cx = x; }
+    else if (cmd === 'v') { const y = cy + num(); seg(cx, cy, cx, y); cy = y; }
+    else if (cmd === 'C') {
+      const p = [cx, cy, num(), num(), num(), num(), num(), num()]; let px = cx, py = cy;
+      for (let t = 1; t <= 8; t++) { const s = t / 8, u = 1 - s;
+        const x = u*u*u*p[0] + 3*u*u*s*p[2] + 3*u*s*s*p[4] + s*s*s*p[6], y = u*u*u*p[1] + 3*u*u*s*p[3] + 3*u*s*s*p[5] + s*s*s*p[7];
+        seg(px, py, x, y); px = x; py = y; }
+      cx = p[6]; cy = p[7];
+    } else if (cmd === 'z') { seg(cx, cy, sx, sy); cx = sx; cy = sy; cmd = ''; }
+    else i++;
+  }
+  grupos[nivel].add(new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(pts),
+    new THREE.LineBasicMaterial({ color: 0xe9ecef, transparent: true, opacity: 0.7 })));
+}
+
+/* ---------- Rótulos ---------- */
+function rotulo(texto, pos, tam = 22, cor = '#ffffff', ancora = 'center', grupo = scene) {
+  const c = document.createElement('canvas'), ctx = c.getContext('2d');
+  const desenha = (t) => {
+    c.width = 1024; c.height = 128; ctx.clearRect(0, 0, 1024, 128); ctx.textBaseline = 'middle'; ctx.textAlign = ancora;
+    ctx.lineWidth = 10; ctx.strokeStyle = 'rgba(12,17,28,.9)'; const x = ancora === 'left' ? 8 : 512;
+    const linhas = t.split('\n');
+    linhas.forEach((l, k) => { const y = 64 + (k - (linhas.length - 1) / 2) * 52; ctx.font = (k ? '600 40px' : '700 60px') + ' Barlow, sans-serif'; ctx.strokeText(l, x, y); ctx.fillStyle = k ? '#c9d1de' : cor; ctx.fillText(l, x, y); });
+  };
+  desenha(texto);
+  const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace;
+  const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, depthTest: true, depthWrite: false, transparent: true, sizeAttenuation: false }));
+  const h = tam * 0.0021; s.scale.set(h * 8, h, 1); s.position.copy(pos); if (ancora === 'left') s.center.set(0, 0.5);
+  s.renderOrder = 10; grupo.add(s);
+  return { sprite: s, atualizar: (t) => { desenha(t); tex.needsUpdate = true; } };
+}
+
+/* =========================================================
+   MAQUETE DO SHOPPING — volumetria traçada sobre a planta
+   (contornos aproximados; alturas estimadas, a planta não informa)
+   ========================================================= */
+const grupoPredio = new THREE.Group(); grupos.terreo.add(grupoPredio);
+function maquete() {
+  const Q = window.PV_MAQUETE; if (!Q) return;
+  const telhado = new THREE.MeshStandardMaterial({ color: 0x7d838a, roughness: 0.92 });
+  const fachadas = {
+    galeria:    new THREE.MeshStandardMaterial({ color: 0xebe7df, roughness: 0.82 }),
+    ancora:     new THREE.MeshStandardMaterial({ color: 0xdcd6cc, roughness: 0.8 }),
+    loja:       new THREE.MeshStandardMaterial({ color: 0xcfc6b8, roughness: 0.8 }),
+    cinema:     new THREE.MeshStandardMaterial({ color: 0x8e98a3, roughness: 0.7 }),
+    pavimento2: new THREE.MeshPhysicalMaterial({ color: 0x4f7391, metalness: 0.5, roughness: 0.06, clearcoat: 1, transparent: true, opacity: 0.78 }),
+  };
+  const equip = new THREE.MeshStandardMaterial({ color: 0x8b9096, roughness: 0.6, metalness: 0.3 });
+  for (const v of Q.volumes) {
+    const forma = new THREE.Shape(v.poligono.map(([x, y]) => { const p = W('terreo', [x, y]); return new THREE.Vector2(p.x, -p.z); }));
+    const geo = new THREE.ExtrudeGeometry(forma, { depth: v.altura, bevelEnabled: false }); geo.rotateX(-Math.PI / 2);
+    const m = new THREE.Mesh(geo, [v.tipo === 'pavimento2' ? new THREE.MeshStandardMaterial({ color: 0x9aa0a6, roughness: 0.7 }) : telhado, v.cor != null ? new THREE.MeshStandardMaterial({ color: v.cor, roughness: 0.8 }) : fachadas[v.tipo]]);
+    m.position.y = v.base; m.castShadow = true; m.receiveShadow = true; grupoPredio.add(m);
+    // marquise/platibanda escura no topo para marcar a linha do telhado
+    const borda = new THREE.LineSegments(new THREE.EdgesGeometry(geo, 30), new THREE.LineBasicMaterial({ color: 0x5b6168, transparent: true, opacity: 0.6 }));
+    borda.position.y = v.base; grupoPredio.add(borda);
+    // equipamentos de cobertura (ar-condicionado) nas lojas grandes
+    if (v.tipo !== 'pavimento2') {
+      const xs = v.poligono.map(p => p[0]), ys = v.poligono.map(p => p[1]); let n = v.tipo === 'galeria' ? 26 : 6;
+      while (n > 0) { const pt = [Math.min(...xs) + rnd() * (Math.max(...xs) - Math.min(...xs)), Math.min(...ys) + rnd() * (Math.max(...ys) - Math.min(...ys))];
+        if (!dentro(pt, v.poligono)) continue; n--;
+        const b = new THREE.Mesh(new THREE.BoxGeometry(6 + rnd() * 6, 3, 4 + rnd() * 5), equip); b.position.copy(W('terreo', pt, v.base + v.altura + 1.5)); b.castShadow = true; grupoPredio.add(b); }
+    }
+    if (v.tipo !== 'galeria') { const xs = v.poligono.map(p => p[0]), ys = v.poligono.map(p => p[1]);
+      rotulo(v.nome.replace(' (2º pavimento)', '').replace('Praça de alimentação', 'Praça de alimentação\n2º pavimento'), W('terreo', [(Math.min(...xs) + Math.max(...xs)) / 2, (Math.min(...ys) + Math.max(...ys)) / 2], v.base + v.altura + 14), v.tipo === 'pavimento2' ? 11 : 10, '#ffffff', 'center', grupoPredio); }
+  }
+  // claraboias das praças
+  const vidro = new THREE.MeshPhysicalMaterial({ color: 0xbfe3ff, metalness: 0.1, roughness: 0.03, transparent: true, opacity: 0.45, clearcoat: 1 });
+  for (const p of Q.pracas) { const d = new THREE.Mesh(new THREE.SphereGeometry(p.raio, 32, 12, 0, Math.PI * 2, 0, Math.PI / 2), vidro); d.scale.y = 0.45; d.position.copy(W('terreo', p.centro, 20)); grupoPredio.add(d); }
+}
+
+/* =========================================================
+   VEÍCULOS — modelos procedurais com proporções reais
+   (1 unidade da planta ≈ 0,3 m no térreo; comprimento no eixo +Z)
+   ========================================================= */
+const MAT = {
+  pintura: new THREE.MeshPhysicalMaterial({ color: 0xffffff, metalness: 0.55, roughness: 0.32, clearcoat: 1, clearcoatRoughness: 0.06 }),
+  vidro:   new THREE.MeshPhysicalMaterial({ color: 0x0d141c, metalness: 0.1, roughness: 0.04, clearcoat: 1, transparent: true, opacity: 0.88 }),
+  pneu:    new THREE.MeshStandardMaterial({ color: 0x141414, roughness: 0.92 }),
+  roda:    new THREE.MeshStandardMaterial({ color: 0xc3c8ce, metalness: 1, roughness: 0.28 }),
+  farol:   new THREE.MeshStandardMaterial({ color: 0xf3efe2, emissive: 0xfff4d0, emissiveIntensity: 0.25, roughness: 0.2 }),
+  lanterna:new THREE.MeshStandardMaterial({ color: 0x6d0f12, emissive: 0xff2b2b, emissiveIntensity: 0.25, roughness: 0.3 }),
+  plastico:new THREE.MeshStandardMaterial({ color: 0x1d1f22, roughness: 0.7 }),
+};
+const nao = g => (g.index ? g.toNonIndexed() : g);
+function perfil(pontos, largura, bevel = 0.3) {                 // extrusão lateral (perfil no plano Z-Y, largura em X)
+  const s = new THREE.Shape(pontos.map(([z, y]) => new THREE.Vector2(z, y)));
+  const g = new THREE.ExtrudeGeometry(s, { depth: largura - 2 * bevel, bevelEnabled: true, bevelThickness: bevel, bevelSize: bevel, bevelSegments: 3, curveSegments: 6 });
+  g.rotateY(-Math.PI / 2); g.translate((largura - 2 * bevel) / 2, 0, 0);
+  return nao(g);
+}
+const caixa = (w, h, l, x, y, z) => nao(new THREE.BoxGeometry(w, h, l).translate(x, y, z));
+function rodas(L, Wd, r, eixoF, eixoT, larg = 0.85) {
+  const pneus = [], aros = [];
+  for (const z of [eixoF, eixoT]) for (const s of [-1, 1]) {
+    pneus.push(nao(new THREE.CylinderGeometry(r, r, larg, 18).rotateZ(Math.PI / 2).translate(s * (Wd / 2 - larg / 2 + 0.05), r, z)));
+    aros.push(nao(new THREE.CylinderGeometry(r * 0.62, r * 0.62, larg + 0.04, 14).rotateZ(Math.PI / 2).translate(s * (Wd / 2 - larg / 2 + 0.07), r, z)));
+  }
+  return { pneu: mergeGeometries(pneus), roda: mergeGeometries(aros) };
+}
+function luzes(L, Wd, y, frenteH = 0.5) {
+  const f = [], t = [];
+  for (const s of [-1, 1]) {
+    f.push(caixa(Wd * 0.2, frenteH, 0.25, s * Wd * 0.3, y, L / 2 - 0.05));
+    t.push(caixa(Wd * 0.22, frenteH, 0.2, s * Wd * 0.3, y, -L / 2 + 0.05));
+  }
+  return { farol: mergeGeometries(f), lanterna: mergeGeometries(t) };
+}
+// Carros: perfil da carroceria (linha de cintura) + estufa de vidro + teto
+function carro({ L, Wd, chao, corpoH, cabH, cabIni, cabFim, incF, incT, rodaR, cacamba }) {
+  const z0 = -L / 2, z1 = L / 2, y0 = chao, y1 = chao + corpoH, r = 0.9;
+  const corpo = perfil([[z0 + r, y0], [z1 - r, y0], [z1, y0 + r], [z1, y1 - 0.5], [z1 - 1.2, y1], [z0 + 0.8, y1], [z0, y1 - 0.4], [z0, y0 + r]], Wd);
+  const a = z0 + cabIni * L, b = z0 + cabFim * L, wc = Wd * 0.88;
+  const estufa = perfil([[a, y1 - 0.05], [b, y1 - 0.05], [b - incF, y1 + cabH], [a + incT, y1 + cabH]], wc, 0.22);
+  const teto = caixa(wc - 0.2, 0.22, (b - incF) - (a + incT) + 0.2, 0, y1 + cabH + 0.08, ((b - incF) + (a + incT)) / 2);
+  const partes = { pintura: [corpo, teto], vidro: [estufa], plastico: [caixa(Wd * 0.9, 0.5, 0.35, 0, y0 + 0.35, z1 - 0.1), caixa(Wd * 0.9, 0.5, 0.35, 0, y0 + 0.35, z0 + 0.1)] };
+  // retrovisores
+  for (const s of [-1, 1]) partes.plastico.push(caixa(0.5, 0.35, 0.6, s * (Wd / 2 + 0.2), y1 + 0.3, b - incF - 0.3));
+  if (cacamba) { const zc = a; for (const s of [-1, 1]) partes.pintura.push(caixa(0.3, 1.1, zc - z0 - 0.4, s * (Wd / 2 - 0.15), y1 + 0.5, (zc + z0) / 2)); partes.pintura.push(caixa(Wd - 0.2, 1.1, 0.3, 0, y1 + 0.5, z0 + 0.25)); }
+  const w = rodas(L, Wd, rodaR, z1 - L * 0.2, z0 + L * 0.2); partes.pneu = [w.pneu]; partes.roda = [w.roda];
+  const l = luzes(L, Wd, y1 - 0.55); partes.farol = [l.farol]; partes.lanterna = [l.lanterna];
+  return Object.fromEntries(Object.entries(partes).map(([k, v]) => [k, mergeGeometries(v)]));
+}
+function moto() {
+  const partes = {
+    pintura: [caixa(1.0, 0.9, 2.2, 0, 2.3, 0.4), perfil([[-1.6, 2.0], [0.6, 2.0], [0.3, 2.6], [-1.4, 2.6]], 0.9, 0.15)],
+    plastico: [caixa(0.5, 1.4, 0.5, 0, 1.6, -0.3), caixa(2.4, 0.18, 0.18, 0, 3.3, 1.8), caixa(0.25, 1.6, 0.25, 0, 2.5, 2.0)],
+    pneu: [nao(new THREE.CylinderGeometry(1.1, 1.1, 0.5, 18).rotateZ(Math.PI / 2).translate(0, 1.1, 2.4)), nao(new THREE.CylinderGeometry(1.1, 1.1, 0.6, 18).rotateZ(Math.PI / 2).translate(0, 1.1, -2.4))],
+    roda: [nao(new THREE.CylinderGeometry(0.65, 0.65, 0.55, 12).rotateZ(Math.PI / 2).translate(0, 1.1, 2.4)), nao(new THREE.CylinderGeometry(0.65, 0.65, 0.65, 12).rotateZ(Math.PI / 2).translate(0, 1.1, -2.4))],
+    farol: [caixa(0.6, 0.45, 0.25, 0, 3.0, 2.25)], lanterna: [caixa(0.5, 0.3, 0.2, 0, 2.5, -1.75)], vidro: [caixa(0.9, 0.6, 0.12, 0, 3.6, 1.9)],
+  };
+  return Object.fromEntries(Object.entries(partes).map(([k, v]) => [k, mergeGeometries(v)]));
+}
+const MODELOS = {
+  hatch:  carro({ L: 13.0, Wd: 5.7, chao: 0.55, corpoH: 2.15, cabH: 1.75, cabIni: 0.08, cabFim: 0.66, incF: 2.1, incT: 0.7, rodaR: 1.05 }),
+  seda:   carro({ L: 14.8, Wd: 5.9, chao: 0.5,  corpoH: 2.05, cabH: 1.65, cabIni: 0.24, cabFim: 0.68, incF: 2.2, incT: 1.6, rodaR: 1.05 }),
+  suv:    carro({ L: 15.0, Wd: 6.2, chao: 0.85, corpoH: 2.55, cabH: 1.95, cabIni: 0.09, cabFim: 0.68, incF: 1.9, incT: 0.6, rodaR: 1.3 }),
+  picape: carro({ L: 17.4, Wd: 6.3, chao: 1.0,  corpoH: 2.45, cabH: 2.0,  cabIni: 0.40, cabFim: 0.72, incF: 1.7, incT: 0.3, rodaR: 1.35, cacamba: true }),
+  moto:   moto(),
+};
+// Frota: proporções aproximadas de cores e tipos da frota brasileira (dados simulados)
+const CORES = [['#f1f1ef', 0.36], ['#b8bdc3', 0.24], ['#17191c', 0.18], ['#5a6067', 0.13], ['#8d1c1c', 0.04], ['#1f3c78', 0.03], ['#7b6a52', 0.02]];
+const TIPO_POR_CATEGORIA = { CARRO_PEQUENO: [['hatch', 0.6], ['seda', 0.4]], CARRO_GRANDE: [['suv', 0.65], ['picape', 0.35]], MOTO: [['moto', 1]] };
+const FROTA_ESTACIONADA = [['hatch', 0.38], ['seda', 0.26], ['suv', 0.24], ['picape', 0.12]];
+
+/* ---------- Grafo (mapa + ligações entre níveis a confirmar) ---------- */
+const nos = {};
+M.nos.forEach(n => { nos[n.id] = { ...n, p: W(n.nivel, n.xy, 0.5) }; });
+const ane = M.nos.find(n => n.id === 'n_A_NE');
+nos.v_ss1 = { id: 'v_ss1', nivel: 'ss1', p: W('terreo', ane.xy, 0.5).setY(NIVEL.ss1.y + 0.5) };
+nos.v_ss2 = { id: 'v_ss2', nivel: 'ss2', p: W('terreo', ane.xy, 0.5).setY(NIVEL.ss2.y + 0.5) };
+const arestas = M.arestas.map(a => ({ de: a.de, para: a.para, unico: a.sentido === 'unico' }));
+[['n_A_NE', 'v_ss1'], ['v_ss1', 'v_ss2'], ['v_ss1', 'n_A_SS1'], ['v_ss1', 'n_A_SS1M'], ['v_ss2', 'n_A_SS2']]
+  .forEach(([a, b]) => arestas.push({ de: a, para: b, unico: false, ligacao: true }));
+function caminho(o, d, respeitarSentido = true) {
+  const adj = {}; const add = (a, b) => (adj[a] = adj[a] || []).push([b, nos[a].p.distanceTo(nos[b].p)]);
+  arestas.forEach(e => { add(e.de, e.para); if (!e.unico || !respeitarSentido) add(e.para, e.de); });
+  const dist = { [o]: 0 }, prev = {}, vis = new Set();
+  for (;;) { let u = null; for (const k in dist) if (!vis.has(k) && (u == null || dist[k] < dist[u])) u = k;
+    if (u == null || u === d) break; vis.add(u);
+    for (const [v, w] of adj[u] || []) { const nd = dist[u] + w; if (dist[v] == null || nd < dist[v]) { dist[v] = nd; prev[v] = u; } } }
+  if (dist[d] == null) return respeitarSentido ? caminho(o, d, false) : null;
+  const c = [d]; while (c[0] !== o) c.unshift(prev[c[0]]); return { nos: c, custo: dist[d] };
+}
+function vias() {
+  for (const e of arestas) if (e.ligacao) {
+    const l = new THREE.Line(new THREE.BufferGeometry().setFromPoints([nos[e.de].p, nos[e.para].p]), new THREE.LineDashedMaterial({ color: COR.faixa, dashSize: 18, gapSize: 14, transparent: true, opacity: 0.8 }));
+    l.computeLineDistances(); scene.add(l);
+  }
+  for (const a of M.acessos) {
+    const p = nos[a.no].p, m = new THREE.Mesh(new THREE.CylinderGeometry(2.2, 2.2, 8, 16), new THREE.MeshStandardMaterial({ color: COR.faixa, emissive: COR.faixa, emissiveIntensity: 0.4 }));
+    m.position.copy(p).setY(p.y + 4); m.castShadow = true; grupos[a.nivel].add(m);
+    rotulo(a.nome.replace(/ \(.*\)/, ''), p.clone().setY(p.y + 22), a.nivel === 'terreo' ? 12 : 9, COR.faixa, 'center', grupos[a.nivel]);
+  }
+}
+
+/* ---------- Regiões e vagas ---------- */
+const regioes = M.regioes.map(r => ({
+  id: r.id, nome: r.nome, nivel: r.nivel, cats: r.categorias, noAcesso: r.noAcesso, poligono: r.poligono,
+  cap: r.capacidade.valor, fonte: r.capacidade.fonte, occ: 0, operacional: true, recs: [], vagas: [], ordem: [], mesh: null, label: null,
+}));
+const R = Object.fromEntries(regioes.map(r => [r.id, r]));
+const dentro = (pt, pol) => { let ins = false; for (let i = 0, j = pol.length - 1; i < pol.length; j = i++) {
+  const [xi, yi] = pol[i], [xj, yj] = pol[j]; if (((yi > pt[1]) !== (yj > pt[1])) && (pt[0] < (xj - xi) * (pt[1] - yi) / (yj - yi) + xi)) ins = !ins; } return ins; };
+function construirRegioes() {
+  for (const r of regioes) {
+    const forma = new THREE.Shape(r.poligono.map(([x, y]) => { const p = W(r.nivel, [x, y]); return new THREE.Vector2(p.x, -p.z); }));
+    const geo = new THREE.ShapeGeometry(forma); geo.rotateX(-Math.PI / 2);
+    r.mesh = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: COR.normal, transparent: true, opacity: 0.22, depthWrite: false }));
+    r.mesh.position.y = NIVEL[r.nivel].y + 0.15; grupos[r.nivel].add(r.mesh);
+    // vagas reais do desenho; completa com posições sorteadas só se a capacidade oficial for maior que o detectado
+    const det = (VAGAS[r.id] || []).map(([x, y, ang]) => ({ x, y, ang }));
+    const xs = r.poligono.map(p => p[0]), ys = r.poligono.map(p => p[1]);
+    while (det.length < r.cap) { const pt = [Math.min(...xs) + rnd() * (Math.max(...xs) - Math.min(...xs)), Math.min(...ys) + rnd() * (Math.max(...ys) - Math.min(...ys))]; if (dentro(pt, r.poligono)) det.push({ x: pt[0], y: pt[1], ang: Math.PI / 2 }); }
+    r.vagas = det.slice(0, r.cap).map(v => {
+      const ux = Math.cos(v.ang), uy = Math.sin(v.ang); const frente = rnd() < 0.5 ? 1 : -1;
+      return { pos: W(r.nivel, [v.x, v.y], 0), yaw: Math.atan2(ux * frente, uy * frente), tipo: r.cats.includes('MOTO') ? 'moto' : sortear(FROTA_ESTACIONADA), cor: sortear(CORES) };
+    });
+    r.ordem = r.vagas.map((_, i) => i).sort(() => rnd() - 0.5);
+    const c = [(Math.min(...xs) + Math.max(...xs)) / 2, (Math.min(...ys) + Math.max(...ys)) / 2];
+    r.label = rotulo(r.id, W(r.nivel, c, 35), r.nivel === 'terreo' ? 20 : 16, '#ffffff', 'center', grupos[r.nivel]);
+  }
+}
+// Carros estacionados: um InstancedMesh por (modelo, parte); uma instância por vaga daquele modelo
+const inst = {};           // inst[modelo][parte] = InstancedMesh
+const slot = new Map();    // vaga -> { modelo, i }
+function construirFrota() {
+  const cont = {};
+  for (const r of regioes) for (const v of r.vagas) { cont[v.tipo] = (cont[v.tipo] || 0); slot.set(v, { modelo: v.tipo, i: cont[v.tipo]++ }); }
+  for (const [modelo, n] of Object.entries(cont)) {
+    inst[modelo] = {};
+    for (const [parte, geo] of Object.entries(MODELOS[modelo])) {
+      const im = new THREE.InstancedMesh(geo, MAT[parte], n);
+      im.castShadow = parte === 'pintura' || parte === 'pneu'; im.receiveShadow = parte === 'pintura';
+      im.frustumCulled = false; scene.add(im); inst[modelo][parte] = im;
+    }
+  }
+  const c = new THREE.Color();
+  for (const r of regioes) for (const v of r.vagas) { const s = slot.get(v); inst[s.modelo].pintura.setColorAt(s.i, c.set(v.cor)); }
+  Object.values(inst).forEach(m => m.pintura.instanceColor && (m.pintura.instanceColor.needsUpdate = true));
+}
+const tmp = new THREE.Object3D();
+function pintarRegiao(r) {
+  const ocupadas = new Set(r.ordem.slice(0, r.occ)), visivel = terreoVisivel || r.nivel !== 'terreo', esc = NIVEL[r.nivel].escala;
+  r.vagas.forEach((v, idx) => {
+    const s = slot.get(v), on = visivel && ocupadas.has(idx);
+    tmp.position.copy(v.pos); tmp.rotation.set(0, v.yaw, 0); tmp.scale.setScalar(on ? esc : 0); tmp.updateMatrix();
+    for (const im of Object.values(inst[s.modelo])) im.setMatrixAt(s.i, tmp.matrix);
+  });
+  const modelos = new Set(r.vagas.map(v => v.tipo));
+  modelos.forEach(m => Object.values(inst[m]).forEach(im => (im.instanceMatrix.needsUpdate = true)));
+}
+const faixa = p => (p >= 90 ? 'lotada' : p >= 70 ? 'alta' : 'normal');
+function atualizarRegiao(r) {
+  const pct = Math.round((r.occ / r.cap) * 100);
+  r.mesh.material.color.set(r.operacional ? COR[faixa(pct)] : COR.fechada);
+  r.mesh.visible = coresVisiveis;
+  r.label.atualizar(`${r.id}\n${r.operacional ? `${r.cap - r.occ} livres · ${pct}%` : 'fechada'}`);
+  pintarRegiao(r);
+}
+
+/* ---------- Algoritmo de distribuição (regras do MVP) ---------- */
+const PESOS = { disp: 0.5, dist: 0.3, fluxo: 0.2 };
+const JANELA = 300;
+let tempo = 0, estrategia = 'parkvision', ultimaRec = null;
+function recomendar(categoria, acessoNo) {
+  const aval = regioes.map(r => {
+    if (!r.cats.includes(categoria)) return { r, ok: false, motivo: 'categoria incompatível' };
+    if (!r.operacional) return { r, ok: false, motivo: 'fora de operação' };
+    if (r.cap - r.occ <= 0) return { r, ok: false, motivo: 'sem vagas' };
+    const rota = caminho(acessoNo, r.noAcesso); if (!rota) return { r, ok: false, motivo: 'sem rota' };
+    return { r, ok: true, rota };
+  });
+  const el = aval.filter(a => a.ok); if (!el.length) return { aval, escolhida: null };
+  const maxCusto = Math.max(...el.map(a => a.rota.custo));
+  for (const a of el) {
+    a.disp = (a.r.cap - a.r.occ) / a.r.cap;
+    a.dist = maxCusto > 0 ? a.rota.custo / maxCusto : 0;
+    a.fluxo = Math.min(1, a.r.recs.filter(t => tempo - t < JANELA).length / Math.max(6, a.r.cap * 0.06));
+    a.score = PESOS.disp * a.disp + PESOS.dist * (1 - a.dist) + PESOS.fluxo * (1 - a.fluxo);
+  }
+  const ord = estrategia === 'parkvision'
+    ? [...el].sort((a, b) => (Math.abs(b.score - a.score) < 0.01 ? a.rota.custo - b.rota.custo : b.score - a.score))
+    : [...el].sort((a, b) => a.rota.custo - b.rota.custo);
+  return { aval, escolhida: ord[0], segunda: ord[1] };
+}
+function justificar(res) {
+  const a = res.escolhida, b = res.segunda, pct = x => Math.round(x * 100) + '%';
+  if (estrategia !== 'parkvision') return `Estratégia tradicional: a região mais próxima com vaga (${a.r.id}), sem olhar disponibilidade nem fluxo.`;
+  if (!b) return `Única região elegível para esta categoria. ${pct(a.disp)} das vagas livres.`;
+  const motivos = [];
+  if (a.disp > b.disp + 0.02) motivos.push(`mais vagas livres (${pct(a.disp)} contra ${pct(b.disp)} em ${b.r.id})`);
+  if (a.fluxo + 0.05 < b.fluxo) motivos.push('menos carros chegando nos últimos 5 min');
+  if (a.dist + 0.02 < b.dist) motivos.push('fica mais perto do acesso');
+  const longe = a.dist > b.dist + 0.02 ? ` Fica mais longe que ${b.r.id}, mas a distância pesa menos que a disponibilidade.` : '';
+  return `${a.r.id} recomendada: ${motivos.length ? motivos.join(', ') : 'melhor equilíbrio entre os três critérios'}.${longe}`;
+}
+
+/* ---------- Veículos em movimento ---------- */
+const moveis = [];
+const MAX_MOVEIS = 40;
+function veiculoMovel(modelo, cor, nivelEscala) {
+  const g = new THREE.Group();
+  for (const [parte, geo] of Object.entries(MODELOS[modelo])) {
+    let mat = MAT[parte];
+    if (parte === 'pintura') { mat = MAT.pintura.clone(); mat.color.set(cor); }
+    if (parte === 'farol') { mat = MAT.farol.clone(); mat.emissiveIntensity = 2.2; }
+    if (parte === 'lanterna') { mat = MAT.lanterna.clone(); mat.emissiveIntensity = 1.2; }
+    const m = new THREE.Mesh(geo, mat); m.castShadow = parte === 'pintura'; m.userData.proprio = mat !== MAT[parte]; g.add(m);
+  }
+  g.scale.setScalar(nivelEscala); scene.add(g); return g;
+}
+const ACESSOS_TERREO = [['n_A_NE', 0.4], ['n_ROT', 0.2], ['n_A_S1', 0.2], ['n_A_S2', 0.2]];
+function novaEntrada(animar) {
+  const categoria = sortear([['CARRO_PEQUENO', 0.62], ['CARRO_GRANDE', 0.26], ['MOTO', 0.12]]);
+  const acesso = categoria === 'MOTO' ? 'n_A_NE' : sortear(ACESSOS_TERREO);
+  const res = recomendar(categoria, acesso);
+  if (!res.escolhida) return;
+  const r = res.escolhida.r; r.recs.push(tempo);
+  ultimaRec = { r, categoria, txt: justificar(res) };
+  if (!animar || moveis.length >= MAX_MOVEIS) { r.occ = Math.min(r.cap, r.occ + 1); sujo.add(r); return; }
+  // a vaga só é ocupada quando o veículo chega (sem reserva)
+  const modelo = sortear(TIPO_POR_CATEGORIA[categoria]);
+  const pts = res.escolhida.rota.nos.map(id => nos[id].p.clone());
+  const g = veiculoMovel(modelo, sortear(CORES), 1);
+  g.position.copy(pts[0]);
+  moveis.push({ g, pts, i: 1, regiao: r, tipo: 'entrada', escala: 1 });
+}
+function novaSaida(r, animar) {
+  if (r.occ <= 0) return;
+  const v = r.vagas[r.ordem[r.occ - 1]]; r.occ--; sujo.add(r);
+  if (!animar || moveis.length >= MAX_MOVEIS || !terreoVisivel && r.nivel === 'terreo') return;
+  const acesso = r.cats.includes('MOTO') || r.nivel !== 'terreo' ? 'n_A_NE' : sortear(ACESSOS_TERREO.filter(a => a[0] !== 'n_ROT').map(([k]) => [k, 1 / 3]));
+  const rota = caminho(r.noAcesso, acesso); if (!rota) return;
+  const g = veiculoMovel(v.tipo, v.cor, NIVEL[r.nivel].escala);
+  g.position.copy(v.pos); g.rotation.y = v.yaw;
+  moveis.push({ g, pts: [nos[r.noAcesso].p.clone(), ...rota.nos.slice(1).map(id => nos[id].p.clone())], i: 0, regiao: null, tipo: 'saida', escala: NIVEL[r.nivel].escala });
+}
+function moverVeiculos(dtReal) {
+  const vel = 14 * +document.getElementById('vel').value;   // ~15 km/h no estacionamento (×velocidade da simulação)
+  for (let k = moveis.length - 1; k >= 0; k--) {
+    const c = moveis[k]; let passo = vel * dtReal;
+    while (passo > 0 && c.i < c.pts.length) {
+      const alvo = c.pts[c.i], d = c.g.position.distanceTo(alvo);
+      if (d <= passo) { c.g.position.copy(alvo); passo -= d; c.i++; }
+      else {
+        const dir = alvo.clone().sub(c.g.position).normalize(); c.g.position.addScaledVector(dir, passo);
+        if (Math.abs(dir.y) < 0.9) { const alvoYaw = Math.atan2(dir.x, dir.z); let dy = alvoYaw - c.g.rotation.y; dy = Math.atan2(Math.sin(dy), Math.cos(dy)); c.g.rotation.y += dy * Math.min(1, dtReal * 6); }
+        passo = 0;
+      }
+      if (c.tipo === 'entrada' && c.i === c.pts.length && !c.estacionando) {
+        const r = c.regiao;
+        if (r.occ >= r.cap || !r.operacional) break;               // a região lotou no caminho: some (veria o painel e seguiria)
+        const v = r.vagas[r.ordem[r.occ]]; c.estacionando = v;
+        c.pts.push(v.pos.clone()); c.escalaFinal = NIVEL[r.nivel].escala;
+      }
+    }
+    if (c.estacionando) c.g.scale.setScalar(THREE.MathUtils.lerp(c.g.scale.x, c.escalaFinal, Math.min(1, dtReal * 4)));
+    if (c.i >= c.pts.length) {
+      if (c.tipo === 'entrada' && c.estacionando) { const r = c.regiao; r.occ = Math.min(r.cap, r.occ + 1); sujo.add(r); }
+      scene.remove(c.g); c.g.children.forEach(m => { if (m.userData.proprio) m.material.dispose(); }); moveis.splice(k, 1);
+    }
+  }
+}
+
+/* ---------- Relógio da simulação ---------- */
+const sujo = new Set();
+let rodando = false, acumulador = 0;
+const TAXA = { normal: 0.55, pico: 1.6, calmo: 0.15 };      // chegadas por segundo simulado
+const PERMANENCIA = { normal: 1800, pico: 2400, calmo: 500 }; // segundos simulados
+function passoSimulacao(dt) {
+  tempo += dt;
+  const cen = document.getElementById('cen').value;
+  acumulador += TAXA[cen] * dt;
+  while (acumulador >= 1) { acumulador--; novaEntrada(rnd() < 0.2); }
+  for (const r of regioes) {
+    const saidas = r.occ * dt / PERMANENCIA[cen];
+    let n = Math.floor(saidas) + (rnd() < saidas % 1 ? 1 : 0);
+    while (n-- > 0) novaSaida(r, rnd() < 0.15);
+  }
+}
+function reiniciar() {
+  semente = 11; tempo = 0; ultimaRec = null;
+  moveis.splice(0).forEach(c => scene.remove(c.g));
+  for (const r of regioes) { r.occ = Math.round(r.cap * (0.35 + rnd() * 0.35)); r.operacional = true; r.recs = []; sujo.add(r); }
+}
+
+/* ---------- Painel ---------- */
+const $ = id => document.getElementById(id);
+function painel() {
+  const carros = regioes.filter(r => !r.cats.includes('MOTO'));
+  const cap = regioes.reduce((a, r) => a + r.cap, 0), occ = regioes.reduce((a, r) => a + r.occ, 0);
+  const ocs = carros.map(r => r.occ / r.cap), media = ocs.reduce((a, b) => a + b, 0) / ocs.length;
+  const desvio = Math.sqrt(ocs.reduce((a, b) => a + (b - media) ** 2, 0) / ocs.length);
+  $('k-livres').textContent = (cap - occ).toLocaleString('pt-BR');
+  $('k-ocup').textContent = Math.round((occ / cap) * 100) + '%';
+  $('k-desvio').textContent = (desvio * 100).toFixed(1) + ' p.p.';
+  $('k-circ').textContent = moveis.length;
+  $('regs').innerHTML = regioes.map(r => { const p = Math.round((r.occ / r.cap) * 100);
+    return `<div class="reg${r.operacional ? '' : ' off'}"><b>${r.id}</b><div class="bar" role="meter" aria-valuenow="${p}" aria-valuemin="0" aria-valuemax="100" aria-label="${r.id} ${p}%"><i style="width:${p}%;background:${r.operacional ? COR[faixa(p)] : COR.fechada}"></i></div><span class="num">${r.occ}/${r.cap}${r.fonte === 'desenho' ? '*' : ''}</span></div>`; }).join('') +
+    '<p class="aviso">* capacidade contada no desenho (sem número escrito na planta)</p>';
+  if (ultimaRec) $('rec').innerHTML = `<strong>${ultimaRec.r.id} · ${ultimaRec.r.nome}</strong>${{ CARRO_PEQUENO: 'Carro pequeno', CARRO_GRANDE: 'Carro grande / SUV / picape', MOTO: 'Moto' }[ultimaRec.categoria]} · ${ultimaRec.txt}`;
+}
+
+/* ---------- Câmera ---------- */
+const centro = id => { const r = R[id], xs = r.poligono.map(p => p[0]), ys = r.poligono.map(p => p[1]); return W(r.nivel, [(Math.min(...xs) + Math.max(...xs)) / 2, (Math.min(...ys) + Math.max(...ys)) / 2]); };
+function vista(n) {
+  const V = {
+    geral:    { pos: new THREE.Vector3(-1500, 900, 1900), alvo: new THREE.Vector3(0, -260, 0) },
+    terreo:   { pos: new THREE.Vector3(0, 1700, 650), alvo: new THREE.Vector3(0, 0, 0) },
+    subsolos: { pos: new THREE.Vector3(-1100, -120, 1350), alvo: new THREE.Vector3(0, -430, 0) },
+    norte:    (() => { const c = centro('N3'); return { pos: c.clone().add(new THREE.Vector3(-160, 70, 170)), alvo: c }; })(),
+    maquete:  { pos: W('terreo', [700, 1250], 260), alvo: W('terreo', [1150, 760], 0) },
+    sul:      (() => { const c = centro('S1'); return { pos: c.clone().add(new THREE.Vector3(-90, 55, 150)), alvo: c.clone().add(new THREE.Vector3(30, 0, -10)) }; })(),
+  }[n];
+  if (!V) return; camera.position.copy(V.pos); controls.target.copy(V.alvo); controls.update();
+  const querTerreo = n !== 'subsolos'; if (querTerreo !== terreoVisivel) $('ocultar').click();
+}
+
+/* ---------- Montagem ---------- */
+pisos(); for (const nv of M.niveis) tracado(nv.id); maquete(); vias(); construirRegioes(); construirFrota();
+$('alvo').innerHTML = regioes.map(r => `<option value="${r.id}">${r.id} · ${r.nome}</option>`).join('');
+$('play').onclick = () => { rodando = !rodando; $('play').textContent = rodando ? '❚❚ Pausar' : '▶ Iniciar'; $('play').setAttribute('aria-pressed', rodando); };
+$('reset').onclick = () => { reiniciar(); painel(); };
+$('lotar').onclick = () => { const r = R[$('alvo').value]; r.occ = r.cap; sujo.add(r); painel(); };
+$('fechar').onclick = () => { const r = R[$('alvo').value]; r.operacional = !r.operacional; sujo.add(r); painel(); };
+const est = (e) => { estrategia = e; $('est-pv').setAttribute('aria-pressed', e === 'parkvision'); $('est-tr').setAttribute('aria-pressed', e !== 'parkvision'); };
+$('est-pv').onclick = () => est('parkvision'); $('est-tr').onclick = () => est('tradicional');
+document.querySelectorAll('[data-vista]').forEach(b => b.onclick = () => vista(b.dataset.vista));
+$('ocultar').onclick = () => { terreoVisivel = !terreoVisivel; grupos.terreo.visible = terreoVisivel; $('ocultar').textContent = terreoVisivel ? 'Ocultar térreo' : 'Mostrar térreo'; $('ocultar').setAttribute('aria-pressed', !terreoVisivel); regioes.filter(r => r.nivel === 'terreo').forEach(pintarRegiao); };
+$('predio').onclick = () => { grupoPredio.visible = !grupoPredio.visible; $('predio').setAttribute('aria-pressed', grupoPredio.visible); };
+$('cores').onclick = () => { coresVisiveis = !coresVisiveis; $('cores').setAttribute('aria-pressed', coresVisiveis); regioes.forEach(r => (r.mesh.visible = coresVisiveis)); };
+addEventListener('resize', () => { camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); });
+reiniciar(); sujo.forEach(atualizarRegiao); sujo.clear(); painel(); vista('geral');
+const qs = new URLSearchParams(location.search);
+if (qs.has('vista')) vista(qs.get('vista'));
+if (qs.has('sem-terreo')) $('ocultar').click();
+if (qs.has('sem-cores')) $('cores').click();
+if (qs.has('sem-predio')) $('predio').click();
+if (qs.has('avancar')) { for (let s = +qs.get('avancar') || 60; s > 0; s--) { passoSimulacao(1); moverVeiculos(0.2); } }
+if (qs.has('auto')) $('play').click();
+
+let ultimo = performance.now(), ultimoPainel = 0;
+renderer.setAnimationLoop((agora) => {
+  const dt = Math.min(0.1, (agora - ultimo) / 1000); ultimo = agora;
+  if (rodando) { passoSimulacao(dt * +$('vel').value); moverVeiculos(dt); }
+  if (sujo.size) { sujo.forEach(atualizarRegiao); sujo.clear(); }
+  if (agora - ultimoPainel > 400) { painel(); ultimoPainel = agora; }
+  controls.update(); renderer.render(scene, camera);
+});
+window.__pv = { regioes, moveis, recomendar, get tempo() { return tempo; }, passo: (dt) => { passoSimulacao(dt); moverVeiculos(dt / 5); } };
+</script>
+</body>
+</html>

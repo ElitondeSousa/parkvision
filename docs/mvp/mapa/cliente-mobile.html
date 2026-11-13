@@ -1,0 +1,328 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Onde está meu carro · ParkVision</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@600;700&family=IBM+Plex+Mono:wght@500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../../../prototype/assets/tokens.css">
+<style>
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--pv-color-asfalto-950);font-family:var(--pv-font-family-sans);color:var(--pv-text-primary)}
+h1,h2,h3{font-family:var(--pv-font-family-display);margin:0;line-height:var(--pv-line-height-tight)}
+p{margin:0}
+/* Moldura de celular só em telas largas (para apresentar ao cliente); no celular, tela cheia */
+.palco{min-height:100vh;display:flex;align-items:center;justify-content:center;gap:48px;padding:24px}
+.celular{width:390px;height:844px;border-radius:52px;background:var(--pv-color-asfalto-950);padding:12px;box-shadow:0 30px 80px rgba(0,0,0,.5),inset 0 0 0 2px var(--pv-color-asfalto-700);flex:none}
+.tela{position:relative;width:100%;height:100%;border-radius:42px;overflow:hidden;background:var(--pv-bg-canvas)}
+.notch{position:absolute;top:10px;left:50%;transform:translateX(-50%);width:110px;height:30px;border-radius:999px;background:var(--pv-color-asfalto-950);z-index:5}
+.app{position:absolute;inset:0;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch}
+.lado{max-width:360px;color:var(--pv-color-asfalto-200);font-size:14px;line-height:1.5}
+.lado h2{color:#fff;font-size:22px;margin-bottom:8px}
+.lado ul{padding-left:18px;margin:12px 0}
+.lado label{display:block;margin:14px 0 6px;font-weight:600;color:#fff}
+.lado select{width:100%;height:40px;border-radius:8px;border:1px solid var(--pv-color-asfalto-600);background:var(--pv-color-asfalto-900);color:#fff;font:inherit;padding:0 10px}
+@media (max-width:820px){.lado{display:none}}
+@media (max-width:500px){.palco{padding:0;display:block}.celular{width:100%;height:100vh;height:100dvh;border-radius:0;padding:0;box-shadow:none}.tela{border-radius:0}.notch{display:none}}
+/* App */
+.topo{position:sticky;top:0;z-index:4;display:flex;align-items:center;gap:10px;padding:46px 18px 12px;background:var(--pv-bg-nav);color:#fff}
+@media (max-width:500px){.topo{padding-top:max(14px,env(safe-area-inset-top))}}
+.topo svg{width:30px;height:30px;flex:none}
+.topo b{font-family:var(--pv-font-family-display);font-size:19px}
+.topo span{margin-left:auto;font-size:12px;color:var(--pv-color-asfalto-300)}
+.conteudo{padding:16px 16px 28px;display:flex;flex-direction:column;gap:14px}
+.status{display:inline-flex;align-items:center;gap:6px;height:26px;padding:0 10px;border-radius:999px;background:var(--pv-feedback-success-bg);color:var(--pv-feedback-success-fg);font-weight:600;font-size:12px;width:max-content}
+.status::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--pv-feedback-success-solid)}
+.titulo small{display:block;font-size:13px;color:var(--pv-text-secondary);font-family:var(--pv-font-family-sans);font-weight:500;margin-bottom:2px}
+.titulo h1{font-size:30px}
+.titulo h1 em{font-style:normal;color:var(--pv-brand-primary)}
+.titulo p{color:var(--pv-text-secondary);font-size:14px;margin-top:4px}
+.mapa{position:relative;height:340px;border-radius:18px;overflow:hidden;background:#dfe5ec;box-shadow:var(--pv-shadow-md)}
+.mapa canvas{display:block;width:100%;height:100%;touch-action:none}
+.mapa .botoes{position:absolute;top:10px;left:10px;right:10px;display:flex;gap:6px;flex-wrap:wrap}
+.mapa .botoes button{height:32px;padding:0 12px;border-radius:999px;border:0;background:rgba(255,255,255,.92);color:var(--pv-color-asfalto-900);font:600 12px var(--pv-font-family-sans);box-shadow:var(--pv-shadow-sm);cursor:pointer}
+.mapa .botoes button[aria-pressed="true"]{background:var(--pv-brand-primary);color:#fff}
+.mapa .legenda{position:absolute;left:10px;bottom:10px;display:flex;gap:8px;flex-wrap:wrap}
+.mapa .legenda span{display:inline-flex;align-items:center;gap:6px;height:26px;padding:0 10px;border-radius:999px;background:rgba(255,255,255,.92);font-size:11px;font-weight:600;color:var(--pv-color-asfalto-800)}
+.mapa .legenda i{width:10px;height:10px;border-radius:50%;display:inline-block}
+.mapa .dica{position:absolute;right:10px;bottom:10px;font-size:11px;color:var(--pv-color-asfalto-700);background:rgba(255,255,255,.8);padding:4px 8px;border-radius:999px}
+.cartao{background:var(--pv-bg-surface);border:1px solid var(--pv-border-default);border-radius:16px;padding:16px}
+.cartao h2{font-size:18px;margin-bottom:10px}
+.passos{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:12px;counter-reset:p}
+.passos li{display:grid;grid-template-columns:30px 1fr;gap:10px;align-items:start;font-size:14px;line-height:1.45}
+.passos li::before{counter-increment:p;content:counter(p);width:30px;height:30px;border-radius:50%;display:grid;place-items:center;background:var(--pv-color-faixa-500);color:var(--pv-color-asfalto-950);font:700 15px var(--pv-font-family-display)}
+.dados{display:grid;grid-template-columns:auto 1fr;gap:8px 14px;margin:0;font-size:14px}
+.dados dt{color:var(--pv-text-secondary)} .dados dd{margin:0;font-weight:600;text-align:right}
+.mono{font-family:var(--pv-font-family-mono)}
+.btn{display:flex;align-items:center;justify-content:center;gap:8px;height:50px;border-radius:12px;border:0;font:600 16px var(--pv-font-family-sans);cursor:pointer;width:100%}
+.btn.prim{background:var(--pv-brand-primary);color:#fff}
+.btn.sec{background:var(--pv-bg-surface);color:var(--pv-text-primary);border:1px solid var(--pv-border-strong)}
+.aviso{font-size:12px;color:var(--pv-text-muted);text-align:center;line-height:1.45}
+</style>
+</head>
+<body>
+<div class="palco">
+  <div class="celular" role="region" aria-label="Simulação da tela do celular do motorista">
+    <div class="tela">
+      <div class="notch" aria-hidden="true"></div>
+      <div class="app" id="app">
+        <header class="topo">
+          <svg viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="14" fill="#2148E8"/><rect x="17" y="13" width="8" height="38" rx="2" fill="#fff"/><path fill="#fff" fill-rule="evenodd" d="M21 13h14a14 14 0 0 1 0 28H21zM35 20.5a6.5 6.5 0 1 0 0 13 6.5 6.5 0 0 0 0-13z"/><circle cx="35" cy="27" r="3" fill="#F5A800"/></svg>
+          <b>ParkVision</b><span>Capim Dourado Shopping</span>
+        </header>
+        <main class="conteudo">
+          <span class="status" id="status">Estacionado · confirmado às 13:12</span>
+          <div class="titulo">
+            <small>Seu carro está na região</small>
+            <h1 id="t-regiao">—</h1>
+            <p id="t-ref">—</p>
+          </div>
+          <div class="mapa" id="mapa">
+            <div class="botoes" role="group" aria-label="Vista do mapa">
+              <button data-v="carro" aria-pressed="true">Meu carro</button>
+              <button data-v="shopping" aria-pressed="false">Shopping</button>
+              <button data-v="topo" aria-pressed="false">De cima</button>
+            </div>
+            <div class="legenda" aria-hidden="true"><span><i style="background:#2148E8"></i>Sua região</span><span><i style="background:#F5A800"></i>Caminho a pé</span></div>
+            <span class="dica" aria-hidden="true">Arraste para girar</span>
+          </div>
+          <section class="cartao" aria-labelledby="h-como">
+            <h2 id="h-como">Como chegar ao carro</h2>
+            <ol class="passos" id="passos"></ol>
+          </section>
+          <section class="cartao" aria-labelledby="h-ticket">
+            <h2 id="h-ticket">Seu ticket</h2>
+            <dl class="dados">
+              <dt>Ticket</dt><dd class="mono">PV-0042</dd>
+              <dt>Entrada</dt><dd>13/11 · 11:45</dd>
+              <dt>Permanência</dt><dd id="perm">1 h 27 min</dd>
+              <dt>Categoria</dt><dd>Carro pequeno</dd>
+              <dt>Região recomendada</dt><dd id="recom">—</dd>
+            </dl>
+          </section>
+          <button class="btn prim" type="button">Ver valor e pagar</button>
+          <button class="btn sec" type="button">Preciso de ajuda</button>
+          <p class="aviso">Localização por região, registrada na confirmação do estacionamento. Sem GPS e sem dados pessoais no QR Code.<br><b>Protótipo com dados simulados.</b></p>
+        </main>
+      </div>
+    </div>
+  </div>
+  <aside class="lado">
+    <h2>Localizador do veículo</h2>
+    <p>Esta é a página que o motorista abre ao ler o QR Code do ticket, sem instalar aplicativo e sem login.</p>
+    <ul>
+      <li>Maquete 3D do shopping com as vagas da planta.</li>
+      <li>A região do carro aparece destacada, com o marcador.</li>
+      <li>O caminho a pé sai da entrada do shopping mais próxima.</li>
+      <li>No celular, a página ocupa a tela inteira e o mapa gira com o dedo.</li>
+    </ul>
+    <label for="demo">Demonstração: simular outro ticket</label>
+    <select id="demo"></select>
+    <p style="margin-top:12px;font-size:12px">As alturas do prédio são estimadas e as capacidades vêm do desenho da planta. Os subsolos aparecem em posição ilustrativa até a confirmação das rampas.</p>
+  </aside>
+</div>
+
+<script src="dados.js"></script>
+<script type="importmap">
+{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+               "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/" } }
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+
+const B = window.PV_BASE, M = window.PV_MAPA, Q = window.PV_MAQUETE, VAGAS = (window.PV_VAGAS || { vagas: {} }).vagas;
+const $ = id => document.getElementById(id);
+let semente = 42; const rnd = () => ((semente = (semente * 16807) % 2147483647) / 2147483647);
+const sortear = (l) => { let x = rnd(), a = 0; for (const [v, p] of l) { a += p; if (x <= a) return v; } return l[l.length - 1][0]; };
+
+/* ---------- Coordenadas (mesmas da simulação 3D) ---------- */
+const CX = 1227, CZ = 715;
+const NIVEL = { terreo: { y: 0, dx: 0, dz: 0, e: 1 }, ss1: { y: -280, dx: 393, dz: 537, e: 1.2 }, ss2: { y: -560, dx: -197, dz: 558, e: 1.2 } };
+const W = (n, [x, y], h = 0) => new THREE.Vector3(x + NIVEL[n].dx - CX, NIVEL[n].y + h, y + NIVEL[n].dz - CZ);
+
+/* ---------- Entradas de pedestres (lidas na planta, térreo) ---------- */
+const ENTRADAS = [
+  { id: 'ca',      nome: 'entrada da C&A (lado norte)', saia: 'pela', xy: [1075, 478] },
+  { id: 'leste',   nome: 'acesso de pedestres ao lado do Big (pátio norte)', saia: 'pelo', xy: [1403, 392] },
+  { id: 'sul',     nome: 'entrada principal (Alameda das Cores, lado sul)', saia: 'pela', xy: [1085, 1040] },
+  { id: 'renner',  nome: 'entrada da Renner (lado oeste)', saia: 'pela', xy: [505, 935] },
+];
+const ESCADA_SUBSOLO = { nome: 'acesso à galeria subterrânea (perto do Cinemark)', xy: [1409, 906] };
+
+/* ---------- Cena ---------- */
+const box = $('mapa');
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.0;
+box.prepend(renderer.domElement);
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0xdfe5ec);
+scene.fog = new THREE.Fog(0xdfe5ec, 1800, 3600);
+scene.environment = new THREE.PMREMGenerator(renderer).fromScene(new RoomEnvironment(), 0.04).texture;
+const camera = new THREE.PerspectiveCamera(42, 1, 2, 6000);
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true; controls.maxPolarAngle = Math.PI * 0.47; controls.minDistance = 80; controls.maxDistance = 2600;
+scene.add(new THREE.HemisphereLight(0xffffff, 0x8a9099, 1.1));
+const sol = new THREE.DirectionalLight(0xfff4e2, 1.6); sol.position.set(-600, 1200, 400); scene.add(sol);
+function tamanho() { const w = box.clientWidth, h = box.clientHeight; renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); }
+new ResizeObserver(tamanho).observe(box);
+
+const grupos = { terreo: new THREE.Group(), ss1: new THREE.Group(), ss2: new THREE.Group() };
+Object.values(grupos).forEach(g => scene.add(g));
+
+// Pisos
+for (const nv of M.niveis) {
+  const [x, y, w, h] = nv.viewBox;
+  const m = new THREE.Mesh(new THREE.BoxGeometry(w, 6, h), new THREE.MeshStandardMaterial({ color: nv.id === 'terreo' ? 0x4a4f57 : 0x5a5e65, roughness: 0.95 }));
+  m.position.copy(W(nv.id, [x + w / 2, y + h / 2], -3.2)); grupos[nv.id].add(m);
+}
+// Faixas e vias (traçado vetorial da planta)
+for (const nv of M.niveis) {
+  const tok = B[nv.id].d.match(/[MLCHVhvz]|-?\d*\.?\d+(?:e-?\d+)?/g), [vx, vy, vw, vh] = nv.viewBox;
+  const fora = (x, y) => x < vx - 10 || x > vx + vw + 10 || y < vy - 10 || y > vy + vh + 10;
+  const pts = []; let i = 0, cx = 0, cy = 0, sx = 0, sy = 0, cmd = ''; const num = () => parseFloat(tok[i++]);
+  const seg = (a, b, c, d) => { if (!fora(a, b) && !fora(c, d)) pts.push(W(nv.id, [a, b], 0.3), W(nv.id, [c, d], 0.3)); };
+  while (i < tok.length) {
+    if (/[A-Za-z]/.test(tok[i])) cmd = tok[i++];
+    if (cmd === 'M') { cx = sx = num(); cy = sy = num(); cmd = 'L'; continue; }
+    if (cmd === 'L') { const x = num(), y = num(); seg(cx, cy, x, y); cx = x; cy = y; }
+    else if (cmd === 'h') { const x = cx + num(); seg(cx, cy, x, cy); cx = x; }
+    else if (cmd === 'v') { const y = cy + num(); seg(cx, cy, cx, y); cy = y; }
+    else if (cmd === 'C') { const p = [cx, cy, num(), num(), num(), num(), num(), num()]; let px = cx, py = cy;
+      for (let t = 1; t <= 6; t++) { const s = t / 6, u = 1 - s; const x = u*u*u*p[0] + 3*u*u*s*p[2] + 3*u*s*s*p[4] + s*s*s*p[6], y = u*u*u*p[1] + 3*u*u*s*p[3] + 3*u*s*s*p[5] + s*s*s*p[7]; seg(px, py, x, y); px = x; py = y; }
+      cx = p[6]; cy = p[7]; }
+    else if (cmd === 'z') { seg(cx, cy, sx, sy); cx = sx; cy = sy; cmd = ''; } else i++;
+  }
+  grupos[nv.id].add(new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(pts), new THREE.LineBasicMaterial({ color: 0xf4f5f6, transparent: true, opacity: 0.75 })));
+}
+// Maquete do shopping
+const dentro = (pt, pol) => { let ins = false; for (let i = 0, j = pol.length - 1; i < pol.length; j = i++) { const [xi, yi] = pol[i], [xj, yj] = pol[j]; if (((yi > pt[1]) !== (yj > pt[1])) && (pt[0] < (xj - xi) * (pt[1] - yi) / (yj - yi) + xi)) ins = !ins; } return ins; };
+const predio = new THREE.Group(); grupos.terreo.add(predio);
+const telhado = new THREE.MeshStandardMaterial({ color: 0x8d9298, roughness: 0.9 });
+for (const v of Q.volumes) {
+  const forma = new THREE.Shape(v.poligono.map(([x, y]) => { const p = W('terreo', [x, y]); return new THREE.Vector2(p.x, -p.z); }));
+  const geo = new THREE.ExtrudeGeometry(forma, { depth: v.altura, bevelEnabled: false }); geo.rotateX(-Math.PI / 2);
+  const fach = v.tipo === 'pavimento2' ? new THREE.MeshPhysicalMaterial({ color: 0x4f7391, metalness: 0.5, roughness: 0.06, clearcoat: 1, transparent: true, opacity: 0.8 })
+             : new THREE.MeshStandardMaterial({ color: v.cor ?? 0xe3dfd7, roughness: 0.8 });
+  const m = new THREE.Mesh(geo, [v.tipo === 'pavimento2' ? new THREE.MeshStandardMaterial({ color: 0xa3a9af }) : telhado, fach]);
+  m.position.y = v.base; predio.add(m);
+  const borda = new THREE.LineSegments(new THREE.EdgesGeometry(geo, 30), new THREE.LineBasicMaterial({ color: 0x5b6168, transparent: true, opacity: 0.5 })); borda.position.y = v.base; predio.add(borda);
+}
+const vidroDomo = new THREE.MeshPhysicalMaterial({ color: 0xbfe3ff, roughness: 0.03, transparent: true, opacity: 0.5, clearcoat: 1 });
+for (const p of Q.pracas) { const d = new THREE.Mesh(new THREE.SphereGeometry(p.raio, 28, 10, 0, Math.PI * 2, 0, Math.PI / 2), vidroDomo); d.scale.y = 0.45; d.position.copy(W('terreo', p.centro, 20)); predio.add(d); }
+
+/* ---------- Carros estacionados (modelos procedurais, nas vagas da planta) ---------- */
+const MAT = {
+  pintura: new THREE.MeshPhysicalMaterial({ color: 0xffffff, metalness: 0.55, roughness: 0.32, clearcoat: 1, clearcoatRoughness: 0.06 }),
+  vidro: new THREE.MeshStandardMaterial({ color: 0x111820, roughness: 0.1, metalness: 0.2 }),
+  pneu: new THREE.MeshStandardMaterial({ color: 0x151515, roughness: 0.9 }),
+};
+const nao = g => (g.index ? g.toNonIndexed() : g);
+const perfil = (pts, larg, bev = 0.3) => { const s = new THREE.Shape(pts.map(([z, y]) => new THREE.Vector2(z, y))); const g = new THREE.ExtrudeGeometry(s, { depth: larg - 2 * bev, bevelEnabled: true, bevelThickness: bev, bevelSize: bev, bevelSegments: 2 }); g.rotateY(-Math.PI / 2); g.translate((larg - 2 * bev) / 2, 0, 0); return nao(g); };
+function carro(L, Wd, chao, corpoH, cabH, ci, cf, iF, iT, r) {
+  const z0 = -L / 2, z1 = L / 2, y0 = chao, y1 = chao + corpoH, a = z0 + ci * L, b = z0 + cf * L, wc = Wd * 0.88;
+  const pint = [perfil([[z0 + 0.9, y0], [z1 - 0.9, y0], [z1, y0 + 0.9], [z1, y1 - 0.5], [z1 - 1.2, y1], [z0 + 0.8, y1], [z0, y1 - 0.4], [z0, y0 + 0.9]], Wd),
+                nao(new THREE.BoxGeometry(wc - 0.2, 0.22, (b - iF) - (a + iT) + 0.2).translate(0, y1 + cabH + 0.08, ((b - iF) + (a + iT)) / 2))];
+  const vid = [perfil([[a, y1 - 0.05], [b, y1 - 0.05], [b - iF, y1 + cabH], [a + iT, y1 + cabH]], wc, 0.2)];
+  const pn = []; for (const z of [z1 - L * 0.2, z0 + L * 0.2]) for (const s of [-1, 1]) pn.push(nao(new THREE.CylinderGeometry(r, r, 0.85, 14).rotateZ(Math.PI / 2).translate(s * (Wd / 2 - 0.4), r, z)));
+  return { pintura: mergeGeometries(pint), vidro: mergeGeometries(vid), pneu: mergeGeometries(pn) };
+}
+const MOD = {
+  hatch: carro(13, 5.7, 0.55, 2.15, 1.75, 0.08, 0.66, 2.1, 0.7, 1.05),
+  seda: carro(14.8, 5.9, 0.5, 2.05, 1.65, 0.24, 0.68, 2.2, 1.6, 1.05),
+  suv: carro(15, 6.2, 0.85, 2.55, 1.95, 0.09, 0.68, 1.9, 0.6, 1.3),
+  moto: { pintura: nao(new THREE.BoxGeometry(1.2, 1.6, 6).translate(0, 2.2, 0)), vidro: nao(new THREE.BoxGeometry(0.8, 0.5, 0.4).translate(0, 3.2, 2)), pneu: mergeGeometries([nao(new THREE.CylinderGeometry(1.1, 1.1, 0.5, 12).rotateZ(Math.PI / 2).translate(0, 1.1, 2.4)), nao(new THREE.CylinderGeometry(1.1, 1.1, 0.5, 12).rotateZ(Math.PI / 2).translate(0, 1.1, -2.4))]) },
+};
+const CORES = [['#f1f1ef', 0.36], ['#b8bdc3', 0.24], ['#17191c', 0.18], ['#5a6067', 0.13], ['#8d1c1c', 0.04], ['#1f3c78', 0.03], ['#7b6a52', 0.02]];
+const regioes = M.regioes.map(r => ({ ...r, cap: r.capacidade.valor }));
+const lista = { hatch: [], seda: [], suv: [], moto: [] };
+for (const r of regioes) {
+  const vs = (VAGAS[r.id] || []).slice(0, r.cap);
+  for (const [x, y, ang] of vs) {
+    if (rnd() > 0.58) continue;                      // ~58% de ocupação ilustrativa
+    const f = rnd() < 0.5 ? 1 : -1, tipo = r.categorias.includes('MOTO') ? 'moto' : sortear([['hatch', 0.45], ['seda', 0.3], ['suv', 0.25]]);
+    lista[tipo].push({ pos: W(r.nivel, [x, y]), yaw: Math.atan2(Math.cos(ang) * f, Math.sin(ang) * f), e: NIVEL[r.nivel].e, cor: sortear(CORES) });
+  }
+}
+const o = new THREE.Object3D(), c = new THREE.Color();
+for (const [tipo, itens] of Object.entries(lista)) {
+  if (!itens.length) continue;
+  for (const [parte, geo] of Object.entries(MOD[tipo])) {
+    const im = new THREE.InstancedMesh(geo, MAT[parte], itens.length);
+    itens.forEach((v, i) => { o.position.copy(v.pos); o.rotation.set(0, v.yaw, 0); o.scale.setScalar(v.e); o.updateMatrix(); im.setMatrixAt(i, o.matrix); if (parte === 'pintura') im.setColorAt(i, c.set(v.cor)); });
+    scene.add(im);
+  }
+}
+
+/* ---------- Destaque da região, marcador e caminho a pé ---------- */
+let destaque = null, marcador = null, caminho = null, alvoAtual = null;
+const centro = r => { const xs = r.poligono.map(p => p[0]), ys = r.poligono.map(p => p[1]); return [(Math.min(...xs) + Math.max(...xs)) / 2, (Math.min(...ys) + Math.max(...ys)) / 2]; };
+function mostrarRegiao(id) {
+  const r = regioes.find(x => x.id === id); if (!r) return;
+  [destaque, marcador, caminho].forEach(x => x && scene.remove(x));
+  const forma = new THREE.Shape(r.poligono.map(([x, y]) => { const p = W(r.nivel, [x, y]); return new THREE.Vector2(p.x, -p.z); }));
+  const g = new THREE.ShapeGeometry(forma); g.rotateX(-Math.PI / 2);
+  destaque = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ color: 0x2148e8, transparent: true, opacity: 0.38, depthWrite: false }));
+  destaque.position.y = NIVEL[r.nivel].y + 0.4; scene.add(destaque);
+  // marcador (alfinete)
+  marcador = new THREE.Group();
+  const cab = new THREE.Mesh(new THREE.SphereGeometry(9, 24, 16), new THREE.MeshStandardMaterial({ color: 0x2148e8, emissive: 0x1a39bd, emissiveIntensity: 0.4 }));
+  const ponta = new THREE.Mesh(new THREE.ConeGeometry(6, 18, 20), cab.material); ponta.rotation.x = Math.PI; ponta.position.y = -12;
+  const olho = new THREE.Mesh(new THREE.SphereGeometry(3.6, 16, 12), new THREE.MeshStandardMaterial({ color: 0xf5a800, emissive: 0xf5a800, emissiveIntensity: 0.6 })); olho.position.set(0, 0, 8);
+  marcador.add(cab, ponta, olho); const pc = centro(r); marcador.position.copy(W(r.nivel, pc, 42)); scene.add(marcador);
+  // caminho a pé a partir da entrada mais próxima
+  const subsolo = r.nivel !== 'terreo';
+  const origem = subsolo ? ESCADA_SUBSOLO : ENTRADAS.reduce((a, b) => (Math.hypot(b.xy[0] - pc[0], b.xy[1] - pc[1]) < Math.hypot(a.xy[0] - pc[0], a.xy[1] - pc[1]) ? b : a));
+  const pontos = subsolo
+    ? [W('terreo', origem.xy, 1), W('terreo', origem.xy, 1).setY(NIVEL[r.nivel].y + 1), W(r.nivel, pc, 1)]
+    : [W('terreo', origem.xy, 1), W('terreo', [(origem.xy[0] * 0.6 + pc[0] * 0.4), (origem.xy[1] * 0.4 + pc[1] * 0.6)], 1), W('terreo', pc, 1)];
+  const curva = new THREE.CatmullRomCurve3(pontos, false, 'centripetal');
+  caminho = new THREE.Mesh(new THREE.TubeGeometry(curva, 60, 2.2, 8), new THREE.MeshStandardMaterial({ color: 0xf5a800, emissive: 0xf5a800, emissiveIntensity: 0.5 }));
+  scene.add(caminho);
+  // subsolos: esconde o térreo para enxergar o pavimento
+  grupos.terreo.visible = !subsolo; grupos.ss1.visible = r.nivel === 'ss1' || !subsolo; grupos.ss2.visible = r.nivel === 'ss2' || !subsolo;
+  // textos
+  const nomeNivel = { terreo: 'Térreo · pátio descoberto', ss1: 'Subsolo 1 · coberto', ss2: 'Subsolo 2 · coberto' }[r.nivel];
+  $('t-regiao').innerHTML = `<em>${r.id}</em> · ${r.nome}`;
+  $('t-ref').textContent = `${nomeNivel}. ${r.referencia}.`;
+  $('recom').textContent = `${r.id} (igual à região onde parou)`;
+  const passos = subsolo
+    ? [`Vá até o ${origem.nome}.`, `Desça pelas escadas rolantes ou pelo elevador até o <b>${nomeNivel.split(' ·')[0]}</b>.`, `Siga as placas da região <b>${r.id}</b> (${r.nome}). A região fica destacada em azul no mapa.`]
+    : [`Saia ${origem.saia} <b>${origem.nome}</b>.`, `Siga o caminho em amarelo no mapa em direção à região <b>${r.id}</b>.`, `Procure as placas <b>${r.id}</b> nas fileiras. ${r.referencia}.`];
+  $('passos').innerHTML = passos.map(p => `<li><span>${p}</span></li>`).join('');
+  alvoAtual = { r, pc, origem, subsolo };
+  vista('carro');
+}
+
+/* ---------- Câmera ---------- */
+function vista(v) {
+  document.querySelectorAll('[data-v]').forEach(b => b.setAttribute('aria-pressed', b.dataset.v === v));
+  const { r, pc, origem, subsolo } = alvoAtual, alvo = W(r.nivel, pc, 0);
+  if (v === 'carro') {
+    const o = W(subsolo ? r.nivel : 'terreo', origem.xy, 0); const dir = alvo.clone().sub(o).setY(0).normalize();
+    camera.position.copy(alvo).addScaledVector(dir, -260).add(new THREE.Vector3(0, subsolo ? 170 : 190, 0)); controls.target.copy(alvo);
+  } else if (v === 'shopping') { camera.position.copy(W('terreo', [700, 1300], 520)); controls.target.copy(W('terreo', [1150, 700], 0)); if (subsolo) { grupos.terreo.visible = true; } }
+  else { camera.position.copy(alvo).add(new THREE.Vector3(0, 900, 60)); controls.target.copy(alvo); }
+  if (v !== 'shopping' && subsolo) grupos.terreo.visible = false;
+  controls.update();
+}
+document.querySelectorAll('[data-v]').forEach(b => b.onclick = () => vista(b.dataset.v));
+
+/* ---------- Início ---------- */
+const params = new URLSearchParams(location.search);
+$('demo').innerHTML = regioes.map(r => `<option value="${r.id}">${r.id} · ${r.nome}</option>`).join('');
+const inicial = regioes.some(r => r.id === params.get('regiao')) ? params.get('regiao') : 'N3';
+$('demo').value = inicial; $('demo').onchange = e => mostrarRegiao(e.target.value);
+tamanho(); mostrarRegiao(inicial);
+renderer.setAnimationLoop((t) => {
+  if (marcador) { marcador.position.y = (alvoAtual ? NIVEL[alvoAtual.r.nivel].y : 0) + 42 + Math.sin(t / 380) * 4; marcador.rotation.y = t / 1200; }
+  if (destaque) destaque.material.opacity = 0.3 + 0.12 * Math.sin(t / 300);
+  controls.update(); renderer.render(scene, camera);
+});
+</script>
+</body>
+</html>

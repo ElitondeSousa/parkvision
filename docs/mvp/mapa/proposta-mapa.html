@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Proposta do Mapa ParkVision</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@600;700&family=IBM+Plex+Mono:wght@500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../../../prototype/assets/tokens.css">
+<style>
+*{box-sizing:border-box}
+body{margin:0;font-family:var(--pv-font-family-sans);font-size:var(--pv-font-size-sm);color:var(--pv-text-primary);background:var(--pv-bg-canvas)}
+h1,h2,h3{font-family:var(--pv-font-family-display);margin:0;line-height:var(--pv-line-height-tight)}
+.top{display:flex;align-items:center;gap:var(--pv-space-4);flex-wrap:wrap;padding:var(--pv-space-4) max(16px,var(--pv-space-6));background:var(--pv-bg-nav);color:var(--pv-color-white)}
+.top h1{font-size:var(--pv-font-size-xl)}
+.top p{margin:0;color:var(--pv-color-asfalto-300);font-size:var(--pv-font-size-xs)}
+.pill{display:inline-flex;align-items:center;height:26px;padding:0 var(--pv-space-3);border-radius:var(--pv-radius-pill);font-weight:var(--pv-font-weight-semibold);font-size:var(--pv-font-size-xs);background:var(--pv-feedback-warning-bg);color:var(--pv-feedback-warning-fg)}
+main{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:var(--pv-space-5);padding:var(--pv-space-5) max(16px,var(--pv-space-6))}
+@media (max-width:1000px){main{grid-template-columns:minmax(0,1fr)}}
+.bar{display:flex;gap:var(--pv-space-3);align-items:center;flex-wrap:wrap;margin-bottom:var(--pv-space-3)}
+.tabs{display:flex;gap:var(--pv-space-1);background:var(--pv-bg-muted);padding:var(--pv-space-1);border-radius:var(--pv-radius-md)}
+.tabs button{border:0;background:transparent;padding:var(--pv-space-2) var(--pv-space-4);border-radius:var(--pv-radius-sm);font:inherit;font-weight:var(--pv-font-weight-semibold);color:var(--pv-text-secondary);cursor:pointer}
+.tabs button[aria-selected="true"]{background:var(--pv-bg-surface);color:var(--pv-text-primary);box-shadow:var(--pv-shadow-sm)}
+.layers{display:flex;gap:var(--pv-space-3);flex-wrap:wrap;font-size:var(--pv-font-size-xs)}
+.layers label{display:inline-flex;gap:var(--pv-space-1);align-items:center;cursor:pointer}
+.stage{background:var(--pv-color-white);border:var(--pv-border-width-hairline) solid var(--pv-border-default);border-radius:var(--pv-radius-lg);overflow:auto}
+svg.map{display:block;width:100%;height:auto;min-width:620px}
+.base{fill:none;stroke:var(--pv-color-asfalto-700);stroke-width:.6}
+.reg{fill:color-mix(in srgb,var(--pv-color-vision-500) 22%,transparent);stroke:var(--pv-color-vision-600);stroke-width:2;cursor:pointer}
+.reg.desconhecida{fill:color-mix(in srgb,var(--pv-color-laranja-500) 18%,transparent);stroke:var(--pv-color-laranja-500);stroke-dasharray:6 4}
+.reg.moto{fill:color-mix(in srgb,var(--pv-color-violeta-500) 20%,transparent);stroke:var(--pv-color-violeta-500)}
+.reg.sel{stroke-width:4;fill:color-mix(in srgb,var(--pv-color-vision-500) 38%,transparent)}
+.reg-label{font-family:var(--pv-font-family-display);font-weight:700;fill:var(--pv-color-vision-800);paint-order:stroke;stroke:var(--pv-color-white);stroke-width:4;pointer-events:none}
+.edge{stroke:var(--pv-color-asfalto-500);stroke-width:2.5;fill:none}
+.edge.duvida{stroke-dasharray:5 5}
+.edge.unico{stroke:var(--pv-color-asfalto-800)}
+.node{fill:var(--pv-color-white);stroke:var(--pv-color-asfalto-700);stroke-width:1.5}
+.route{stroke:var(--pv-color-faixa-500);stroke-width:7;fill:none;stroke-linecap:round;stroke-linejoin:round}
+.route-casing{stroke:var(--pv-color-asfalto-950);stroke-width:10;fill:none;stroke-linecap:round;stroke-linejoin:round;opacity:.55}
+.acc circle{fill:var(--pv-color-faixa-500);stroke:var(--pv-color-asfalto-950);stroke-width:1.5}
+.acc text{font-family:var(--pv-font-family-display);font-weight:700;fill:var(--pv-color-asfalto-950);paint-order:stroke;stroke:var(--pv-color-white);stroke-width:4}
+.acc.baixa circle{fill:var(--pv-color-white);stroke-dasharray:3 2}
+aside{display:flex;flex-direction:column;gap:var(--pv-space-4)}
+.card{background:var(--pv-bg-surface);border:var(--pv-border-width-hairline) solid var(--pv-border-default);border-radius:var(--pv-radius-lg);padding:var(--pv-space-4)}
+.card h2{font-size:var(--pv-font-size-lg);margin-bottom:var(--pv-space-2)}
+.muted{color:var(--pv-text-secondary)}
+dl{display:grid;grid-template-columns:auto 1fr;gap:var(--pv-space-1) var(--pv-space-3);margin:0}
+dt{color:var(--pv-text-secondary)} dd{margin:0;font-weight:var(--pv-font-weight-medium)}
+select,button.go{font:inherit;height:36px;border-radius:var(--pv-radius-md);border:var(--pv-border-width-hairline) solid var(--pv-border-strong);background:var(--pv-bg-surface);color:var(--pv-text-primary);padding:0 var(--pv-space-2);width:100%}
+button.go{background:var(--pv-brand-primary);color:var(--pv-text-on-brand);border:0;font-weight:var(--pv-font-weight-semibold);cursor:pointer;margin-top:var(--pv-space-2)}
+.field{display:flex;flex-direction:column;gap:var(--pv-space-1);margin-bottom:var(--pv-space-2)}
+.badge{display:inline-flex;align-items:center;height:22px;padding:0 var(--pv-space-2);border-radius:var(--pv-radius-pill);font-size:var(--pv-font-size-xs);font-weight:var(--pv-font-weight-semibold)}
+.b-ok{background:var(--pv-feedback-success-bg);color:var(--pv-feedback-success-fg)}
+.b-warn{background:var(--pv-feedback-warning-bg);color:var(--pv-feedback-warning-fg)}
+.b-info{background:var(--pv-feedback-info-bg);color:var(--pv-feedback-info-fg)}
+table{width:100%;border-collapse:collapse;font-size:var(--pv-font-size-xs)}
+td,th{text-align:left;padding:var(--pv-space-1) var(--pv-space-2);border-bottom:var(--pv-border-width-hairline) solid var(--pv-border-subtle)}
+.legend{display:flex;flex-wrap:wrap;gap:var(--pv-space-3);font-size:var(--pv-font-size-xs);margin-top:var(--pv-space-2)}
+.legend i{display:inline-block;width:14px;height:10px;border-radius:2px;margin-right:4px;vertical-align:middle}
+input[type=range]{accent-color:var(--pv-brand-primary)}
+</style>
+</head>
+<body>
+<header class="top">
+  <div>
+    <h1>Proposta do mapa digital — Capim Dourado Shopping</h1>
+    <p>Etapa 0 · regiões, acessos e vias traçados sobre a própria planta (Planta Mix, nov/2026). Distâncias relativas: a planta não tem escala geral.</p>
+  </div>
+  <span class="pill">Rascunho para validação da equipe</span>
+</header>
+<main>
+  <section>
+    <div class="bar">
+      <div class="tabs" role="tablist" aria-label="Nível" id="tabs"></div>
+      <div class="layers" aria-label="Camadas">
+        <label><input type="checkbox" id="l-planta" checked> Planta original</label>
+        <label><input type="checkbox" id="l-base" checked> Traçado vetorial</label>
+        <label><input type="checkbox" id="l-reg" checked> Regiões</label>
+        <label><input type="checkbox" id="l-vias" checked> Vias (grafo)</label>
+        <label><input type="checkbox" id="l-acc" checked> Acessos</label>
+        <label>Transparência da planta <input type="range" id="op" min="0" max="100" value="45"></label>
+      </div>
+    </div>
+    <div class="stage"><svg class="map" id="map" role="img" aria-label="Mapa do nível selecionado"></svg></div>
+    <div class="legend">
+      <span><i style="background:color-mix(in srgb,var(--pv-color-vision-500) 30%,white);border:2px solid var(--pv-color-vision-600)"></i>Região com capacidade conhecida</span>
+      <span><i style="background:color-mix(in srgb,var(--pv-color-laranja-500) 25%,white);border:2px dashed var(--pv-color-laranja-500)"></i>Região com capacidade a contar</span>
+      <span><i style="background:color-mix(in srgb,var(--pv-color-violeta-500) 25%,white);border:2px solid var(--pv-color-violeta-500)"></i>Motos</span>
+      <span><i style="background:var(--pv-color-faixa-500)"></i>Acesso / rota sugerida</span>
+      <span>— — via com sentido a confirmar</span>
+    </div>
+  </section>
+  <aside>
+    <div class="card" id="info"><h2>Região</h2><p class="muted">Clique em uma região do mapa.</p></div>
+    <div class="card">
+      <h2>Rota de teste</h2>
+      <p class="muted" style="margin:0 0 var(--pv-space-2)">Menor caminho no grafo do nível (custo = comprimento relativo das vias).</p>
+      <div class="field"><label for="orig">Acesso de origem</label><select id="orig"></select></div>
+      <div class="field"><label for="dest">Região de destino</label><select id="dest"></select></div>
+      <button class="go" id="calc">Traçar rota</button>
+      <p id="rota-res" class="muted" aria-live="polite" style="margin:var(--pv-space-2) 0 0"></p>
+    </div>
+    <div class="card">
+      <h2>Regiões propostas</h2>
+      <table id="tab"></table>
+    </div>
+  </aside>
+</main>
+<script src="dados.js"></script>
+<script>
+(function(){
+const B=window.PV_BASE, M=window.PV_MAPA, NS='http://www.w3.org/2000/svg';
+const $=s=>document.querySelector(s);
+const nos=Object.fromEntries(M.nos.map(n=>[n.id,n]));
+let nivel=M.niveis.some(n=>'#'+n.id===location.hash)?location.hash.slice(1):'terreo', sel=null, rota=null;
+const el=(t,a={},txt)=>{const e=document.createElementNS(NS,t);for(const k in a)e.setAttribute(k,a[k]);if(txt!=null)e.textContent=txt;return e};
+const len=(a,b)=>Math.hypot(a[0]-b[0],a[1]-b[1]);
+const centro=p=>{let x=0,y=0;p.forEach(q=>{x+=q[0];y+=q[1]});return[x/p.length,y/p.length]};
+const capTxt=r=>r.capacidade.valor!=null?`${r.capacidade.valor} vagas`:'a contar';
+const fonteBadge=f=>f==='planta'?'<span class="badge b-ok">Escrito na planta</span>':f==='desenho'?'<span class="badge b-info">Contado no desenho</span>':'<span class="badge b-warn">A contar</span>';
+
+function tabs(){
+  $('#tabs').innerHTML=M.niveis.map(n=>`<button role="tab" aria-selected="${n.id===nivel}" data-n="${n.id}">${n.nome}</button>`).join('');
+}
+function render(){
+  const nv=M.niveis.find(n=>n.id===nivel), vb=nv.viewBox, svg=$('#map');
+  svg.innerHTML=''; svg.setAttribute('viewBox',vb.join(' '));
+  const fs=Math.max(vb[2],vb[3])/70;
+  if($('#l-planta').checked) svg.append(el('image',{href:`planta-${nivel}.png`,x:vb[0],y:vb[1],width:vb[2],height:vb[3],opacity:$('#op').value/100,preserveAspectRatio:'none'}));
+  if($('#l-base').checked) svg.append(el('path',{class:'base',d:B[nivel].d,'stroke-width':Math.max(vb[2],vb[3])/1800}));
+  if($('#l-reg').checked) M.regioes.filter(r=>r.nivel===nivel).forEach(r=>{
+    const cls=['reg',r.categorias.includes('MOTO')?'moto':'',r.capacidade.valor==null?'desconhecida':'',sel===r.id?'sel':''].join(' ');
+    const p=el('polygon',{class:cls,points:r.poligono.map(q=>q.join(',')).join(' '),'data-r':r.id,tabindex:0,'aria-label':`Região ${r.id}, ${r.nome}, ${capTxt(r)}`});
+    svg.append(p); const c=centro(r.poligono);
+    svg.append(el('text',{class:'reg-label',x:c[0],y:c[1],'text-anchor':'middle','font-size':fs*1.1},r.id));
+  });
+  if($('#l-vias').checked){
+    M.arestas.filter(a=>nos[a.de].nivel===nivel).forEach(a=>{
+      const p=nos[a.de].xy,q=nos[a.para].xy;
+      svg.append(el('line',{class:'edge '+(a.sentido==='a-confirmar'?'duvida':a.sentido==='unico'?'unico':''),x1:p[0],y1:p[1],x2:q[0],y2:q[1],'stroke-width':fs/7}));
+    });
+    M.nos.filter(n=>n.nivel===nivel).forEach(n=>svg.append(el('circle',{class:'node',cx:n.xy[0],cy:n.xy[1],r:fs/4})));
+  }
+  if(rota&&rota.nivel===nivel){
+    const d='M'+rota.caminho.map(id=>nos[id].xy.join(' ')).join('L');
+    svg.append(el('path',{class:'route-casing',d,'stroke-width':fs/2.2}));svg.append(el('path',{class:'route',d,'stroke-width':fs/3}));
+  }
+  if($('#l-acc').checked) M.acessos.filter(a=>a.nivel===nivel).forEach(a=>{
+    const xy=nos[a.no].xy,g=el('g',{class:'acc '+a.confianca});
+    g.append(el('circle',{cx:xy[0],cy:xy[1],r:fs/2}));
+    g.append(el('text',{x:xy[0]+fs*0.7,y:xy[1]+fs*0.35,'font-size':fs*0.8},a.nome));
+    g.append(el('title',{},`${a.nome} — confiança ${a.confianca}. ${a.observacao}`));
+    svg.append(g);
+  });
+}
+function info(id){
+  const r=M.regioes.find(x=>x.id===id); if(!r)return; sel=id;
+  $('#info').innerHTML=`<h2>${r.id} · ${r.nome}</h2>
+  <dl><dt>Nível</dt><dd>${M.niveis.find(n=>n.id===r.nivel).nome}</dd>
+  <dt>Referência</dt><dd>${r.referencia}</dd>
+  <dt>Categorias</dt><dd>${r.categorias.map(c=>M.categorias.find(k=>k.id===c).nome).join(', ')}</dd>
+  <dt>Coberta</dt><dd>${r.coberta?'Sim':'Não'}</dd>
+  <dt>Capacidade</dt><dd>${capTxt(r)} ${fonteBadge(r.capacidade.fonte)}</dd></dl>
+  <p class="muted" style="margin:var(--pv-space-2) 0 0">${r.capacidade.observacao}</p>`;
+  render();
+}
+// Dijkstra no nível (arestas "unico" só no sentido de/para; demais nos dois sentidos)
+function dijkstra(o,dst){
+  const adj={};const add=(a,b)=>{(adj[a]=adj[a]||[]).push([b,len(nos[a].xy,nos[b].xy)])};
+  M.arestas.forEach(e=>{add(e.de,e.para);if(e.sentido!=='unico')add(e.para,e.de)});
+  const dist={[o]:0},prev={},vis=new Set();
+  while(true){let u=null;for(const k in dist)if(!vis.has(k)&&(u==null||dist[k]<dist[u]))u=k;if(u==null)break;if(u===dst)break;vis.add(u);
+    for(const [v,w] of adj[u]||[]){const nd=dist[u]+w;if(dist[v]==null||nd<dist[v]){dist[v]=nd;prev[v]=u}}}
+  if(dist[dst]==null)return null;const c=[dst];while(c[0]!==o)c.unshift(prev[c[0]]);return{caminho:c,custo:dist[dst]};
+}
+function selects(){
+  const accs=M.acessos.filter(a=>a.nivel===nivel), regs=M.regioes.filter(r=>r.nivel===nivel);
+  $('#orig').innerHTML=accs.map(a=>`<option value="${a.no}">${a.nome}</option>`).join('');
+  $('#dest').innerHTML=regs.map(r=>`<option value="${r.noAcesso}">${r.id} · ${r.nome}</option>`).join('');
+}
+function tabela(){
+  $('#tab').innerHTML='<thead><tr><th>Região</th><th>Nível</th><th>Capacidade</th></tr></thead><tbody>'+M.regioes.map(r=>`<tr><td><b>${r.id}</b> ${r.nome}</td><td>${r.nivel.toUpperCase()}</td><td>${capTxt(r)}</td></tr>`).join('')+'</tbody>';
+}
+$('#tabs').addEventListener('click',e=>{const b=e.target.closest('[data-n]');if(!b)return;nivel=b.dataset.n;sel=null;tabs();selects();render();$('#rota-res').textContent='';});
+['l-planta','l-base','l-reg','l-vias','l-acc','op'].forEach(id=>$('#'+id).addEventListener('input',render));
+$('#map').addEventListener('click',e=>{const p=e.target.closest('[data-r]');if(p)info(p.dataset.r)});
+$('#map').addEventListener('keydown',e=>{if(e.key==='Enter'){const p=e.target.closest('[data-r]');if(p)info(p.dataset.r)}});
+$('#calc').addEventListener('click',()=>{
+  const r=dijkstra($('#orig').value,$('#dest').value);
+  if(!r){rota=null;$('#rota-res').textContent='Sem caminho no grafo atual (ligação a confirmar).';render();return}
+  rota={...r,nivel};$('#rota-res').textContent=`Custo relativo: ${Math.round(r.custo)} unidades da planta · ${r.caminho.length-1} trechos.`;render();
+});
+tabs();selects();tabela();render();
+})();
+</script>
+</body>
+</html>

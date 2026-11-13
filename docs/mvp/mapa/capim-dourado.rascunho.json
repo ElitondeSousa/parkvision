@@ -1,0 +1,933 @@
+{
+  "$descricao": "ParkVision — representação digital do estacionamento do Capim Dourado Shopping. RASCUNHO da Etapa 0 para validação da equipe. Coordenadas em pontos do PDF (docs/planta/2026_11_CDS_MIX.pdf): térreo = folha 'Planta Mix 1/2' (página 2); subsolos = recortes da folha 1/1 (página 1). Distâncias são RELATIVAS (a planta não tem escala geral).",
+  "versao": "0.1.0-rascunho",
+  "status": "aguardando-validacao",
+  "fonte": {
+    "arquivo": "docs/planta/2026_11_CDS_MIX.pdf",
+    "titulo": "Planta Mix — Operações, Capim Dourado Shopping",
+    "data": "2026-11",
+    "baseVetorial": "docs/mvp/mapa/base-vetorial.json"
+  },
+  "niveis": [
+    {
+      "id": "terreo",
+      "nome": "Térreo (pátios descobertos)",
+      "paginaPdf": 2,
+      "viewBox": [
+        405,
+        50,
+        1645,
+        1331
+      ]
+    },
+    {
+      "id": "ss1",
+      "nome": "Subsolo 1",
+      "paginaPdf": 1,
+      "viewBox": [
+        560,
+        25,
+        394,
+        396
+      ]
+    },
+    {
+      "id": "ss2",
+      "nome": "Subsolo 2",
+      "paginaPdf": 1,
+      "viewBox": [
+        954,
+        101,
+        786,
+        202
+      ]
+    }
+  ],
+  "categorias": [
+    {
+      "id": "CARRO_PEQUENO",
+      "nome": "Carro pequeno"
+    },
+    {
+      "id": "CARRO_GRANDE",
+      "nome": "Carro grande, SUV ou caminhonete"
+    },
+    {
+      "id": "MOTO",
+      "nome": "Motocicleta"
+    }
+  ],
+  "regioes": [
+    {
+      "id": "N1",
+      "nome": "Norte Oeste",
+      "nivel": "terreo",
+      "coberta": false,
+      "referencia": "Fileiras em leque a oeste da C&A (lado Polo Wear)",
+      "categorias": [
+        "CARRO_PEQUENO",
+        "CARRO_GRANDE"
+      ],
+      "capacidade": {
+        "valor": 127,
+        "fonte": "desenho",
+        "observacao": "127 vagas contadas automaticamente no desenho vetorial (mínimo detectado; o método encontra ~90–98% das vagas desenhadas). Não está escrito na planta: confirmar."
+      },
+      "poligono": [
+        [
+          688,
+          495
+        ],
+        [
+          985,
+          386
+        ],
+        [
+          985,
+          600
+        ],
+        [
+          900,
+          655
+        ],
+        [
+          688,
+          655
+        ]
+      ],
+      "noAcesso": "n_N1"
+    },
+    {
+      "id": "N2",
+      "nome": "Norte Centro",
+      "nivel": "terreo",
+      "coberta": false,
+      "referencia": "Bolsões em frente à entrada norte (C&A), com vagas de idoso",
+      "categorias": [
+        "CARRO_PEQUENO",
+        "CARRO_GRANDE"
+      ],
+      "capacidade": {
+        "valor": 48,
+        "fonte": "desenho",
+        "observacao": "48 vagas contadas automaticamente no desenho vetorial (mínimo detectado; o método encontra ~90–98% das vagas desenhadas). Não está escrito na planta: confirmar."
+      },
+      "poligono": [
+        [
+          985,
+          386
+        ],
+        [
+          1180,
+          322
+        ],
+        [
+          1180,
+          480
+        ],
+        [
+          985,
+          480
+        ]
+      ],
+      "noAcesso": "n_N2"
+    },
+    {
+      "id": "N3",
+      "nome": "Norte Leste",
+      "nivel": "terreo",
+      "coberta": false,
+      "referencia": "Fileiras longas entre a rotatória e o bloco Big / Wow Park",
+      "categorias": [
+        "CARRO_PEQUENO",
+        "CARRO_GRANDE"
+      ],
+      "capacidade": {
+        "valor": 203,
+        "fonte": "desenho",
+        "observacao": "203 vagas contadas automaticamente no desenho vetorial (mínimo detectado; o método encontra ~90–98% das vagas desenhadas). Não está escrito na planta: confirmar."
+      },
+      "poligono": [
+        [
+          1192,
+          318
+        ],
+        [
+          1318,
+          292
+        ],
+        [
+          1422,
+          300
+        ],
+        [
+          1422,
+          700
+        ],
+        [
+          1280,
+          700
+        ],
+        [
+          1192,
+          615
+        ]
+      ],
+      "noAcesso": "n_N3"
+    },
+    {
+      "id": "S1",
+      "nome": "Sul Oeste",
+      "nivel": "terreo",
+      "coberta": false,
+      "referencia": "Bolsões a oeste do retorno de embarque (frente Renner / Centauro)",
+      "categorias": [
+        "CARRO_PEQUENO",
+        "CARRO_GRANDE"
+      ],
+      "capacidade": {
+        "valor": 78,
+        "fonte": "desenho",
+        "observacao": "78 vagas contadas automaticamente no desenho vetorial (mínimo detectado; o método encontra ~90–98% das vagas desenhadas). Não está escrito na planta: confirmar."
+      },
+      "poligono": [
+        [
+          622,
+          1047
+        ],
+        [
+          938,
+          1047
+        ],
+        [
+          938,
+          1138
+        ],
+        [
+          622,
+          1138
+        ]
+      ],
+      "noAcesso": "n_S1"
+    },
+    {
+      "id": "S2",
+      "nome": "Sul Leste",
+      "nivel": "terreo",
+      "coberta": false,
+      "referencia": "Bolsões a leste do retorno de embarque (frente Madero / Marisa)",
+      "categorias": [
+        "CARRO_PEQUENO",
+        "CARRO_GRANDE"
+      ],
+      "capacidade": {
+        "valor": 83,
+        "fonte": "desenho",
+        "observacao": "83 vagas contadas automaticamente no desenho vetorial (mínimo detectado; o método encontra ~90–98% das vagas desenhadas). Não está escrito na planta: confirmar."
+      },
+      "poligono": [
+        [
+          1243,
+          1045
+        ],
+        [
+          1705,
+          1045
+        ],
+        [
+          1705,
+          1140
+        ],
+        [
+          1243,
+          1140
+        ]
+      ],
+      "noAcesso": "n_S2"
+    },
+    {
+      "id": "SS1",
+      "nome": "Subsolo 1",
+      "nivel": "ss1",
+      "coberta": true,
+      "referencia": "Quatro ilhas com corredores de mão única + faixa leste em L",
+      "categorias": [
+        "CARRO_PEQUENO",
+        "CARRO_GRANDE"
+      ],
+      "capacidade": {
+        "valor": 140,
+        "fonte": "planta",
+        "observacao": "Texto da planta: 140 vagas (3 PNE, 11 idoso, 2 neurodiverso, 4 gestante e criança). ATENÇÃO: o desenho mostra cerca de 165 espaços de vaga (faixa leste em L e fileira junto à parede sul incluídas). Confirmar qual número vale."
+      },
+      "poligono": [
+        [
+          584,
+          166
+        ],
+        [
+          858,
+          84
+        ],
+        [
+          858,
+          200
+        ],
+        [
+          878,
+          200
+        ],
+        [
+          878,
+          408
+        ],
+        [
+          750,
+          408
+        ],
+        [
+          750,
+          335
+        ],
+        [
+          584,
+          335
+        ]
+      ],
+      "noAcesso": "n_SS1"
+    },
+    {
+      "id": "SS1M",
+      "nome": "Subsolo 1 Motos",
+      "nivel": "ss1",
+      "coberta": true,
+      "referencia": "Estacionamento de motos com rampa própria",
+      "categorias": [
+        "MOTO"
+      ],
+      "capacidade": {
+        "valor": 374,
+        "fonte": "desenho",
+        "observacao": "374 vagas contadas no desenho vetorial (um retângulo por vaga). Não está escrito na planta: confirmar com a operação"
+      },
+      "poligono": [
+        [
+          858,
+          55
+        ],
+        [
+          948,
+          47
+        ],
+        [
+          948,
+          195
+        ],
+        [
+          858,
+          195
+        ]
+      ],
+      "noAcesso": "n_SS1M"
+    },
+    {
+      "id": "SS2O",
+      "nome": "Subsolo 2 Oeste",
+      "nivel": "ss2",
+      "coberta": true,
+      "referencia": "Bloco oeste do anel de circulação",
+      "categorias": [
+        "CARRO_PEQUENO",
+        "CARRO_GRANDE"
+      ],
+      "capacidade": {
+        "valor": 77,
+        "fonte": "desenho",
+        "observacao": "Parte das 216 vagas do Subsolo 2 (texto da planta), dividida na proporção das vagas detectadas por bloco (76 / 48 / 88 de 212 detectadas)."
+      },
+      "poligono": [
+        [
+          963,
+          152
+        ],
+        [
+          1230,
+          152
+        ],
+        [
+          1230,
+          284
+        ],
+        [
+          963,
+          284
+        ]
+      ],
+      "noAcesso": "n_SS2O"
+    },
+    {
+      "id": "SS2C",
+      "nome": "Subsolo 2 Centro",
+      "nivel": "ss2",
+      "coberta": true,
+      "referencia": "Bloco central do anel (concentra vagas especiais)",
+      "categorias": [
+        "CARRO_PEQUENO",
+        "CARRO_GRANDE"
+      ],
+      "capacidade": {
+        "valor": 49,
+        "fonte": "desenho",
+        "observacao": "Parte das 216 vagas do Subsolo 2 (texto da planta), dividida na proporção das vagas detectadas por bloco (76 / 48 / 88 de 212 detectadas)."
+      },
+      "poligono": [
+        [
+          1230,
+          152
+        ],
+        [
+          1440,
+          152
+        ],
+        [
+          1440,
+          284
+        ],
+        [
+          1230,
+          284
+        ]
+      ],
+      "noAcesso": "n_SS2C"
+    },
+    {
+      "id": "SS2L",
+      "nome": "Subsolo 2 Leste",
+      "nivel": "ss2",
+      "coberta": true,
+      "referencia": "Bloco leste, junto à rampa",
+      "categorias": [
+        "CARRO_PEQUENO",
+        "CARRO_GRANDE"
+      ],
+      "capacidade": {
+        "valor": 90,
+        "fonte": "desenho",
+        "observacao": "Parte das 216 vagas do Subsolo 2 (texto da planta), dividida na proporção das vagas detectadas por bloco (76 / 48 / 88 de 212 detectadas)."
+      },
+      "poligono": [
+        [
+          1440,
+          152
+        ],
+        [
+          1734,
+          152
+        ],
+        [
+          1734,
+          284
+        ],
+        [
+          1440,
+          284
+        ]
+      ],
+      "noAcesso": "n_SS2L"
+    }
+  ],
+  "totaisOficiais": [
+    {
+      "nivel": "ss1",
+      "vagas": 140,
+      "fonte": "planta"
+    },
+    {
+      "nivel": "ss2",
+      "vagas": 216,
+      "fonte": "planta",
+      "observacao": "5 PNE, 8 idoso, 1 neurodiverso, 4 gestante e criança"
+    }
+  ],
+  "acessos": [
+    {
+      "id": "A_NE",
+      "nome": "Acesso nordeste (Av. LO 2A)",
+      "nivel": "terreo",
+      "no": "n_A_NE",
+      "tipo": "entrada-saida",
+      "confianca": "alta",
+      "observacao": "Cruzamento da via norte com a Av. LO 2A. Setas na planta: duas faixas entrando no sentido oeste e uma saindo no sentido leste; placas PARE e faixas de pedestre. 'Acesso motos' é uma pista separada que desce ao longo da Av. LO 2A. Cancela não identificada."
+    },
+    {
+      "id": "A_ROT",
+      "nome": "Entrada do pátio norte (rotatória)",
+      "nivel": "terreo",
+      "no": "n_ROT",
+      "tipo": "entrada",
+      "confianca": "alta",
+      "observacao": "Rotatória sobre a via norte com abertura e seta apontando para dentro do pátio norte"
+    },
+    {
+      "id": "A_S1",
+      "nome": "Acesso sul oeste (Av. NS-05)",
+      "nivel": "terreo",
+      "no": "n_A_S1",
+      "tipo": "entrada-saida",
+      "confianca": "media",
+      "observacao": "Ramo diagonal entre a via marginal da Av. NS-05 e o retorno de embarque em frente à entrada principal. Sentido não indicado na planta."
+    },
+    {
+      "id": "A_S2",
+      "nome": "Acesso sul leste (Av. NS-05)",
+      "nivel": "terreo",
+      "no": "n_A_S2",
+      "tipo": "entrada-saida",
+      "confianca": "media",
+      "observacao": "Ramo diagonal entre a via marginal da Av. NS-05 e o retorno de embarque em frente à entrada principal. Sentido não indicado na planta."
+    },
+    {
+      "id": "A_SS1",
+      "nome": "Entrada do Subsolo 1",
+      "nivel": "ss1",
+      "no": "n_A_SS1",
+      "tipo": "entrada",
+      "confianca": "baixa",
+      "observacao": "Seta vermelha e símbolo de veículo no canto noroeste do recorte. Ligação com o térreo não aparece"
+    },
+    {
+      "id": "A_SS1M",
+      "nome": "Rampa de motos (desce)",
+      "nivel": "ss1",
+      "no": "n_A_SS1M",
+      "tipo": "entrada",
+      "confianca": "alta",
+      "observacao": "Texto da planta: 'Rampa de motos — desce'"
+    },
+    {
+      "id": "A_SS2",
+      "nome": "Rampa do Subsolo 2",
+      "nivel": "ss2",
+      "no": "n_A_SS2",
+      "tipo": "entrada-saida",
+      "confianca": "alta",
+      "observacao": "Rampa de mão dupla no canto nordeste do pavimento. Para onde ela sobe não aparece no recorte"
+    }
+  ],
+  "nos": [
+    {
+      "id": "n_A_NE",
+      "nivel": "terreo",
+      "xy": [
+        1700,
+        178
+      ]
+    },
+    {
+      "id": "n_rodNE",
+      "nivel": "terreo",
+      "xy": [
+        1530,
+        232
+      ]
+    },
+    {
+      "id": "n_ROT",
+      "nivel": "terreo",
+      "xy": [
+        1350,
+        279
+      ],
+      "rotulo": "Rotatória"
+    },
+    {
+      "id": "n_rodC",
+      "nivel": "terreo",
+      "xy": [
+        1150,
+        330
+      ]
+    },
+    {
+      "id": "n_rodO",
+      "nivel": "terreo",
+      "xy": [
+        950,
+        392
+      ]
+    },
+    {
+      "id": "n_NO",
+      "nivel": "terreo",
+      "xy": [
+        480,
+        530
+      ]
+    },
+    {
+      "id": "n_O1",
+      "nivel": "terreo",
+      "xy": [
+        470,
+        840
+      ]
+    },
+    {
+      "id": "n_SO",
+      "nivel": "terreo",
+      "xy": [
+        520,
+        1150
+      ]
+    },
+    {
+      "id": "n_S1",
+      "nivel": "terreo",
+      "xy": [
+        780,
+        1095
+      ]
+    },
+    {
+      "id": "n_ret",
+      "nivel": "terreo",
+      "xy": [
+        1095,
+        1105
+      ],
+      "rotulo": "Retorno de embarque"
+    },
+    {
+      "id": "n_S2",
+      "nivel": "terreo",
+      "xy": [
+        1440,
+        1095
+      ]
+    },
+    {
+      "id": "n_A_S1",
+      "nivel": "terreo",
+      "xy": [
+        830,
+        1168
+      ]
+    },
+    {
+      "id": "n_A_S2",
+      "nivel": "terreo",
+      "xy": [
+        1460,
+        1168
+      ]
+    },
+    {
+      "id": "n_N1",
+      "nivel": "terreo",
+      "xy": [
+        870,
+        480
+      ]
+    },
+    {
+      "id": "n_N2",
+      "nivel": "terreo",
+      "xy": [
+        1080,
+        395
+      ]
+    },
+    {
+      "id": "n_N3",
+      "nivel": "terreo",
+      "xy": [
+        1300,
+        380
+      ]
+    },
+    {
+      "id": "n_A_SS1",
+      "nivel": "ss1",
+      "xy": [
+        622,
+        160
+      ]
+    },
+    {
+      "id": "n_SS1",
+      "nivel": "ss1",
+      "xy": [
+        720,
+        230
+      ]
+    },
+    {
+      "id": "n_A_SS1M",
+      "nivel": "ss1",
+      "xy": [
+        915,
+        55
+      ]
+    },
+    {
+      "id": "n_SS1M",
+      "nivel": "ss1",
+      "xy": [
+        903,
+        125
+      ]
+    },
+    {
+      "id": "n_A_SS2",
+      "nivel": "ss2",
+      "xy": [
+        1648,
+        160
+      ]
+    },
+    {
+      "id": "n_ss2NE",
+      "nivel": "ss2",
+      "xy": [
+        1648,
+        186
+      ]
+    },
+    {
+      "id": "n_SS2L",
+      "nivel": "ss2",
+      "xy": [
+        1560,
+        186
+      ]
+    },
+    {
+      "id": "n_SS2C",
+      "nivel": "ss2",
+      "xy": [
+        1335,
+        186
+      ]
+    },
+    {
+      "id": "n_SS2O",
+      "nivel": "ss2",
+      "xy": [
+        1130,
+        186
+      ]
+    },
+    {
+      "id": "n_ss2SO",
+      "nivel": "ss2",
+      "xy": [
+        1020,
+        262
+      ]
+    },
+    {
+      "id": "n_ss2SE",
+      "nivel": "ss2",
+      "xy": [
+        1690,
+        262
+      ]
+    }
+  ],
+  "arestas": [
+    {
+      "de": "n_A_NE",
+      "para": "n_rodNE",
+      "sentido": "a-confirmar"
+    },
+    {
+      "de": "n_rodNE",
+      "para": "n_ROT",
+      "sentido": "a-confirmar"
+    },
+    {
+      "de": "n_ROT",
+      "para": "n_N3",
+      "sentido": "a-confirmar"
+    },
+    {
+      "de": "n_ROT",
+      "para": "n_rodC",
+      "sentido": "a-confirmar"
+    },
+    {
+      "de": "n_rodC",
+      "para": "n_N2",
+      "sentido": "a-confirmar"
+    },
+    {
+      "de": "n_rodC",
+      "para": "n_rodO",
+      "sentido": "a-confirmar"
+    },
+    {
+      "de": "n_rodO",
+      "para": "n_N1",
+      "sentido": "a-confirmar"
+    },
+    {
+      "de": "n_rodO",
+      "para": "n_NO",
+      "sentido": "a-confirmar"
+    },
+    {
+      "de": "n_NO",
+      "para": "n_O1",
+      "sentido": "a-confirmar"
+    },
+    {
+      "de": "n_O1",
+      "para": "n_SO",
+      "sentido": "a-confirmar"
+    },
+    {
+      "de": "n_SO",
+      "para": "n_S1",
+      "sentido": "a-confirmar"
+    },
+    {
+      "de": "n_A_S1",
+      "para": "n_S1",
+      "sentido": "a-confirmar"
+    },
+    {
+      "de": "n_A_S1",
+      "para": "n_ret",
+      "sentido": "a-confirmar"
+    },
+    {
+      "de": "n_S1",
+      "para": "n_ret",
+      "sentido": "a-confirmar"
+    },
+    {
+      "de": "n_ret",
+      "para": "n_S2",
+      "sentido": "a-confirmar"
+    },
+    {
+      "de": "n_A_S2",
+      "para": "n_S2",
+      "sentido": "a-confirmar"
+    },
+    {
+      "de": "n_A_S2",
+      "para": "n_ret",
+      "sentido": "a-confirmar"
+    },
+    {
+      "de": "n_A_SS1",
+      "para": "n_SS1",
+      "sentido": "unico",
+      "observacao": "Serpentina de mão única"
+    },
+    {
+      "de": "n_A_SS1M",
+      "para": "n_SS1M",
+      "sentido": "unico"
+    },
+    {
+      "de": "n_A_SS2",
+      "para": "n_ss2NE",
+      "sentido": "duplo"
+    },
+    {
+      "de": "n_ss2NE",
+      "para": "n_SS2L",
+      "sentido": "unico",
+      "observacao": "Anel anti-horário: faixa norte segue para oeste"
+    },
+    {
+      "de": "n_SS2L",
+      "para": "n_SS2C",
+      "sentido": "unico"
+    },
+    {
+      "de": "n_SS2C",
+      "para": "n_SS2O",
+      "sentido": "unico"
+    },
+    {
+      "de": "n_SS2O",
+      "para": "n_ss2SO",
+      "sentido": "unico"
+    },
+    {
+      "de": "n_ss2SO",
+      "para": "n_ss2SE",
+      "sentido": "unico",
+      "observacao": "Anel anti-horário: faixa sul segue para leste"
+    },
+    {
+      "de": "n_ss2SE",
+      "para": "n_ss2NE",
+      "sentido": "unico",
+      "observacao": "Volta até a rampa"
+    }
+  ],
+  "ligacoesEntreNiveis": [
+    {
+      "de": "n_A_NE",
+      "para": "n_A_SS2",
+      "status": "duvida",
+      "observacao": "A rampa do SS2 aparenta subir para o lado nordeste, mas a ligação com o térreo não está no desenho"
+    },
+    {
+      "de": "n_A_NE",
+      "para": "n_A_SS1M",
+      "status": "duvida",
+      "observacao": "'Acesso motos' no nordeste e 'rampa de motos' no SS1 sugerem ligação; confirmar"
+    },
+    {
+      "de": "n_A_NE",
+      "para": "n_A_SS1",
+      "status": "duvida",
+      "observacao": "Ligação do SS1 com o térreo e com o SS2 não aparece"
+    }
+  ],
+  "areasNaoDistribuidas": [
+    {
+      "id": "SERV_LESTE",
+      "nome": "Área de serviço leste",
+      "nivel": "terreo",
+      "referencia": "Entre o Cinemark e a Av. LO 2A: centro de distribuição, depósito e lava-jato",
+      "vagasDetectadas": 20,
+      "observacao": "Provável estacionamento de serviço/funcionários; fora da distribuição até a equipe confirmar",
+      "poligono": [
+        [
+          1600,
+          860
+        ],
+        [
+          1790,
+          860
+        ],
+        [
+          1790,
+          1035
+        ],
+        [
+          1600,
+          1035
+        ]
+      ]
+    }
+  ],
+  "hipoteses": [
+    {
+      "id": "H_SUBSOLOS_NORTE",
+      "texto": "Os subsolos ficariam no lado norte, junto à via norte, com acesso pelo nordeste.",
+      "evidencias": [
+        "A parede diagonal do Subsolo 1 tem a mesma inclinação da via norte (-0,30)",
+        "A rampa de motos fica no canto nordeste do Subsolo 1, do mesmo lado do 'Acesso motos'",
+        "A rampa do Subsolo 2 sobe no sentido norte, no lado leste"
+      ],
+      "status": "a-confirmar"
+    }
+  ]
+}

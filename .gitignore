@@ -26,3 +26,6 @@ Thumbs.db
 !.vscode/extensions.json
 .idea/
 *.log
+
+# Estado local de plugins do Claude Code
+.omc/
