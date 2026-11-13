@@ -248,14 +248,18 @@ gantt
 
 ### 5.2 Papéis e responsáveis
 
+**Equipe:** Eliton de Sousa Pereira, Marcos Feliphe Freitas Moraes, Gustavo Araújo Lopes, Arthur Santos Coelho.
+
+São 6 papéis para 4 integrantes, então cada pessoa pode acumular mais de um. A distribuição abaixo será definida pela equipe e registrada também no Geproj.
+
 | Papel | Integrante | Responsabilidades principais |
 |-------|------------|------------------------------|
-| Arquiteto de Software | [Nome do integrante] | Arquitetura, decisões técnicas, modelo de dados, adaptação à planta, revisão técnica. |
-| UX/UI (Design System e Frontend) | [Nome do integrante] | Design System, tokens, componentes, Storybook, telas, acessibilidade visual. |
-| Documentação | [Nome do integrante] | Documentos do repositório, requisitos, roadmap, atualização do Geproj, relatórios de entrega. |
-| Backend | [Nome do integrante] | API NestJS, Prisma, WebSocket, algoritmo de distribuição, pagamento simulado, auditoria. |
-| IoT | [Nome do integrante] | Firmware ESP32, sensores, broker MQTT, simulador, painel de LED, totem e maquete. |
-| QA (Qualidade e Testes) | [Nome do integrante] | Plano de testes, testes automatizados, acessibilidade, usabilidade, carga. |
+| Arquiteto de Software | A definir | Arquitetura, decisões técnicas, modelo de dados, adaptação à planta, revisão técnica. |
+| UX/UI (Design System e Frontend) | A definir | Design System, tokens, componentes, Storybook, telas, acessibilidade visual. |
+| Documentação | A definir | Documentos do repositório, requisitos, roadmap, atualização do Geproj, relatórios de entrega. |
+| Backend | A definir | API NestJS, Prisma, WebSocket, algoritmo de distribuição, pagamento simulado, auditoria. |
+| IoT | A definir | Firmware ESP32, sensores, broker MQTT, simulador, painel de LED, totem e maquete. |
+| QA (Qualidade e Testes) | A definir | Plano de testes, testes automatizados, acessibilidade, usabilidade, carga. |
 
 > Um integrante pode acumular papéis. Substituir os placeholders pelos nomes reais ao cadastrar no Geproj.
 

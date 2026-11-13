@@ -25,7 +25,7 @@ Revisão feita contra o enunciado, com base nos arquivos que existem no reposit�
 | 04 — Design System | [04-design-system.md](04-design-system.md) | ✅ | — |
 | 05 — Estrutura das telas | [05-telas.md](05-telas.md) | ✅ | — |
 | 06 — Tecnologia sorteada | [06-tecnologia-sorteada.md](06-tecnologia-sorteada.md) | ✅ | — |
-| 07 — Cronograma e roadmap | [07-roadmap.md](07-roadmap.md) | ✅ | Datas são estimativas a ajustar ao calendário da disciplina; nomes dos integrantes a preencher |
+| 07 — Cronograma e roadmap | [07-roadmap.md](07-roadmap.md) | ✅ | Datas são estimativas a ajustar ao calendário da disciplina; equipe registrada, distribuição dos papéis a definir |
 | 08 — Decisões técnicas | [08-decisoes-tecnicas.md](08-decisoes-tecnicas.md) | ✅ | — |
 | README na raiz | [README.md](../README.md) | ✅ | Status: planejamento técnico inicial |
 | Lógica de distribuição inteligente (item 7 do enunciado) | [09-distribuicao-inteligente.md](09-distribuicao-inteligente.md) | ✅ | Fórmula, algoritmo, exemplo numérico, recomendação × reserva, concorrência |
@@ -93,7 +93,7 @@ Todos em Mermaid e verificados (20 diagramas renderizados sem erro).
 
 1. **Planta:** contar vagas dos pátios norte/sul e de motos; confirmar acessos, cancelas, rampas e ligação entre subsolos; obter escala/cotas; validar zonas com a operação ([10 §6–7](10-analise-planta.md)).
 2. **Protótipo:** substituir a simulação Z1–Z4 pelas zonas reais (Fase 1).
-3. **Equipe:** preencher nomes dos integrantes e responsáveis no [07](07-roadmap.md) e cadastrar o projeto no Geproj.
+3. **Equipe:** integrantes registrados no README, no [01](01-visao-geral.md) e no [07](07-roadmap.md); falta definir quem assume cada papel e cadastrar o projeto no Geproj.
 4. **Fase 1:** componentes React + Storybook; fixar versões no `package.json`; incluir verificação de contraste não textual (3:1) no script.
 5. **Repositório:** ✅ publicado em https://github.com/ElitondeSousa/parkvision (branch `main`).
 

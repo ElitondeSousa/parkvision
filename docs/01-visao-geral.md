@@ -2,6 +2,7 @@
 
 > **Projeto:** ParkVision — Estacionamento Inteligente
 > **Tecnologia sorteada:** Design System (requisito central)
+> **Equipe:** Eliton de Sousa Pereira, Marcos Feliphe Freitas Moraes, Gustavo Araújo Lopes, Arthur Santos Coelho
 > **Etapa:** 1ª entrega — Planejamento Técnico (13/11/2026)
 > **Status da planta:** **RECEBIDA em 13/11/2026** (Capim Dourado Shopping — Planta Mix). A análise e a proposta inicial de zonas estão em [10-analise-planta.md](10-analise-planta.md). Contagens de vagas que a planta não informa (pátios descobertos e motos) continuam pendentes e não foram estimadas.
 

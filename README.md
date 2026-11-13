@@ -14,6 +14,13 @@ As 6 telas (Visão geral, Mapa de vagas, Distribuição inteligente, Veículos e
 >
 > 🗺️ **Planta recebida em 13/11/2026** (Capim Dourado Shopping): análise e proposta inicial de zonas em [docs/10-analise-planta.md](docs/10-analise-planta.md). Subsolo 1 com 140 vagas, Subsolo 2 com 216 vagas, pátios descobertos norte e sul (quantidade a contar). O mapa interativo do protótipo ainda usa uma simulação rotulada como exemplo.
 
+## Equipe
+
+- Eliton de Sousa Pereira
+- Marcos Feliphe Freitas Moraes
+- Gustavo Araújo Lopes
+- Arthur Santos Coelho
+
 ## Objetivo
 
 Reduzir filas, congestionamentos internos e o tempo de procura por vaga fazendo com que **o próprio estacionamento** direcione cada veículo para a região mais adequada, considerando disponibilidade, distância, fluxo e a saúde dos sensores.
