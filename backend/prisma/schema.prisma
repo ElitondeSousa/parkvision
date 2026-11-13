@@ -1,0 +1,470 @@
+// ParkVision — modelo de dados inicial (1ª entrega: planejamento)
+// Banco: PostgreSQL 16 · ORM: Prisma
+//
+// A hierarquia Estabelecimento → Pavimento → Zona → Setor → Vaga e o grafo de circulação
+// são genéricos de propósito: quantidades, nomes e distâncias virão da PLANTA REAL
+// (ainda não recebida). Nenhum dado físico é fixado aqui.
+//
+// Validar: npx prisma validate   ·   Gerar diagrama/migração na fase 2.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ───────────────────────── Enums ─────────────────────────
+
+/// Estados de negócio da vaga (mesmos 7 estados do Design System, exceto "carregamento", que é só de interface).
+enum EstadoVaga {
+  LIVRE
+  OCUPADA
+  RESERVADA
+  INDISPONIVEL
+  MANUTENCAO
+  ERRO
+}
+
+enum TipoVaga {
+  COMUM
+  PCD
+  IDOSO
+  MOTO
+  GESTANTE
+  RECARGA_ELETRICA
+}
+
+enum TipoSensor {
+  ULTRASSONICO
+  MAGNETICO
+  CAMERA
+}
+
+enum StatusDispositivo {
+  ONLINE
+  OFFLINE
+  FALHA
+}
+
+enum TipoAcesso {
+  ENTRADA
+  SAIDA
+  ENTRADA_SAIDA
+}
+
+enum TipoNo {
+  ACESSO
+  BIFURCACAO
+  RAMPA
+  ENTRADA_ZONA
+  PONTO_PAINEL
+  PEDESTRE
+}
+
+enum StatusTicket {
+  EM_ANDAMENTO
+  PAGAMENTO_PENDENTE
+  PAGO
+  FINALIZADO
+  CANCELADO
+  EXTRAVIADO
+}
+
+enum TipoMovimentacao {
+  ENTRADA
+  SAIDA
+}
+
+enum StatusReserva {
+  ATIVA
+  CONVERTIDA
+  EXPIRADA
+  CANCELADA
+}
+
+enum MetodoPagamento {
+  PIX
+  CARTAO
+  CAIXA
+}
+
+enum StatusPagamento {
+  PENDENTE
+  CONFIRMADO
+  FALHOU
+  ESTORNADO
+  EXPIRADO
+}
+
+enum PerfilUsuario {
+  GESTOR
+  OPERADOR
+  MANUTENCAO
+}
+
+// ─────────────────── Estrutura física ───────────────────
+
+model Estabelecimento {
+  id         String      @id @default(uuid())
+  nome       String
+  codigo     String      @unique // usado no tópico MQTT: parkvision/{codigo}/...
+  fusoHorario String     @default("America/Sao_Paulo")
+  pavimentos Pavimento[]
+  acessos    Acesso[]
+  tarifas    Tarifa[]
+  criadoEm   DateTime    @default(now())
+
+  @@map("estabelecimento")
+}
+
+model Pavimento {
+  id                String           @id @default(uuid())
+  estabelecimentoId String
+  estabelecimento   Estabelecimento  @relation(fields: [estabelecimentoId], references: [id])
+  nome              String // ex.: "Piso G1" — virá da planta
+  nivel             Int // ordem vertical (negativo = subsolo)
+  plantaUrl         String? // imagem/SVG da planta usada como fundo do mapa
+  zonas             Zona[]
+  nos               NoCirculacao[]
+
+  @@unique([estabelecimentoId, nivel])
+  @@map("pavimento")
+}
+
+model Zona {
+  id                     String              @id @default(uuid())
+  pavimentoId            String
+  pavimento              Pavimento           @relation(fields: [pavimentoId], references: [id])
+  codigo                 String // nomenclatura definida após análise da planta
+  nome                   String
+  ativa                  Boolean             @default(true)
+  /// Nó do grafo que representa a entrada da zona (para cálculo de rota/distância)
+  noEntradaId            String?
+  capacidadeVazaoPorMin  Int                 @default(6) // veículos/min que a zona absorve sem congestionar
+  poligono               Json? // contorno da zona sobre a planta (coordenadas do desenho)
+  setores                Setor[]
+  paineis                PainelSinalizacao[]
+  snapshots              OcupacaoSnapshot[]
+  recomendacoes          Recomendacao[]
+
+  @@unique([pavimentoId, codigo])
+  @@map("zona")
+}
+
+model Setor {
+  id     String @id @default(uuid())
+  zonaId String
+  zona   Zona   @relation(fields: [zonaId], references: [id])
+  codigo String
+  nome   String?
+  vagas  Vaga[]
+
+  @@unique([zonaId, codigo])
+  @@map("setor")
+}
+
+model Vaga {
+  id                String           @id @default(uuid())
+  setorId           String
+  setor             Setor            @relation(fields: [setorId], references: [id])
+  codigo            String // identificador pintado/sinalizado na vaga
+  tipo              TipoVaga         @default(COMUM)
+  estado            EstadoVaga       @default(LIVRE)
+  estadoAlteradoEm  DateTime         @default(now())
+  reservadaAte      DateTime?
+  /// Posição no desenho da planta (unidades do SVG/imagem), para o mapa
+  posX              Float?
+  posY              Float?
+  rotacao           Float?           @default(0)
+  distanciaEntradaM Float? // distância pela rota a partir do acesso principal (calculada do grafo)
+  categorias        VagaCategoria[]
+  sensor            Sensor?
+  eventos           EventoVaga[]
+  reservas          ReservaVaga[]
+
+  @@unique([setorId, codigo])
+  @@index([estado])
+  @@map("vaga")
+}
+
+model CategoriaVeiculo {
+  id        String          @id @default(uuid())
+  codigo    String          @unique // MOTO, CARRO_PEQUENO, CARRO_GRANDE
+  nome      String
+  descricao String?
+  icone     String? // nome do ícone no Design System
+  vagas     VagaCategoria[]
+  tickets   Ticket[]
+  tarifas   Tarifa[]
+
+  @@map("categoria_veiculo")
+}
+
+/// Compatibilidade N:N — uma vaga de carro grande pode aceitar carro pequeno, por exemplo.
+model VagaCategoria {
+  vagaId      String
+  categoriaId String
+  vaga        Vaga             @relation(fields: [vagaId], references: [id], onDelete: Cascade)
+  categoria   CategoriaVeiculo @relation(fields: [categoriaId], references: [id])
+  /// Menor = preferencial (carro pequeno prefere vaga pequena antes de ocupar vaga grande)
+  preferencia Int              @default(1)
+
+  @@id([vagaId, categoriaId])
+  @@map("vaga_categoria")
+}
+
+// ─────────────────── Circulação (grafo dirigido) ───────────────────
+
+model NoCirculacao {
+  id           String              @id @default(uuid())
+  pavimentoId  String
+  pavimento    Pavimento           @relation(fields: [pavimentoId], references: [id])
+  tipo         TipoNo
+  rotulo       String?
+  posX         Float
+  posY         Float
+  saidas       ArestaCirculacao[]  @relation("origem")
+  entradas     ArestaCirculacao[]  @relation("destino")
+  paineis      PainelSinalizacao[]
+
+  @@map("no_circulacao")
+}
+
+/// Aresta com SENTIDO: mão dupla = duas arestas. Rampas entre pavimentos ligam nós de pavimentos diferentes.
+model ArestaCirculacao {
+  id         String       @id @default(uuid())
+  origemId   String
+  destinoId  String
+  origem     NoCirculacao @relation("origem", fields: [origemId], references: [id])
+  destino    NoCirculacao @relation("destino", fields: [destinoId], references: [id])
+  distanciaM Float
+  bloqueada  Boolean      @default(false) // obra, evento, interdição
+  restricao  String? // ex.: "altura máx. 2,10 m", "proibido moto"
+
+  @@unique([origemId, destinoId])
+  @@map("aresta_circulacao")
+}
+
+model Acesso {
+  id                String          @id @default(uuid())
+  estabelecimentoId String
+  estabelecimento   Estabelecimento @relation(fields: [estabelecimentoId], references: [id])
+  nome              String
+  tipo              TipoAcesso
+  noId              String? // nó do grafo correspondente
+  tickets           Ticket[]
+  movimentacoes     Movimentacao[]
+
+  @@map("acesso")
+}
+
+// ─────────────────── Dispositivos ───────────────────
+
+model Sensor {
+  id              String            @id @default(uuid())
+  vagaId          String?           @unique
+  vaga            Vaga?             @relation(fields: [vagaId], references: [id])
+  identificador   String            @unique // ID do dispositivo / client-id MQTT
+  tipo            TipoSensor
+  status          StatusDispositivo @default(OFFLINE)
+  ultimoHeartbeat DateTime?
+  firmware        String?
+  bateria         Int?
+  rssi            Int?
+  /// Calibração específica (limiar de distância, campo magnético de referência...)
+  calibracao      Json?
+  instaladoEm     DateTime?
+
+  @@map("sensor")
+}
+
+model PainelSinalizacao {
+  id              String            @id @default(uuid())
+  identificador   String            @unique
+  zonaId          String?
+  zona            Zona?             @relation(fields: [zonaId], references: [id])
+  noId            String?
+  no              NoCirculacao?     @relation(fields: [noId], references: [id])
+  descricao       String?
+  status          StatusDispositivo @default(OFFLINE)
+  ultimaMensagem  Json?
+  atualizadoEm    DateTime?
+
+  @@map("painel_sinalizacao")
+}
+
+model EventoVaga {
+  id            BigInt      @id @default(autoincrement())
+  vagaId        String
+  vaga          Vaga        @relation(fields: [vagaId], references: [id])
+  estadoAnterior EstadoVaga?
+  estadoNovo    EstadoVaga
+  origem        String // SENSOR | MANUAL | RESERVA | SISTEMA
+  seqSensor     Int?
+  ocorridoEm    DateTime    @default(now())
+
+  @@index([vagaId, ocorridoEm])
+  @@map("evento_vaga")
+}
+
+/// Agregado por zona e minuto — base dos gráficos de histórico (evolução: hypertable TimescaleDB).
+model OcupacaoSnapshot {
+  id          BigInt   @id @default(autoincrement())
+  zonaId      String
+  zona        Zona     @relation(fields: [zonaId], references: [id])
+  minuto      DateTime
+  total       Int
+  livres      Int
+  ocupadas    Int
+  reservadas  Int
+  indisponiveis Int
+  emErro      Int
+
+  @@unique([zonaId, minuto])
+  @@map("ocupacao_snapshot")
+}
+
+// ─────────────────── Sessão de estacionamento ───────────────────
+
+model Ticket {
+  id            String           @id @default(uuid())
+  /// Hash SHA-256 do token aleatório impresso no QR Code. O token em claro NUNCA é armazenado.
+  tokenHash     String           @unique
+  codigoCurto   String           @unique // digitável no caixa
+  categoriaId   String
+  categoria     CategoriaVeiculo @relation(fields: [categoriaId], references: [id])
+  acessoId      String
+  acesso        Acesso           @relation(fields: [acessoId], references: [id])
+  placa         String? // opcional (LGPD: retenção limitada)
+  status        StatusTicket     @default(EM_ANDAMENTO)
+  entradaEm     DateTime         @default(now())
+  saidaEm       DateTime?
+  saidaLiberadaAte DateTime? // janela de tolerância após o pagamento
+  movimentacoes Movimentacao[]
+  recomendacao  Recomendacao?
+  reservas      ReservaVaga[]
+  pagamentos    Pagamento[]
+
+  @@index([status, entradaEm])
+  @@map("ticket")
+}
+
+model Movimentacao {
+  id         String           @id @default(uuid())
+  ticketId   String
+  ticket     Ticket           @relation(fields: [ticketId], references: [id])
+  acessoId   String
+  acesso     Acesso           @relation(fields: [acessoId], references: [id])
+  tipo       TipoMovimentacao
+  ocorridaEm DateTime         @default(now())
+  manual     Boolean          @default(false)
+  usuarioId  String?
+
+  @@map("movimentacao")
+}
+
+model Recomendacao {
+  id             String   @id @default(uuid())
+  ticketId       String   @unique
+  ticket         Ticket   @relation(fields: [ticketId], references: [id])
+  zonaId         String
+  zona           Zona     @relation(fields: [zonaId], references: [id])
+  setorSugeridoId String?
+  score          Float
+  /// Score e critérios de TODAS as zonas avaliadas + motivos de inelegibilidade (transparência/auditoria)
+  justificativa  Json
+  rota           Json? // sequência de nós do grafo
+  versaoAlgoritmo String  @default("v1")
+  /// Enquanto não convertida, conta como "veículo em trânsito" para a zona
+  convertidaEm   DateTime?
+  expiraEm       DateTime
+  criadaEm       DateTime @default(now())
+
+  @@index([zonaId, convertidaEm, expiraEm])
+  @@map("recomendacao")
+}
+
+/// Evolução (não usada na v1): reserva de vaga específica com TTL.
+model ReservaVaga {
+  id         String        @id @default(uuid())
+  vagaId     String
+  vaga       Vaga          @relation(fields: [vagaId], references: [id])
+  ticketId   String
+  ticket     Ticket        @relation(fields: [ticketId], references: [id])
+  status     StatusReserva @default(ATIVA)
+  criadaEm   DateTime      @default(now())
+  expiraEm   DateTime
+
+  @@index([vagaId, status])
+  @@map("reserva_vaga")
+}
+
+// ─────────────────── Pagamento ───────────────────
+
+model Tarifa {
+  id                String            @id @default(uuid())
+  estabelecimentoId String
+  estabelecimento   Estabelecimento   @relation(fields: [estabelecimentoId], references: [id])
+  categoriaId       String?
+  categoria         CategoriaVeiculo? @relation(fields: [categoriaId], references: [id])
+  nome              String
+  toleranciaMin     Int               @default(15)
+  /// Regras de cobrança configuráveis (faixas de horas, valor máximo diário, ticket extraviado...)
+  regras            Json
+  vigenteDesde      DateTime
+  vigenteAte        DateTime?
+  pagamentos        Pagamento[]
+
+  @@map("tarifa")
+}
+
+model Pagamento {
+  id               String          @id @default(uuid())
+  ticketId         String
+  ticket           Ticket          @relation(fields: [ticketId], references: [id])
+  tarifaId         String
+  tarifa           Tarifa          @relation(fields: [tarifaId], references: [id])
+  metodo           MetodoPagamento
+  status           StatusPagamento @default(PENDENTE)
+  valorCentavos    Int
+  provedor         String // "mock", "mercadopago", "pagarme", "asaas", "caixa"
+  idExterno        String?
+  chaveIdempotencia String         @unique
+  criadoEm         DateTime        @default(now())
+  confirmadoEm     DateTime?
+  // Nenhum dado de cartão é armazenado.
+
+  @@index([ticketId])
+  @@map("pagamento")
+}
+
+// ─────────────────── Administração ───────────────────
+
+model Usuario {
+  id        String        @id @default(uuid())
+  nome      String
+  email     String        @unique
+  senhaHash String
+  perfil    PerfilUsuario
+  ativo     Boolean       @default(true)
+  auditoria Auditoria[]
+
+  @@map("usuario")
+}
+
+model Auditoria {
+  id         BigInt   @id @default(autoincrement())
+  usuarioId  String?
+  usuario    Usuario? @relation(fields: [usuarioId], references: [id])
+  acao       String // ex.: VAGA_ESTADO_FORCADO, TICKET_CANCELADO, CANCELA_LIBERADA
+  entidade   String
+  entidadeId String
+  dados      Json?
+  ocorridaEm DateTime @default(now())
+
+  @@index([entidade, entidadeId])
+  @@map("auditoria")
+}

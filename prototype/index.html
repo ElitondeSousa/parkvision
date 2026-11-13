@@ -1,0 +1,2024 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Protótipo ParkVision</title>
+<meta name="description" content="Protótipo navegável de alta fidelidade do ParkVision (estacionamento inteligente). Dados de demonstração.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@500;600;700&family=IBM+Plex+Mono:wght@500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/tokens.css">
+<style>
+/* =========================================================
+   ParkVision — protótipo. Todas as cores, espaços, raios,
+   sombras e fontes vêm de assets/tokens.css (--pv-*).
+   ========================================================= */
+*,*::before,*::after{box-sizing:border-box}
+html,body{margin:0}
+body{
+  font-family:var(--pv-font-family-sans);
+  font-size:var(--pv-font-size-sm);
+  line-height:var(--pv-line-height-normal);
+  color:var(--pv-text-primary);
+  background:var(--pv-bg-canvas);
+  -webkit-font-smoothing:antialiased;
+}
+h1,h2,h3,h4{font-family:var(--pv-font-family-display);line-height:var(--pv-line-height-tight);margin:0;font-weight:var(--pv-font-weight-semibold)}
+p{margin:0}
+button,input,select,textarea{font:inherit;color:inherit}
+a{color:var(--pv-text-link)}
+svg.ic{width:18px;height:18px;flex:none;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.num{font-family:var(--pv-font-family-display);font-variant-numeric:tabular-nums}
+.mono{font-family:var(--pv-font-family-mono);font-weight:var(--pv-font-weight-medium);letter-spacing:0}
+.muted{color:var(--pv-text-muted)}
+.secondary{color:var(--pv-text-secondary)}
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+:focus-visible,.is-focus{outline:var(--pv-focus-ring-width) solid var(--pv-focus-ring-color);outline-offset:var(--pv-focus-ring-offset)}
+.skip{position:absolute;left:var(--pv-space-4);top:-100px;z-index:var(--pv-z-toast);background:var(--pv-brand-primary);color:var(--pv-text-on-brand);padding:var(--pv-space-2) var(--pv-space-4);border-radius:var(--pv-radius-md)}
+.skip:focus{top:var(--pv-space-4)}
+
+/* ---------- Shell ---------- */
+.app{display:grid;grid-template-columns:var(--pv-sidebar-width) minmax(0,1fr);min-height:100vh}
+.sidebar{
+  position:sticky;top:0;height:100vh;overflow-y:auto;
+  background:var(--pv-sidebar-bg);color:var(--pv-sidebar-fg);
+  display:flex;flex-direction:column;gap:var(--pv-space-6);
+  padding:var(--pv-space-5) var(--pv-space-3);
+}
+.brand{display:flex;align-items:center;gap:var(--pv-space-3);padding:0 var(--pv-space-2);text-decoration:none;color:var(--pv-sidebar-fg-active)}
+.brand svg{width:36px;height:36px;flex:none}
+.brand-word{font-family:var(--pv-font-family-display);font-size:var(--pv-font-size-2xl);font-weight:var(--pv-font-weight-semibold);letter-spacing:-0.01em}
+.brand-word strong{font-weight:var(--pv-font-weight-bold);color:var(--pv-color-vision-300)}
+.lg-plate{fill:var(--pv-color-vision-600)} .lg-p{fill:var(--pv-color-white)} .lg-eye{fill:var(--pv-color-faixa-500)}
+.nav{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:var(--pv-space-1)}
+.nav a{
+  position:relative;display:flex;align-items:center;gap:var(--pv-space-3);
+  min-height:44px;padding:0 var(--pv-space-3);border-radius:var(--pv-radius-md);
+  color:var(--pv-sidebar-fg);text-decoration:none;font-weight:var(--pv-font-weight-medium);
+  transition:background var(--pv-duration-fast) var(--pv-easing-standard),color var(--pv-duration-fast);
+}
+.nav a:hover{background:color-mix(in srgb,var(--pv-color-white) 7%,transparent);color:var(--pv-sidebar-fg-active)}
+.nav a[aria-current="page"]{background:var(--pv-sidebar-item-bg-active);color:var(--pv-sidebar-fg-active)}
+.nav a[aria-current="page"]::before{content:"";position:absolute;left:calc(var(--pv-space-3) * -1);top:var(--pv-space-2);bottom:var(--pv-space-2);width:4px;border-radius:0 var(--pv-radius-xs) var(--pv-radius-xs) 0;background:var(--pv-sidebar-indicator)}
+.nav-sep{height:var(--pv-border-width-hairline);background:color-mix(in srgb,var(--pv-color-white) 10%,transparent);margin:var(--pv-space-3) var(--pv-space-2)}
+.sidebar-foot{margin-top:auto;padding:var(--pv-space-3);border-radius:var(--pv-radius-md);background:color-mix(in srgb,var(--pv-color-white) 5%,transparent);font-size:var(--pv-font-size-xs);line-height:var(--pv-line-height-snug)}
+.sidebar-foot b{display:block;color:var(--pv-sidebar-fg-active);font-weight:var(--pv-font-weight-semibold);font-size:var(--pv-font-size-sm)}
+
+.main-col{min-width:0;display:flex;flex-direction:column}
+.topbar{
+  position:sticky;top:0;z-index:var(--pv-z-sticky);
+  min-height:var(--pv-header-height);background:var(--pv-header-bg);border-bottom:var(--pv-border-width-hairline) solid var(--pv-header-border);
+  display:flex;align-items:center;gap:var(--pv-space-4);padding:var(--pv-space-2) var(--pv-space-6);
+}
+.titles{min-width:0;flex:1}
+.crumb{font-size:var(--pv-font-size-xs);color:var(--pv-text-muted)}
+.titles h1{font-size:var(--pv-font-size-2xl);font-weight:var(--pv-font-weight-semibold)}
+.top-actions{display:flex;align-items:center;gap:var(--pv-space-3);flex-wrap:wrap;justify-content:flex-end}
+.demo-pill{display:inline-flex;align-items:center;gap:var(--pv-space-2);height:32px;padding:0 var(--pv-space-3);border-radius:var(--pv-radius-pill);background:var(--pv-wayfinding-subtle);color:var(--pv-text-primary);font-weight:var(--pv-font-weight-semibold);font-size:var(--pv-font-size-xs);border:var(--pv-border-width-hairline) dashed var(--pv-border-strong)}
+.demo-pill svg{width:16px;height:16px}
+.live{display:inline-flex;align-items:center;gap:var(--pv-space-2);font-size:var(--pv-font-size-xs);color:var(--pv-text-secondary)}
+.live::before{content:"";width:8px;height:8px;border-radius:var(--pv-radius-pill);background:var(--pv-feedback-success-solid);box-shadow:0 0 0 3px color-mix(in srgb,var(--pv-feedback-success-solid) 25%,transparent)}
+.menu-btn{display:none}
+main{padding:var(--pv-space-6);max-width:1480px;width:100%}
+main:focus{outline:none}
+.view[hidden]{display:none}
+.view{display:flex;flex-direction:column;gap:var(--pv-space-6)}
+.view-intro{max-width:72ch;color:var(--pv-text-secondary)}
+
+/* ---------- Panel / Card ---------- */
+.panel{background:var(--pv-card-bg);border:var(--pv-border-width-hairline) solid var(--pv-card-border);border-radius:var(--pv-card-radius);box-shadow:var(--pv-card-shadow);min-width:0}
+.panel-h{display:flex;align-items:baseline;justify-content:space-between;gap:var(--pv-space-3);flex-wrap:wrap;padding:var(--pv-space-4) var(--pv-card-padding);border-bottom:var(--pv-border-width-hairline) solid var(--pv-border-subtle)}
+.panel-h h2{font-size:var(--pv-font-size-lg)}
+.panel-h .meta{font-size:var(--pv-font-size-xs);color:var(--pv-text-muted)}
+.panel-b{padding:var(--pv-card-padding)}
+.card{background:var(--pv-card-bg);border:var(--pv-border-width-hairline) solid var(--pv-card-border);border-radius:var(--pv-card-radius);box-shadow:var(--pv-card-shadow);padding:var(--pv-card-padding)}
+
+/* ---------- Buttons ---------- */
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:var(--pv-space-2);
+  height:var(--pv-button-height-md);padding:0 var(--pv-button-padding-x);border-radius:var(--pv-button-radius);
+  border:var(--pv-border-width-hairline) solid transparent;font-weight:var(--pv-button-font-weight);cursor:pointer;white-space:nowrap;text-decoration:none;
+  transition:background var(--pv-duration-fast) var(--pv-easing-standard),border-color var(--pv-duration-fast);
+}
+.btn-sm{height:var(--pv-button-height-sm);padding:0 var(--pv-space-3);font-size:var(--pv-font-size-xs)}
+.btn-lg{height:var(--pv-button-height-lg);padding:0 var(--pv-space-5);font-size:var(--pv-font-size-md)}
+.btn-block{width:100%}
+.btn-primary{background:var(--pv-button-primary-bg);color:var(--pv-button-primary-fg)}
+.btn-primary:hover,.btn-primary.is-hover{background:var(--pv-button-primary-bg-hover)}
+.btn-primary:active{background:var(--pv-button-primary-bg-active)}
+.btn-secondary{background:var(--pv-button-secondary-bg);border-color:var(--pv-button-secondary-border);color:var(--pv-button-secondary-fg)}
+.btn-secondary:hover,.btn-secondary.is-hover{background:var(--pv-bg-subtle)}
+.btn-ghost{background:transparent;color:var(--pv-text-primary)}
+.btn-ghost:hover,.btn-ghost.is-hover{background:var(--pv-button-ghost-bg-hover)}
+.btn-danger{background:var(--pv-button-danger-bg);color:var(--pv-button-danger-fg)}
+.btn-danger:hover,.btn-danger.is-hover{background:var(--pv-feedback-danger-fg)}
+.btn:disabled,.btn[aria-disabled="true"]{opacity:var(--pv-button-disabled-opacity);cursor:not-allowed}
+.btn.is-loading{cursor:progress}
+.btn .spin{animation:spin 0.8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.icon-btn{display:inline-flex;align-items:center;justify-content:center;width:40px;height:40px;border-radius:var(--pv-radius-md);border:var(--pv-border-width-hairline) solid var(--pv-border-default);background:var(--pv-bg-surface);cursor:pointer;color:var(--pv-text-primary)}
+.icon-btn:hover{background:var(--pv-bg-subtle)}
+.link-btn{background:none;border:0;padding:0;color:var(--pv-text-link);cursor:pointer;font-weight:var(--pv-font-weight-semibold);text-decoration:underline;text-underline-offset:3px}
+
+/* ---------- Badge ---------- */
+.badge{display:inline-flex;align-items:center;gap:var(--pv-space-1);height:var(--pv-badge-height);padding:0 var(--pv-badge-padding-x);border-radius:var(--pv-badge-radius);font-size:var(--pv-badge-font-size);font-weight:var(--pv-font-weight-semibold);white-space:nowrap;background:var(--b-bg,var(--pv-bg-muted));color:var(--b-fg,var(--pv-text-secondary))}
+.badge svg.ic{width:14px;height:14px}
+.badge-info{--b-bg:var(--pv-feedback-info-bg);--b-fg:var(--pv-feedback-info-fg)}
+.badge-success{--b-bg:var(--pv-feedback-success-bg);--b-fg:var(--pv-feedback-success-fg)}
+.badge-warning{--b-bg:var(--pv-feedback-warning-bg);--b-fg:var(--pv-feedback-warning-fg)}
+.badge-danger{--b-bg:var(--pv-feedback-danger-bg);--b-fg:var(--pv-feedback-danger-fg)}
+.badge-neutral{--b-bg:var(--pv-bg-muted);--b-fg:var(--pv-text-secondary)}
+.badge-brand{--b-bg:var(--pv-brand-subtle);--b-fg:var(--pv-brand-on-subtle)}
+.badge-erro{--b-bg:var(--pv-status-erro-bg);--b-fg:var(--pv-status-erro-fg)}
+
+/* ---------- Form fields ---------- */
+.field{display:flex;flex-direction:column;gap:var(--pv-space-1);min-width:0}
+.field>label,.field .label{font-weight:var(--pv-font-weight-medium)}
+.hint{font-size:var(--pv-font-size-xs);color:var(--pv-text-muted)}
+.input,.select{
+  height:var(--pv-input-height);width:100%;padding:0 var(--pv-space-3);
+  background:var(--pv-input-bg);border:var(--pv-border-width-hairline) solid var(--pv-input-border);border-radius:var(--pv-input-radius);
+  color:var(--pv-text-primary);transition:border-color var(--pv-duration-fast),box-shadow var(--pv-duration-fast);
+}
+.input::placeholder{color:var(--pv-input-placeholder)}
+.input:hover,.select:hover{border-color:var(--pv-text-muted)}
+.input:focus,.select:focus,.input.is-focus{outline:none;border-color:var(--pv-input-border-focus);box-shadow:0 0 0 var(--pv-focus-ring-width) color-mix(in srgb,var(--pv-focus-ring-color) 35%,transparent)}
+.input[aria-invalid="true"]{border-color:var(--pv-input-border-error)}
+.input[aria-invalid="true"]:focus{box-shadow:0 0 0 var(--pv-focus-ring-width) color-mix(in srgb,var(--pv-input-border-error) 30%,transparent)}
+.input:disabled,.select:disabled{background:var(--pv-bg-subtle);color:var(--pv-text-muted);border-color:var(--pv-border-default);cursor:not-allowed}
+.field-error{display:flex;align-items:center;gap:var(--pv-space-1);font-size:var(--pv-font-size-xs);color:var(--pv-feedback-danger-fg);font-weight:var(--pv-font-weight-medium)}
+.field-error svg.ic{width:14px;height:14px}
+.select{appearance:none;padding-right:var(--pv-space-10);cursor:pointer}
+.select-wrap{position:relative;display:block}
+.select-wrap>svg.ic{position:absolute;right:var(--pv-space-3);top:50%;transform:translateY(-50%);pointer-events:none;width:16px;height:16px;color:var(--pv-text-secondary)}
+.input-suffix{position:relative}
+.input-suffix .input{padding-right:var(--pv-space-16)}
+.input-suffix span{position:absolute;right:var(--pv-space-3);top:50%;transform:translateY(-50%);color:var(--pv-text-muted);font-size:var(--pv-font-size-xs)}
+.search{position:relative;flex:1;min-width:220px;max-width:420px}
+.search svg.ic{position:absolute;left:var(--pv-space-3);top:50%;transform:translateY(-50%);color:var(--pv-text-muted);width:16px;height:16px}
+.search .input{padding-left:var(--pv-space-10)}
+/* Toggle */
+.toggle{display:inline-flex;align-items:center;gap:var(--pv-space-2);background:none;border:0;padding:0;cursor:pointer;font-weight:var(--pv-font-weight-medium)}
+.toggle .track{position:relative;width:40px;height:24px;border-radius:var(--pv-radius-pill);background:var(--pv-border-strong);transition:background var(--pv-duration-base) var(--pv-easing-standard);flex:none}
+.toggle .track::after{content:"";position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:var(--pv-radius-pill);background:var(--pv-color-white);box-shadow:var(--pv-shadow-sm);transition:transform var(--pv-duration-base) var(--pv-easing-standard)}
+.toggle[aria-checked="true"] .track{background:var(--pv-brand-primary)}
+.toggle[aria-checked="true"] .track::after{transform:translateX(16px)}
+.toggle:disabled{opacity:var(--pv-button-disabled-opacity);cursor:not-allowed}
+.toggle .state{font-size:var(--pv-font-size-xs);color:var(--pv-text-secondary);min-width:5ch}
+.form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--pv-space-4) var(--pv-space-5)}
+.form-grid .span-2{grid-column:1 / -1}
+.form-actions{display:flex;gap:var(--pv-space-3);justify-content:flex-end;padding-top:var(--pv-space-2)}
+
+/* ---------- Chips / Tabs ---------- */
+.chips{display:flex;gap:var(--pv-space-2);flex-wrap:wrap}
+.chip{display:inline-flex;align-items:center;gap:var(--pv-space-2);height:36px;padding:0 var(--pv-space-4);border-radius:var(--pv-radius-pill);border:var(--pv-border-width-hairline) solid var(--pv-border-strong);background:var(--pv-bg-surface);cursor:pointer;font-weight:var(--pv-font-weight-medium)}
+.chip:hover{background:var(--pv-bg-subtle)}
+.chip[aria-pressed="true"]{background:var(--pv-brand-subtle);color:var(--pv-brand-on-subtle);border-color:var(--pv-brand-primary)}
+.chip .chip-check{display:none;width:16px;height:16px}
+.chip[aria-pressed="true"] .chip-check{display:block}
+.chip small{color:inherit;opacity:.85;font-size:var(--pv-font-size-xs)}
+.tabs{display:flex;gap:var(--pv-space-1);border-bottom:var(--pv-border-width-hairline) solid var(--pv-border-default);overflow-x:auto}
+.tab{position:relative;display:inline-flex;align-items:center;gap:var(--pv-space-2);height:44px;padding:0 var(--pv-space-4);background:none;border:0;cursor:pointer;color:var(--pv-text-secondary);font-weight:var(--pv-font-weight-medium);white-space:nowrap}
+.tab:hover{color:var(--pv-text-primary)}
+.tab[aria-selected="true"]{color:var(--pv-text-primary)}
+.tab[aria-selected="true"]::after{content:"";position:absolute;left:var(--pv-space-2);right:var(--pv-space-2);bottom:-1px;height:var(--pv-border-width-focus);border-radius:var(--pv-radius-xs);background:var(--pv-brand-primary)}
+
+/* ---------- Alert ---------- */
+.alert{display:flex;gap:var(--pv-space-3);align-items:flex-start;padding:var(--pv-alert-padding);border-radius:var(--pv-alert-radius);border-left:var(--pv-alert-border-left) solid var(--a-solid);background:var(--a-bg);color:var(--pv-text-primary)}
+.alert>svg.ic{color:var(--a-fg);margin-top:2px}
+.alert strong{display:block;color:var(--a-fg);font-weight:var(--pv-font-weight-semibold)}
+.alert-info{--a-solid:var(--pv-feedback-info-solid);--a-bg:var(--pv-feedback-info-bg);--a-fg:var(--pv-feedback-info-fg)}
+.alert-success{--a-solid:var(--pv-feedback-success-solid);--a-bg:var(--pv-feedback-success-bg);--a-fg:var(--pv-feedback-success-fg)}
+.alert-warning{--a-solid:var(--pv-feedback-warning-solid);--a-bg:var(--pv-feedback-warning-bg);--a-fg:var(--pv-feedback-warning-fg)}
+.alert-danger{--a-solid:var(--pv-feedback-danger-solid);--a-bg:var(--pv-feedback-danger-bg);--a-fg:var(--pv-feedback-danger-fg)}
+
+/* ---------- Table ---------- */
+.table-scroll{overflow-x:auto}
+.table{width:100%;border-collapse:collapse;font-size:var(--pv-font-size-sm)}
+.table th{background:var(--pv-table-header-bg);text-align:left;font-weight:var(--pv-font-weight-semibold);color:var(--pv-text-secondary);font-size:var(--pv-font-size-xs);padding:0 var(--pv-space-4);height:40px;white-space:nowrap;border-bottom:var(--pv-border-width-hairline) solid var(--pv-table-border)}
+.table td{padding:0 var(--pv-space-4);height:var(--pv-table-row-height);border-bottom:var(--pv-border-width-hairline) solid var(--pv-table-border);white-space:nowrap}
+.table tbody tr:hover{background:var(--pv-table-row-hover)}
+.table tbody tr.is-click{cursor:pointer}
+.table tbody tr:last-child td{border-bottom:0}
+.table .r{text-align:right}
+.cat{display:inline-flex;align-items:center;gap:var(--pv-space-2)}
+.cat svg.ic{color:var(--pv-text-secondary)}
+
+/* ---------- Meter (Medidor de ocupação) ---------- */
+.meter{position:relative;height:var(--pv-meter-height);border-radius:var(--pv-meter-radius);background:var(--pv-meter-track)}
+.meter>i{position:absolute;inset:0 auto 0 0;width:var(--v);border-radius:inherit;background:var(--m-c,var(--pv-occupancy-normal))}
+.meter .tick{position:absolute;top:-3px;bottom:-3px;width:var(--pv-border-width-thick);background:var(--pv-bg-surface);border-radius:var(--pv-radius-xs)}
+.lvl-normal{--m-c:var(--pv-occupancy-normal)} .lvl-alta{--m-c:var(--pv-occupancy-alta)} .lvl-lotada{--m-c:var(--pv-occupancy-lotada)}
+.zm{display:grid;grid-template-columns:56px minmax(0,1fr) 64px 92px;align-items:center;gap:var(--pv-space-4);padding:var(--pv-space-4) 0;border-bottom:var(--pv-border-width-hairline) solid var(--pv-border-subtle)}
+.zm:last-child{border-bottom:0}
+.zm-id{font-family:var(--pv-font-family-display);font-weight:var(--pv-font-weight-bold);font-size:var(--pv-font-size-3xl);line-height:1}
+.zm-top{display:flex;justify-content:space-between;gap:var(--pv-space-3);margin-bottom:var(--pv-space-2);font-size:var(--pv-font-size-xs);color:var(--pv-text-secondary)}
+.zm-top b{color:var(--pv-text-primary);font-weight:var(--pv-font-weight-semibold);font-size:var(--pv-font-size-sm)}
+.zm-sub{margin-top:var(--pv-space-2);font-size:var(--pv-font-size-xs);color:var(--pv-text-muted)}
+.zm-pct{font-family:var(--pv-font-family-display);font-size:var(--pv-font-size-2xl);font-weight:var(--pv-font-weight-semibold);text-align:right;font-variant-numeric:tabular-nums}
+.zm .badge{justify-self:end}
+
+/* ---------- Vaga (spot) ---------- */
+.spot{
+  --s-solid:var(--pv-status-livre-solid);--s-bg:var(--pv-status-livre-bg);--s-fg:var(--pv-status-livre-fg);
+  position:relative;width:var(--pv-spot-width);height:var(--pv-spot-height);flex:none;
+  border:var(--pv-spot-border-width) solid var(--s-solid);border-radius:var(--pv-spot-radius);
+  background:var(--s-bg);color:var(--s-fg);
+  display:flex;flex-direction:column;align-items:center;justify-content:space-between;padding:var(--pv-space-1) 0;
+  cursor:default;font-family:var(--pv-font-family-display);
+}
+.spot svg.ic{width:14px;height:14px;stroke-width:2.4}
+.spot b{font-size:var(--pv-font-size-xs);font-weight:var(--pv-font-weight-bold);line-height:1;padding:1px 3px;border-radius:var(--pv-radius-xs);background:var(--s-bg)}
+.spot.is-moto{width:var(--pv-spot-width-moto);height:var(--pv-spot-height-moto);padding:2px 0}
+.spot.is-moto svg.ic{width:11px;height:11px}
+.spot.is-moto b{padding:0 2px}
+.st-ocupada{--s-solid:var(--pv-status-ocupada-solid);--s-bg:var(--pv-status-ocupada-bg);--s-fg:var(--pv-status-ocupada-fg)}
+.st-reservada{--s-solid:var(--pv-status-reservada-solid);--s-bg:var(--pv-status-reservada-bg);--s-fg:var(--pv-status-reservada-fg)}
+.st-indisponivel{--s-solid:var(--pv-status-indisponivel-solid);--s-bg:var(--pv-status-indisponivel-bg);--s-fg:var(--pv-status-indisponivel-fg);
+  background:repeating-linear-gradient(45deg,var(--s-bg) 0 4px,color-mix(in srgb,var(--s-solid) 55%,var(--s-bg)) 4px 5.5px)}
+.st-manutencao{--s-solid:var(--pv-status-manutencao-solid);--s-bg:var(--pv-status-manutencao-bg);--s-fg:var(--pv-status-manutencao-fg);
+  background:repeating-linear-gradient(-45deg,var(--s-bg) 0 5px,color-mix(in srgb,var(--s-solid) 60%,var(--s-bg)) 5px 9px)}
+.st-manutencao svg.ic,.st-indisponivel svg.ic{background:var(--s-bg);border-radius:var(--pv-radius-xs)}
+.st-erro{--s-solid:var(--pv-status-erro-solid);--s-bg:var(--pv-status-erro-bg);--s-fg:var(--pv-status-erro-fg);border-style:dashed}
+.st-carregamento{--s-solid:var(--pv-border-default);--s-bg:var(--pv-status-carregamento-bg);--s-fg:var(--pv-status-carregamento-fg);
+  background:linear-gradient(100deg,var(--pv-status-carregamento-bg) 30%,var(--pv-status-carregamento-shine) 50%,var(--pv-status-carregamento-bg) 70%);background-size:300% 100%;animation:shimmer 1.4s linear infinite}
+.st-carregamento b{background:transparent}
+@keyframes shimmer{from{background-position:100% 0}to{background-position:0 0}}
+.spot.is-click{cursor:pointer}
+.spot.is-click:hover{box-shadow:0 0 0 var(--pv-border-width-thick) var(--pv-bg-surface),0 0 0 4px var(--s-solid)}
+.spot.is-selected{outline:var(--pv-focus-ring-width) solid var(--pv-focus-ring-color);outline-offset:2px;z-index:1}
+
+/* ---------- Skeleton ---------- */
+.sk{display:block;border-radius:var(--pv-radius-sm);background:linear-gradient(100deg,var(--pv-status-carregamento-bg) 30%,var(--pv-status-carregamento-shine) 50%,var(--pv-status-carregamento-bg) 70%);background-size:300% 100%;animation:shimmer 1.4s linear infinite}
+
+/* ---------- Dashboard ---------- */
+.kpi-band{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:var(--pv-border-width-hairline);background:var(--pv-border-subtle);overflow:hidden}
+.kpi{background:var(--pv-bg-surface);padding:var(--pv-space-5);display:flex;flex-direction:column;gap:var(--pv-space-1);min-width:0}
+.kpi-label{display:flex;align-items:center;gap:var(--pv-space-2);color:var(--pv-text-secondary);font-weight:var(--pv-font-weight-medium)}
+.kpi-label svg.ic{width:16px;height:16px}
+.kpi-value{font-family:var(--pv-font-family-display);font-size:var(--pv-font-size-5xl);font-weight:var(--pv-font-weight-semibold);line-height:1;font-variant-numeric:tabular-nums;letter-spacing:-0.02em;margin:var(--pv-space-1) 0}
+.kpi-value small{font-size:var(--pv-font-size-2xl);font-weight:var(--pv-font-weight-medium);color:var(--pv-text-secondary);margin-left:2px}
+.kpi-note{font-size:var(--pv-font-size-xs);color:var(--pv-text-muted)}
+.kpi .meter{margin:var(--pv-space-2) 0 var(--pv-space-1)}
+.kpi.is-primary .kpi-label svg{color:var(--pv-status-livre-solid)}
+.dash-grid{display:grid;grid-template-columns:minmax(0,1.45fr) minmax(0,1fr);gap:var(--pv-space-6)}
+.thresholds{display:flex;gap:var(--pv-space-3);flex-wrap:wrap;font-size:var(--pv-font-size-xs);color:var(--pv-text-muted)}
+.thresholds span{display:inline-flex;align-items:center;gap:var(--pv-space-1)}
+.thresholds i{width:10px;height:10px;border-radius:var(--pv-radius-xs);background:var(--m-c)}
+.health-bar{display:flex;height:14px;border-radius:var(--pv-radius-pill);overflow:hidden;gap:2px;margin:var(--pv-space-3) 0 var(--pv-space-4)}
+.health-bar i{display:block;height:100%}
+.health-legend{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:var(--pv-space-3)}
+.hl{display:flex;flex-direction:column;gap:2px;padding:var(--pv-space-3);border-radius:var(--pv-radius-md);background:var(--pv-bg-subtle)}
+.hl span{display:flex;align-items:center;gap:var(--pv-space-2);font-size:var(--pv-font-size-xs);color:var(--pv-text-secondary);font-weight:var(--pv-font-weight-medium)}
+.hl span svg.ic{width:15px;height:15px;color:var(--c)}
+.hl b{font-family:var(--pv-font-family-display);font-size:var(--pv-font-size-3xl);font-weight:var(--pv-font-weight-semibold);line-height:1.1}
+.health-big{display:flex;align-items:baseline;gap:var(--pv-space-2)}
+.health-big b{font-family:var(--pv-font-family-display);font-size:var(--pv-font-size-4xl);font-weight:var(--pv-font-weight-semibold);line-height:1}
+.mini-table{margin-top:var(--pv-space-4)}
+.mini-table td,.mini-table th{height:36px}
+.chart svg{width:100%;height:auto;display:block}
+.ch-grid{stroke:var(--pv-chart-grid);stroke-width:1}
+.ch-axis{fill:var(--pv-chart-axis);font-size:11px;font-family:var(--pv-font-family-sans)}
+.ch-th{stroke-width:1.5;stroke-dasharray:4 4}
+.ch-th-alta{stroke:var(--pv-occupancy-alta)} .ch-th-lotada{stroke:var(--pv-occupancy-lotada)}
+.ch-th-label{font-size:11px;font-family:var(--pv-font-family-sans);font-weight:600}
+.ch-th-label.alta{fill:var(--pv-feedback-warning-fg)} .ch-th-label.lotada{fill:var(--pv-feedback-danger-fg)}
+.ch-line{fill:none;stroke:var(--pv-chart-series-1);stroke-width:2.5;stroke-linejoin:round;stroke-linecap:round}
+.ch-area{fill:color-mix(in srgb,var(--pv-chart-series-1) 14%,transparent)}
+.ch-dot{fill:var(--pv-bg-surface);stroke:var(--pv-chart-series-1);stroke-width:2}
+.ch-now{fill:var(--pv-chart-series-1)}
+.ch-now-label{fill:var(--pv-text-primary);font-family:var(--pv-font-family-display);font-weight:700;font-size:16px}
+.ch-now-sub{fill:var(--pv-text-secondary);font-size:11px;font-family:var(--pv-font-family-sans)}
+.alerts{list-style:none;margin:0;padding:0}
+.al{display:grid;grid-template-columns:36px minmax(0,1fr) auto;gap:var(--pv-space-3);padding:var(--pv-space-3) var(--pv-card-padding);border-bottom:var(--pv-border-width-hairline) solid var(--pv-border-subtle)}
+.al:last-child{border-bottom:0}
+.al-ic{width:36px;height:36px;border-radius:var(--pv-radius-md);display:grid;place-items:center;background:var(--a-bg);color:var(--a-fg)}
+.al-ic svg.ic{width:18px;height:18px}
+.al h3{font-family:var(--pv-font-family-sans);font-size:var(--pv-font-size-sm);font-weight:var(--pv-font-weight-semibold);display:flex;gap:var(--pv-space-2);align-items:center;flex-wrap:wrap}
+.al p{color:var(--pv-text-secondary);font-size:var(--pv-font-size-xs);margin-top:2px}
+.al time{font-size:var(--pv-font-size-xs);color:var(--pv-text-muted);font-variant-numeric:tabular-nums}
+.sev-erro{--a-bg:var(--pv-status-erro-bg);--a-fg:var(--pv-status-erro-fg)}
+
+/* ---------- Mapa ---------- */
+.provisional{
+  display:flex;gap:var(--pv-space-4);align-items:center;padding:var(--pv-space-4) var(--pv-space-5);
+  border-radius:var(--pv-radius-lg);border:var(--pv-border-width-thick) solid var(--pv-feedback-warning-solid);
+  background:var(--pv-feedback-warning-bg);
+}
+.provisional>svg.ic{width:28px;height:28px;color:var(--pv-feedback-warning-fg)}
+.provisional strong{display:block;font-family:var(--pv-font-family-display);font-size:var(--pv-font-size-xl);font-weight:var(--pv-font-weight-bold);color:var(--pv-feedback-warning-fg);letter-spacing:0.01em;line-height:var(--pv-line-height-snug)}
+.provisional span{color:var(--pv-text-primary)}
+.map-toolbar{display:flex;justify-content:space-between;align-items:center;gap:var(--pv-space-4);flex-wrap:wrap}
+.legend{list-style:none;margin:0;padding:var(--pv-space-3) var(--pv-space-4);display:flex;flex-wrap:wrap;gap:var(--pv-space-2) var(--pv-space-5);background:var(--pv-bg-surface);border:var(--pv-border-width-hairline) solid var(--pv-border-default);border-radius:var(--pv-radius-lg)}
+.legend li{display:flex;align-items:center;gap:var(--pv-space-2);font-size:var(--pv-font-size-xs)}
+.legend .spot{transform:scale(.72);margin:-8px -5px}
+.legend b.lg-label{font-weight:var(--pv-font-weight-semibold);font-size:var(--pv-font-size-sm)}
+.legend .lg-count{color:var(--pv-text-muted);font-variant-numeric:tabular-nums}
+.legend .lg-route{display:flex;align-items:center;gap:var(--pv-space-2)}
+.legend .lg-route svg{width:22px;height:22px;color:var(--pv-color-faixa-500);stroke:var(--pv-color-asfalto-950);stroke-width:1}
+.map-detail{display:flex;align-items:center;gap:var(--pv-space-3);min-height:44px;padding:var(--pv-space-2) var(--pv-space-4);border-radius:var(--pv-radius-md);background:var(--pv-bg-subtle);color:var(--pv-text-secondary)}
+.map-detail b{color:var(--pv-text-primary)}
+.map-stage{padding:var(--pv-space-4);overflow:auto;position:relative}
+.floor-wrap{transform-origin:top left}
+.floor{
+  --lane:var(--pv-space-16);
+  position:relative;display:grid;width:max-content;
+  grid-template-columns:var(--lane) auto var(--lane) auto var(--lane);
+  grid-template-rows:var(--lane) auto var(--lane) auto var(--lane);
+  grid-template-areas:"c1 top top top c2" "left z2 mid1 z3 right" "left ctr ctr ctr right" "left z1 mid2 z4 right" "ent bot bot bot exit";
+  background:var(--pv-color-asfalto-800);border-radius:var(--pv-radius-lg);
+  border:var(--pv-space-2) solid var(--pv-color-asfalto-700);
+}
+.floor::after{
+  content:"EXEMPLO";position:absolute;inset:0;display:grid;place-items:center;pointer-events:none;
+  font-family:var(--pv-font-family-display);font-weight:var(--pv-font-weight-bold);font-size:160px;letter-spacing:0.12em;
+  color:color-mix(in srgb,var(--pv-color-faixa-500) 14%,transparent);transform:rotate(-18deg);
+}
+.lane{display:flex;align-items:center;justify-content:space-around;color:var(--pv-color-faixa-500)}
+.lane.h{background:linear-gradient(90deg,var(--pv-color-asfalto-500) 50%,transparent 50%) center / 28px 2px repeat-x}
+.lane.v{flex-direction:column;background:linear-gradient(180deg,var(--pv-color-asfalto-500) 50%,transparent 50%) center / 2px 28px repeat-y}
+.lane svg{width:26px;height:26px;fill:currentColor;stroke:var(--pv-color-asfalto-950);stroke-width:1;padding:2px;background:var(--pv-color-asfalto-800);border-radius:var(--pv-radius-sm)}
+.gate{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;color:var(--pv-color-white);font-weight:var(--pv-font-weight-semibold);font-size:var(--pv-font-size-xs);background:var(--pv-color-vision-700);border-radius:var(--pv-radius-sm);margin:var(--pv-space-1)}
+.gate svg.ic{width:18px;height:18px}
+.zone{position:relative;z-index:1;background:var(--pv-bg-surface);border:var(--pv-border-width-hairline) solid var(--pv-border-default);border-radius:var(--pv-radius-md);padding:var(--pv-space-3) var(--pv-space-3) var(--pv-space-2);margin:var(--pv-space-2);align-self:start}
+.zone-h{display:flex;align-items:center;gap:var(--pv-space-3);margin-bottom:var(--pv-space-2)}
+.zone-h .zid{font-family:var(--pv-font-family-display);font-weight:var(--pv-font-weight-bold);font-size:var(--pv-font-size-3xl);line-height:1}
+.zone-h .zinfo{font-size:var(--pv-font-size-xs);color:var(--pv-text-secondary);line-height:var(--pv-line-height-snug)}
+.zone-h .badge{margin-left:auto}
+.setor{display:grid;grid-template-columns:22px auto;gap:var(--pv-space-2);align-items:center;padding:var(--pv-space-2) 0;border-top:var(--pv-border-width-hairline) dashed var(--pv-border-default)}
+.setor-label{writing-mode:vertical-rl;transform:rotate(180deg);font-size:var(--pv-font-size-xs);font-weight:var(--pv-font-weight-semibold);color:var(--pv-text-secondary);text-align:center;white-space:nowrap}
+.spots{display:grid;gap:var(--pv-spot-gap)}
+.spots .row-split{grid-column:1 / -1;height:var(--pv-space-1)}
+.zone-focus-head{display:flex;align-items:center;gap:var(--pv-space-3);flex-wrap:wrap;margin-bottom:var(--pv-space-3)}
+.map-single{display:flex;gap:var(--pv-space-6);align-items:flex-start;flex-wrap:wrap}
+.map-single .zone{margin:0}
+.locator{width:180px;flex:none}
+.locator svg{width:100%;height:auto}
+details.summary-table summary{cursor:pointer;font-weight:var(--pv-font-weight-semibold);padding:var(--pv-space-2) 0}
+
+/* ---------- Distribuição ---------- */
+.dist-top{display:grid;grid-template-columns:minmax(0,0.9fr) minmax(0,1.3fr);gap:var(--pv-space-6)}
+.dist-mid{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);gap:var(--pv-space-6)}
+.dl{display:grid;grid-template-columns:auto 1fr;gap:var(--pv-space-3) var(--pv-space-5);margin:0}
+.dl dt{color:var(--pv-text-secondary)}
+.dl dd{margin:0;font-weight:var(--pv-font-weight-medium);display:flex;align-items:center;gap:var(--pv-space-2);flex-wrap:wrap}
+.ticket-id{font-family:var(--pv-font-family-mono);font-weight:var(--pv-font-weight-medium);font-size:var(--pv-font-size-xl)}
+.reco{position:relative;overflow:hidden}
+.reco-body{display:grid;grid-template-columns:auto minmax(0,1fr);gap:var(--pv-space-6);align-items:center;padding:var(--pv-space-6) var(--pv-card-padding)}
+.reco-zone{font-family:var(--pv-font-family-display);font-weight:var(--pv-font-weight-bold);font-size:120px;line-height:.85;letter-spacing:-0.03em;color:var(--pv-brand-primary);display:flex;flex-direction:column}
+.reco-zone small{font-size:var(--pv-font-size-sm);font-family:var(--pv-font-family-sans);font-weight:var(--pv-font-weight-semibold);letter-spacing:0;color:var(--pv-text-secondary);margin-bottom:var(--pv-space-2)}
+.reco-facts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--pv-space-4)}
+.fact b{display:block;font-family:var(--pv-font-family-display);font-size:var(--pv-font-size-3xl);font-weight:var(--pv-font-weight-semibold);line-height:1.1;font-variant-numeric:tabular-nums}
+.fact span{font-size:var(--pv-font-size-xs);color:var(--pv-text-secondary)}
+.reco-foot{padding:0 var(--pv-card-padding) var(--pv-card-padding)}
+.formula{font-family:var(--pv-font-family-mono);font-size:var(--pv-font-size-xs);background:var(--pv-bg-subtle);border-radius:var(--pv-radius-md);padding:var(--pv-space-3);color:var(--pv-text-primary);overflow-x:auto;white-space:nowrap}
+.score-table td{white-space:normal;height:auto;padding-top:var(--pv-space-3);padding-bottom:var(--pv-space-3);vertical-align:top}
+.score-table th.zc,.score-table td.zc{text-align:right}
+.score-table .pts{display:block;font-family:var(--pv-font-family-display);font-weight:var(--pv-font-weight-semibold);font-size:var(--pv-font-size-lg);font-variant-numeric:tabular-nums}
+.score-table .raw{display:block;font-size:var(--pv-font-size-xs);color:var(--pv-text-muted)}
+.score-table .is-win{background:color-mix(in srgb,var(--pv-brand-subtle) 70%,transparent)}
+.score-table .is-out{color:var(--pv-text-muted)}
+.score-table tfoot td{border-top:var(--pv-border-width-thick) solid var(--pv-border-default);font-weight:var(--pv-font-weight-semibold)}
+.score-table tfoot .pts{font-size:var(--pv-font-size-2xl)}
+.crit{font-weight:var(--pv-font-weight-semibold)}
+.crit small{display:block;font-weight:var(--pv-font-weight-regular);color:var(--pv-text-muted);font-size:var(--pv-font-size-xs)}
+.weight{display:inline-block;min-width:44px;text-align:center;padding:2px var(--pv-space-2);border-radius:var(--pv-radius-sm);background:var(--pv-bg-muted);font-weight:var(--pv-font-weight-semibold);font-size:var(--pv-font-size-xs)}
+.route-map svg{width:100%;height:auto;display:block}
+.rm-floor{fill:var(--pv-color-asfalto-800)}
+.rm-zone{fill:var(--pv-bg-surface);stroke:var(--pv-border-strong);stroke-width:1.5}
+.rm-zone.win{stroke:var(--pv-brand-primary);stroke-width:3;fill:var(--pv-brand-subtle)}
+.rm-zone.out{stroke-dasharray:5 4;fill:var(--pv-bg-subtle)}
+.rm-label{font-family:var(--pv-font-family-display);font-weight:700;font-size:20px;fill:var(--pv-text-primary)}
+.rm-sub{font-family:var(--pv-font-family-sans);font-size:10.5px;fill:var(--pv-text-secondary)}
+.rm-route{fill:none;stroke:var(--pv-wayfinding-route);stroke-width:6;stroke-linecap:round;stroke-linejoin:round}
+.rm-route-casing{fill:none;stroke:var(--pv-color-asfalto-950);stroke-width:9;stroke-linecap:round;stroke-linejoin:round}
+.rm-arrowhead{fill:var(--pv-wayfinding-route);stroke:var(--pv-color-asfalto-950);stroke-width:1.5}
+.rm-gate{fill:var(--pv-color-vision-700)}
+.rm-gate-t{fill:var(--pv-color-white);font-size:10px;font-weight:600;font-family:var(--pv-font-family-sans)}
+.rm-dash{stroke:var(--pv-color-asfalto-500);stroke-width:1.5;stroke-dasharray:8 8}
+.steps{list-style:none;counter-reset:s;margin:var(--pv-space-4) 0 0;padding:0;display:flex;flex-direction:column;gap:var(--pv-space-3)}
+.steps li{counter-increment:s;display:grid;grid-template-columns:28px 1fr;gap:var(--pv-space-3);align-items:start}
+.steps li::before{content:counter(s);width:28px;height:28px;border-radius:var(--pv-radius-pill);display:grid;place-items:center;background:var(--pv-wayfinding-route);color:var(--pv-wayfinding-on);font-family:var(--pv-font-family-display);font-weight:var(--pv-font-weight-bold)}
+.inelig{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--pv-space-4)}
+.inelig-item{display:grid;grid-template-columns:auto 1fr;gap:var(--pv-space-4);align-items:start;padding:var(--pv-space-4);border-radius:var(--pv-radius-md);border:var(--pv-border-width-hairline) dashed var(--pv-border-strong);background:var(--pv-bg-subtle)}
+.inelig-item .zid{font-family:var(--pv-font-family-display);font-weight:var(--pv-font-weight-bold);font-size:var(--pv-font-size-3xl);line-height:1;color:var(--pv-text-secondary)}
+.inelig-item p{color:var(--pv-text-secondary);margin-top:var(--pv-space-1)}
+.score-bars{display:flex;flex-direction:column;gap:var(--pv-space-3);margin-top:var(--pv-space-4)}
+.sb{display:grid;grid-template-columns:36px minmax(0,1fr) 56px;gap:var(--pv-space-3);align-items:center}
+.sb b{font-family:var(--pv-font-family-display);font-size:var(--pv-font-size-lg)}
+.sb .bar{height:12px;border-radius:var(--pv-radius-pill);background:var(--pv-bg-muted);position:relative}
+.sb .bar i{position:absolute;inset:0 auto 0 0;border-radius:inherit;background:var(--pv-chart-series-4);width:var(--v)}
+.sb.win .bar i{background:var(--pv-brand-primary)}
+.sb span{text-align:right;font-family:var(--pv-font-family-display);font-weight:var(--pv-font-weight-semibold);font-variant-numeric:tabular-nums}
+
+/* ---------- Painel de sinalização ---------- */
+.sign{display:flex;align-items:center;gap:var(--pv-space-5);padding:var(--pv-space-5) var(--pv-space-8);background:var(--pv-color-asfalto-950);border-radius:var(--pv-radius-md);border:var(--pv-space-2) solid var(--pv-color-asfalto-800);color:var(--pv-color-white);font-family:var(--pv-font-family-display);font-weight:var(--pv-font-weight-bold);font-size:var(--pv-font-size-sign);line-height:1;letter-spacing:0.02em;width:max-content;max-width:100%;box-shadow:inset 0 0 0 1px var(--pv-color-asfalto-700)}
+.sign svg{width:72px;height:72px;fill:var(--pv-color-faixa-500);flex:none}
+.sign .count{color:var(--pv-color-verde-300)}
+.sign .full{color:var(--pv-color-vermelho-300)}
+.sign.sm{font-size:var(--pv-font-size-4xl);padding:var(--pv-space-3) var(--pv-space-5);gap:var(--pv-space-3);border-width:var(--pv-space-1)}
+.sign.sm svg{width:40px;height:40px}
+.signs-row{display:flex;gap:var(--pv-space-4);flex-wrap:wrap;align-items:center}
+
+/* ---------- Tickets ---------- */
+.toolbar{display:flex;gap:var(--pv-space-3);align-items:center;flex-wrap:wrap}
+.toolbar .select-wrap{width:200px}
+.toolbar .count{margin-left:auto;color:var(--pv-text-muted);font-size:var(--pv-font-size-xs)}
+.tk-link{background:none;border:0;padding:0;cursor:pointer;color:var(--pv-text-link);font-family:var(--pv-font-family-mono);font-weight:var(--pv-font-weight-medium);font-size:var(--pv-font-size-sm);text-decoration:underline;text-decoration-color:color-mix(in srgb,currentColor 40%,transparent);text-underline-offset:3px}
+.plate{font-family:var(--pv-font-family-mono);font-weight:var(--pv-font-weight-medium);letter-spacing:0.04em;padding:2px var(--pv-space-2);border:var(--pv-border-width-hairline) solid var(--pv-border-strong);border-radius:var(--pv-radius-sm);background:var(--pv-bg-surface)}
+.empty{display:flex;flex-direction:column;align-items:center;gap:var(--pv-space-3);text-align:center;padding:var(--pv-space-12) var(--pv-space-6)}
+.empty>svg.ic{width:40px;height:40px;color:var(--pv-text-muted)}
+.empty h3{font-size:var(--pv-font-size-xl)}
+.empty p{color:var(--pv-text-secondary);max-width:46ch}
+.drawer-backdrop{position:fixed;inset:0;background:var(--pv-modal-overlay);z-index:var(--pv-z-overlay);display:flex;justify-content:flex-end}
+.drawer-backdrop[hidden]{display:none}
+.drawer{width:min(520px,100%);height:100%;background:var(--pv-modal-bg);box-shadow:var(--pv-modal-shadow);display:flex;flex-direction:column;animation:slideIn var(--pv-duration-slow) var(--pv-easing-standard)}
+@keyframes slideIn{from{transform:translateX(40px);opacity:0}}
+.drawer-h{display:flex;align-items:flex-start;justify-content:space-between;gap:var(--pv-space-3);padding:var(--pv-space-5) var(--pv-space-6);border-bottom:var(--pv-border-width-hairline) solid var(--pv-border-subtle)}
+.drawer-b{padding:var(--pv-space-6);overflow-y:auto;display:flex;flex-direction:column;gap:var(--pv-space-6);flex:1}
+.drawer-f{padding:var(--pv-space-4) var(--pv-space-6);border-top:var(--pv-border-width-hairline) solid var(--pv-border-subtle);display:flex;gap:var(--pv-space-3);flex-wrap:wrap}
+.timeline{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
+.timeline li{display:grid;grid-template-columns:52px 16px 1fr;gap:var(--pv-space-3);padding-bottom:var(--pv-space-4);position:relative}
+.timeline time{font-size:var(--pv-font-size-xs);color:var(--pv-text-muted);font-variant-numeric:tabular-nums;padding-top:1px}
+.timeline .dot{width:12px;height:12px;border-radius:var(--pv-radius-pill);background:var(--pv-bg-surface);border:var(--pv-border-width-thick) solid var(--pv-brand-primary);margin-top:4px;position:relative;z-index:1}
+.timeline li:not(:last-child)::after{content:"";position:absolute;left:calc(52px + var(--pv-space-3) + 5px);top:18px;bottom:0;width:2px;background:var(--pv-border-default)}
+.timeline li.pending .dot{border-color:var(--pv-feedback-warning-solid);border-style:dashed}
+/* Ticket impresso (papel térmico: branco nos 2 temas) */
+.ticket-print{
+  --paper:var(--pv-color-white);--ink:var(--pv-color-asfalto-950);
+  width:300px;max-width:100%;margin:0 auto;background:var(--paper);color:var(--ink);
+  font-family:var(--pv-font-family-mono);font-weight:var(--pv-font-weight-medium);font-size:var(--pv-font-size-xs);line-height:var(--pv-line-height-snug);
+  padding:var(--pv-space-6) var(--pv-space-5);box-shadow:var(--pv-shadow-md);
+  -webkit-mask:radial-gradient(circle 5px at 50% 0,transparent 98%,#000) 0 0 / 14px 51% repeat-x,radial-gradient(circle 5px at 50% 100%,transparent 98%,#000) 0 100% / 14px 51% repeat-x;
+          mask:radial-gradient(circle 5px at 50% 0,transparent 98%,#000) 0 0 / 14px 51% repeat-x,radial-gradient(circle 5px at 50% 100%,transparent 98%,#000) 0 100% / 14px 51% repeat-x;
+}
+.tp-head{text-align:center;padding-bottom:var(--pv-space-3);border-bottom:var(--pv-border-width-hairline) dashed var(--ink)}
+.tp-head b{display:block;font-family:var(--pv-font-family-display);font-size:var(--pv-font-size-xl);letter-spacing:0.12em}
+.tp-row{display:flex;justify-content:space-between;padding:2px 0}
+.tp-rows{padding:var(--pv-space-3) 0;border-bottom:var(--pv-border-width-hairline) dashed var(--ink)}
+.tp-zone{text-align:center;padding:var(--pv-space-3) 0}
+.tp-zone strong{display:block;font-family:var(--pv-font-family-display);font-weight:var(--pv-font-weight-bold);font-size:var(--pv-font-size-5xl);line-height:1;letter-spacing:0.02em;margin:var(--pv-space-1) 0}
+.tp-dir{display:flex;gap:var(--pv-space-2);align-items:flex-start;padding:var(--pv-space-2) var(--pv-space-3);border:var(--pv-border-width-thick) solid var(--ink);border-radius:var(--pv-radius-xs)}
+.tp-dir svg.ic{width:20px;height:20px;stroke-width:2.6}
+.tp-qr{display:grid;grid-template-columns:96px 1fr;gap:var(--pv-space-3);align-items:center;padding:var(--pv-space-3) 0;border-bottom:var(--pv-border-width-hairline) dashed var(--ink)}
+.tp-code{text-align:center;padding:var(--pv-space-3) 0 var(--pv-space-2)}
+.tp-code b{display:block;font-size:var(--pv-font-size-2xl);letter-spacing:0.1em}
+.tp-foot{text-align:center;font-size:11px}
+.qr{display:block;background:var(--pv-color-white);border-radius:var(--pv-radius-xs)}
+.qr rect.m{fill:var(--pv-color-asfalto-950)}
+.qr rect.w{fill:var(--pv-color-white)}
+
+/* ---------- Pagamento ---------- */
+.pay-layout{display:grid;grid-template-columns:auto minmax(0,1fr);gap:var(--pv-space-10);align-items:start}
+.phone{width:410px;max-width:100%;padding:var(--pv-space-3);border-radius:52px;background:var(--pv-color-asfalto-950);box-shadow:var(--pv-shadow-lg),inset 0 0 0 2px var(--pv-color-asfalto-700)}
+.phone-screen{position:relative;width:100%;max-width:390px;height:800px;border-radius:42px;overflow:hidden;background:var(--pv-bg-canvas);display:flex;flex-direction:column}
+.phone-notch{position:absolute;top:10px;left:50%;transform:translateX(-50%);width:110px;height:30px;border-radius:var(--pv-radius-pill);background:var(--pv-color-asfalto-950);z-index:2}
+.m-status{height:48px;flex:none}
+.m-head{display:flex;align-items:center;gap:var(--pv-space-2);padding:var(--pv-space-2) var(--pv-space-5) var(--pv-space-3);background:var(--pv-bg-surface);border-bottom:var(--pv-border-width-hairline) solid var(--pv-border-subtle)}
+.m-head svg{width:28px;height:28px}
+.m-head b{font-family:var(--pv-font-family-display);font-size:var(--pv-font-size-lg)}
+.m-head .badge{margin-left:auto}
+.m-sim{display:flex;align-items:center;gap:var(--pv-space-2);padding:var(--pv-space-2) var(--pv-space-5);background:var(--pv-feedback-warning-bg);color:var(--pv-feedback-warning-fg);font-weight:var(--pv-font-weight-semibold);font-size:var(--pv-font-size-xs)}
+.m-sim svg.ic{width:16px;height:16px}
+.m-body{flex:1;overflow-y:auto;padding:var(--pv-space-5);display:flex;flex-direction:column;gap:var(--pv-space-4)}
+.m-progress{display:flex;gap:var(--pv-space-1)}
+.m-progress i{flex:1;height:4px;border-radius:var(--pv-radius-pill);background:var(--pv-bg-muted)}
+.m-progress i.on{background:var(--pv-brand-primary)}
+.m-step-label{font-size:var(--pv-font-size-xs);color:var(--pv-text-secondary)}
+.m-title{font-size:var(--pv-font-size-2xl);font-weight:var(--pv-font-weight-semibold)}
+.m-card{background:var(--pv-bg-surface);border:var(--pv-border-width-hairline) solid var(--pv-border-default);border-radius:var(--pv-radius-lg);padding:var(--pv-space-4)}
+.m-amount{text-align:center;padding:var(--pv-space-5) var(--pv-space-4)}
+.m-amount span{color:var(--pv-text-secondary);font-size:var(--pv-font-size-sm)}
+.m-amount b{display:block;font-family:var(--pv-font-family-display);font-weight:var(--pv-font-weight-bold);font-size:var(--pv-font-size-sign);line-height:1;margin:var(--pv-space-2) 0;font-variant-numeric:tabular-nums;letter-spacing:-0.02em}
+.m-amount b small{font-size:var(--pv-font-size-2xl);margin-right:var(--pv-space-1);font-weight:var(--pv-font-weight-semibold)}
+.m-rows{display:flex;flex-direction:column}
+.m-rows div{display:flex;justify-content:space-between;gap:var(--pv-space-3);padding:var(--pv-space-2) 0;border-bottom:var(--pv-border-width-hairline) solid var(--pv-border-subtle)}
+.m-rows div:last-child{border-bottom:0}
+.m-rows dt{color:var(--pv-text-secondary)}
+.m-rows dd{margin:0;font-weight:var(--pv-font-weight-semibold);text-align:right}
+.pay-opt{display:grid;grid-template-columns:auto 1fr auto;gap:var(--pv-space-3);align-items:center;min-height:64px;padding:var(--pv-space-3) var(--pv-space-4);border:var(--pv-border-width-thick) solid var(--pv-border-default);border-radius:var(--pv-radius-lg);background:var(--pv-bg-surface);cursor:pointer}
+.pay-opt input{width:20px;height:20px;accent-color:var(--pv-brand-primary);margin:0}
+.pay-opt b{display:block}
+.pay-opt small{color:var(--pv-text-secondary);font-size:var(--pv-font-size-xs)}
+.pay-opt:has(input:checked){border-color:var(--pv-brand-primary);background:var(--pv-brand-subtle)}
+.pay-opt:has(input:focus-visible){outline:var(--pv-focus-ring-width) solid var(--pv-focus-ring-color);outline-offset:2px}
+.pay-opt:has(input:disabled){opacity:.6;cursor:not-allowed;border-style:dashed}
+.pay-opt>svg.ic{width:22px;height:22px;color:var(--pv-text-secondary)}
+.pix-box{display:flex;flex-direction:column;align-items:center;gap:var(--pv-space-3)}
+.copy-row{display:flex;gap:var(--pv-space-2);width:100%}
+.copy-row .input{font-family:var(--pv-font-family-mono);font-size:var(--pv-font-size-xs)}
+.m-success{text-align:center;display:flex;flex-direction:column;align-items:center;gap:var(--pv-space-2);padding-top:var(--pv-space-4)}
+.m-success .ok{width:72px;height:72px;border-radius:var(--pv-radius-pill);display:grid;place-items:center;background:var(--pv-feedback-success-bg);color:var(--pv-feedback-success-fg)}
+.m-success .ok svg.ic{width:38px;height:38px;stroke-width:2.6}
+.receipt{border-top:var(--pv-border-width-thick) dashed var(--pv-border-strong)}
+.pay-side{display:flex;flex-direction:column;gap:var(--pv-space-5);max-width:560px}
+.stepper{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:var(--pv-space-2)}
+.stepper button{width:100%;display:grid;grid-template-columns:36px 1fr;gap:var(--pv-space-3);align-items:center;text-align:left;padding:var(--pv-space-3);border-radius:var(--pv-radius-md);border:var(--pv-border-width-hairline) solid var(--pv-border-default);background:var(--pv-bg-surface);cursor:pointer;min-height:56px}
+.stepper button:hover{background:var(--pv-bg-subtle)}
+.stepper .n{width:36px;height:36px;border-radius:var(--pv-radius-pill);display:grid;place-items:center;font-family:var(--pv-font-family-display);font-weight:var(--pv-font-weight-bold);font-size:var(--pv-font-size-lg);background:var(--pv-bg-muted)}
+.stepper button[aria-current="step"]{border-color:var(--pv-brand-primary);background:var(--pv-brand-subtle)}
+.stepper button[aria-current="step"] .n{background:var(--pv-brand-primary);color:var(--pv-text-on-brand)}
+.stepper small{display:block;color:var(--pv-text-secondary);font-size:var(--pv-font-size-xs)}
+.note-list{margin:0;padding-left:var(--pv-space-5);display:flex;flex-direction:column;gap:var(--pv-space-2);color:var(--pv-text-secondary)}
+
+/* ---------- Config ---------- */
+.config-grid{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:var(--pv-space-6);align-items:start}
+.tabpanel[hidden]{display:none}
+.tabpanel{padding-top:var(--pv-space-6)}
+.section-title{font-size:var(--pv-font-size-lg);margin-bottom:var(--pv-space-1)}
+.sign-preview{display:flex;flex-direction:column;gap:var(--pv-space-3)}
+
+/* ---------- Design System ---------- */
+.ds-nav{display:flex;gap:var(--pv-space-2);flex-wrap:wrap}
+.ds-nav a{font-size:var(--pv-font-size-xs);font-weight:var(--pv-font-weight-semibold);padding:var(--pv-space-1) var(--pv-space-3);border-radius:var(--pv-radius-pill);background:var(--pv-bg-subtle);color:var(--pv-text-secondary);text-decoration:none}
+.ds-nav a:hover{color:var(--pv-text-primary);background:var(--pv-bg-muted)}
+.ds-section{display:grid;grid-template-columns:220px minmax(0,1fr);gap:var(--pv-space-8);padding:var(--pv-space-8) 0;border-top:var(--pv-border-width-hairline) solid var(--pv-border-default);scroll-margin-top:calc(var(--pv-header-height) + var(--pv-space-4))}
+.ds-section>header h2{font-size:var(--pv-font-size-2xl)}
+.ds-section>header p{color:var(--pv-text-secondary);margin-top:var(--pv-space-2);font-size:var(--pv-font-size-sm)}
+.ds-section>header code{font-family:var(--pv-font-family-mono);font-size:var(--pv-font-size-xs);color:var(--pv-text-muted);display:block;margin-top:var(--pv-space-2)}
+.ds-body{display:flex;flex-direction:column;gap:var(--pv-space-5);min-width:0}
+.ds-sub{font-family:var(--pv-font-family-sans);font-size:var(--pv-font-size-sm);font-weight:var(--pv-font-weight-semibold);color:var(--pv-text-secondary);margin-bottom:var(--pv-space-2)}
+.ramp{display:grid;grid-template-columns:repeat(auto-fill,minmax(92px,1fr));gap:var(--pv-space-2)}
+.swatch{border-radius:var(--pv-radius-md);overflow:hidden;border:var(--pv-border-width-hairline) solid var(--pv-border-subtle);background:var(--pv-bg-surface)}
+.swatch i{display:block;height:52px;background:var(--c)}
+.swatch div{padding:var(--pv-space-2);font-size:11px;line-height:1.35}
+.swatch b{display:block;font-weight:var(--pv-font-weight-semibold);font-size:var(--pv-font-size-xs)}
+.swatch code{font-family:var(--pv-font-family-mono);color:var(--pv-text-muted);word-break:break-all}
+.sem-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:var(--pv-space-2)}
+.sem{display:flex;align-items:center;gap:var(--pv-space-3);padding:var(--pv-space-2);border-radius:var(--pv-radius-md);border:var(--pv-border-width-hairline) solid var(--pv-border-subtle);background:var(--pv-bg-surface)}
+.sem i{width:36px;height:36px;border-radius:var(--pv-radius-sm);background:var(--c);flex:none;box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--pv-text-primary) 12%,transparent)}
+.sem code{font-family:var(--pv-font-family-mono);font-size:11px;display:block;word-break:break-all}
+.sem span{font-size:11px;color:var(--pv-text-muted)}
+.type-row{display:grid;grid-template-columns:160px minmax(0,1fr);gap:var(--pv-space-4);align-items:baseline;padding:var(--pv-space-3) 0;border-bottom:var(--pv-border-width-hairline) solid var(--pv-border-subtle)}
+.type-row code{font-family:var(--pv-font-family-mono);font-size:11px;color:var(--pv-text-muted)}
+.space-row{display:grid;grid-template-columns:140px 60px 1fr;gap:var(--pv-space-3);align-items:center;font-size:var(--pv-font-size-xs)}
+.space-row code{font-family:var(--pv-font-family-mono);color:var(--pv-text-secondary)}
+.space-row i{display:block;height:12px;background:var(--pv-brand-primary);border-radius:var(--pv-radius-xs)}
+.box-row{display:flex;gap:var(--pv-space-5);flex-wrap:wrap}
+.box{width:120px;height:88px;display:flex;align-items:flex-end;padding:var(--pv-space-2);background:var(--pv-bg-surface);border:var(--pv-border-width-hairline) solid var(--pv-border-default);font-family:var(--pv-font-family-mono);font-size:11px;color:var(--pv-text-secondary)}
+.btn-matrix th,.btn-matrix td{white-space:nowrap}
+.btn-matrix td{height:64px}
+.specimen{display:flex;gap:var(--pv-space-3);flex-wrap:wrap;align-items:center}
+.spot-states{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:var(--pv-space-3)}
+.spot-state{display:flex;gap:var(--pv-space-3);align-items:center;padding:var(--pv-space-3);border:var(--pv-border-width-hairline) solid var(--pv-border-subtle);border-radius:var(--pv-radius-md);background:var(--pv-bg-surface)}
+.spot-state b{display:block;font-size:var(--pv-font-size-sm)}
+.spot-state span{font-size:var(--pv-font-size-xs);color:var(--pv-text-muted)}
+.logo-stage{display:flex;gap:var(--pv-space-5);flex-wrap:wrap}
+.logo-tile{flex:1;min-width:240px;border-radius:var(--pv-radius-lg);padding:var(--pv-space-8);display:flex;align-items:center;justify-content:center;border:var(--pv-border-width-hairline) solid var(--pv-border-default)}
+.logo-tile.light{background:var(--pv-color-white)}
+.logo-tile.dark{background:var(--pv-color-asfalto-950)}
+.logo-tile .wm{font-family:var(--pv-font-family-display);font-size:var(--pv-font-size-4xl);font-weight:var(--pv-font-weight-semibold);margin-left:var(--pv-space-3);letter-spacing:-0.01em}
+.logo-tile.light .wm{color:var(--pv-color-asfalto-900)} .logo-tile.light .wm b{color:var(--pv-color-vision-600)}
+.logo-tile.dark .wm{color:var(--pv-color-white)} .logo-tile.dark .wm b{color:var(--pv-color-vision-300)}
+.logo-tile svg{width:64px;height:64px}
+.dos{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--pv-space-3)}
+.modal-backdrop{position:fixed;inset:0;background:var(--pv-modal-overlay);z-index:var(--pv-z-modal);display:grid;place-items:center;padding:var(--pv-space-4)}
+.modal-backdrop[hidden]{display:none}
+.modal{width:min(var(--pv-modal-width),100%);background:var(--pv-modal-bg);border-radius:var(--pv-modal-radius);box-shadow:var(--pv-modal-shadow);animation:pop var(--pv-duration-base) var(--pv-easing-standard)}
+@keyframes pop{from{transform:translateY(8px) scale(.98);opacity:0}}
+.modal-h{display:flex;justify-content:space-between;align-items:flex-start;gap:var(--pv-space-3);padding:var(--pv-space-6) var(--pv-space-6) var(--pv-space-2)}
+.modal-b{padding:0 var(--pv-space-6) var(--pv-space-5);color:var(--pv-text-secondary);display:flex;flex-direction:column;gap:var(--pv-space-4)}
+.modal-f{display:flex;justify-content:flex-end;gap:var(--pv-space-3);padding:var(--pv-space-4) var(--pv-space-6);border-top:var(--pv-border-width-hairline) solid var(--pv-border-subtle);background:var(--pv-bg-subtle);border-radius:0 0 var(--pv-modal-radius) var(--pv-modal-radius)}
+.two-col{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--pv-space-5)}
+
+
+/* ---------- Planta real (proposta de zonas) ---------- */
+.plan-grid{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,1fr);gap:var(--pv-space-5);align-items:start}
+.plan-col{display:flex;flex-direction:column;gap:var(--pv-space-5);min-width:0}
+.plan-fig{margin:0;display:flex;flex-direction:column;gap:var(--pv-space-2);min-width:0}
+.plan-fig figcaption{font-size:var(--pv-font-size-xs);color:var(--pv-text-secondary)}
+.plan-fig figcaption b{color:var(--pv-text-primary);font-family:var(--pv-font-family-display);font-size:var(--pv-font-size-md)}
+.plan{position:relative;background:var(--pv-color-white);border:var(--pv-border-width-hairline) solid var(--pv-border-default);border-radius:var(--pv-radius-md);overflow:hidden}
+.plan img{display:block;width:100%;height:auto}
+.pz{position:absolute;border:var(--pv-border-width-thick) solid var(--pv-color-vision-600);background:color-mix(in srgb,var(--pv-color-vision-500) 16%,transparent);border-radius:var(--pv-radius-sm)}
+.pz b{position:absolute;left:-2px;top:-2px;background:var(--pv-color-vision-600);color:var(--pv-color-white);font-family:var(--pv-font-family-display);font-weight:var(--pv-font-weight-bold);font-size:var(--pv-font-size-xs);line-height:1;padding:3px 6px;border-radius:var(--pv-radius-sm) 0 var(--pv-radius-sm) 0;white-space:nowrap}
+.pz.moto{border-style:dashed;border-color:var(--pv-color-violeta-500);background:color-mix(in srgb,var(--pv-color-violeta-500) 14%,transparent)}
+.pz.moto b{background:var(--pv-color-violeta-700)}
+.pm{position:absolute;transform:translate(-50%,-50%);display:flex;align-items:center;gap:4px;font-family:var(--pv-font-family-display);font-weight:var(--pv-font-weight-bold);font-size:11px;color:var(--pv-color-asfalto-950);background:var(--pv-color-faixa-500);border:var(--pv-border-width-hairline) solid var(--pv-color-asfalto-950);border-radius:var(--pv-radius-pill);padding:2px 7px;white-space:nowrap}
+.plan-table td,.plan-table th{white-space:normal}.plan-table td.r{white-space:nowrap}
+@media (max-width:1180px){.plan-grid{grid-template-columns:minmax(0,1fr)}}
+
+.tabs{overflow-x:auto;scrollbar-width:thin}
+.tabs .tab{flex:none}
+/* ---------- Responsivo ---------- */
+@media (max-width:1180px){
+  .dash-grid,.dist-top,.dist-mid,.config-grid{grid-template-columns:minmax(0,1fr)}
+  .kpi-band{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .pay-layout{grid-template-columns:minmax(0,1fr);justify-items:center}
+  .ds-section{grid-template-columns:minmax(0,1fr);gap:var(--pv-space-4)}
+}
+@media (max-width:899px){
+  .app{grid-template-columns:var(--pv-sidebar-width-collapsed) minmax(0,1fr)}
+  .sidebar{padding:var(--pv-space-5) var(--pv-space-2);align-items:center}
+  .brand{padding:0}
+  .brand-word,.sidebar-foot{display:none}
+  .nav{width:100%}
+  .nav a{justify-content:center;padding:0}
+  .nav a span{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+  .nav a[aria-current="page"]::before{left:calc(var(--pv-space-2) * -1)}
+  .live{display:none}
+  main{padding:var(--pv-space-4)}
+  .topbar{padding:var(--pv-space-2) var(--pv-space-4)}
+  .inelig,.form-grid,.two-col,.dos{grid-template-columns:minmax(0,1fr)}
+  .reco-body{grid-template-columns:minmax(0,1fr)}
+}
+@media (max-width:599px){
+  .app{grid-template-columns:minmax(0,1fr)}
+  .sidebar{position:fixed;left:0;top:0;width:var(--pv-sidebar-width);z-index:var(--pv-z-overlay);transform:translateX(-100%);transition:transform var(--pv-duration-slow) var(--pv-easing-standard);align-items:stretch;padding:var(--pv-space-5) var(--pv-space-3)}
+  .sidebar.open{transform:none;box-shadow:var(--pv-shadow-lg)}
+  .brand-word{display:inline}
+  .sidebar-foot{display:block}
+  .nav a{justify-content:flex-start;padding:0 var(--pv-space-3)}
+  .nav a span{position:static;width:auto;height:auto;overflow:visible;clip:auto}
+  .nav a[aria-current="page"]::before{left:calc(var(--pv-space-3) * -1)}
+  .menu-btn{display:inline-flex}
+  .demo-pill .txt{display:none}
+  .theme-toggle .txt{display:none}
+  .titles h1{font-size:var(--pv-font-size-xl)}
+  .kpi-band{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .kpi-value{font-size:var(--pv-font-size-4xl)}
+  .zm{grid-template-columns:40px minmax(0,1fr) 52px;row-gap:var(--pv-space-2)}
+  .zm .badge{grid-column:2 / -1;justify-self:start}
+  .health-legend{grid-template-columns:minmax(0,1fr)}
+  .reco-zone{font-size:88px}
+  .phone{border-radius:40px;padding:var(--pv-space-2)}
+  .phone-screen{height:720px;border-radius:32px}
+  .sign{font-size:var(--pv-font-size-4xl);padding:var(--pv-space-4)}
+  .sign svg{width:44px;height:44px}
+  .toolbar .select-wrap{width:100%}
+  .search{max-width:none}
+  .provisional strong{font-size:var(--pv-font-size-lg)}
+  .type-row{grid-template-columns:minmax(0,1fr)}
+}
+.scrim{position:fixed;inset:0;background:var(--pv-overlay);z-index:calc(var(--pv-z-overlay) - 1)}
+.scrim[hidden]{display:none}
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:0.01ms !important;animation-iteration-count:1 !important;transition-duration:0.01ms !important}
+}
+</style>
+</head>
+<body>
+<a class="skip" href="#main">Pular para o conteúdo</a>
+<div class="app">
+  <!-- ===================== Navegação lateral ===================== -->
+  <aside class="sidebar" id="sidebar" aria-label="Navegação principal">
+    <a class="brand" href="#dashboard" aria-label="ParkVision, ir para a visão geral">
+      <svg viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="14" class="lg-plate"/><rect x="17" y="13" width="8" height="38" rx="2" class="lg-p"/><path class="lg-p" fill-rule="evenodd" d="M21 13h14a14 14 0 0 1 0 28H21zM35 20.5a6.5 6.5 0 1 0 0 13 6.5 6.5 0 0 0 0-13z"/><circle cx="35" cy="27" r="3" class="lg-eye"/></svg>
+      <span class="brand-word">Park<strong>Vision</strong></span>
+    </a>
+    <nav aria-label="Telas">
+      <ul class="nav">
+        <li><a href="#dashboard" data-nav="dashboard" title="Visão geral"><i data-ic="dashboard"></i><span>Visão geral</span></a></li>
+        <li><a href="#mapa" data-nav="mapa" title="Mapa de vagas"><i data-ic="map"></i><span>Mapa de vagas</span></a></li>
+        <li><a href="#distribuicao" data-nav="distribuicao" title="Distribuição inteligente"><i data-ic="route"></i><span>Distribuição inteligente</span></a></li>
+        <li><a href="#tickets" data-nav="tickets" title="Veículos e tickets"><i data-ic="ticket"></i><span>Veículos e tickets</span></a></li>
+        <li><a href="#pagamento" data-nav="pagamento" title="Pagamento por QR Code"><i data-ic="qr"></i><span>Pagamento por QR Code</span></a></li>
+        <li><a href="#config" data-nav="config" title="Configurações"><i data-ic="sliders"></i><span>Configurações</span></a></li>
+      </ul>
+      <div class="nav-sep" role="separator"></div>
+      <ul class="nav">
+        <li><a href="#design-system" data-nav="design-system" title="Design System"><i data-ic="layers"></i><span>Design System</span></a></li>
+      </ul>
+    </nav>
+    <div class="sidebar-foot">
+      <b>Shopping Exemplo</b>
+      Planta recebida (Capim Dourado Shopping). Simulação de vagas com dados fictícios.
+    </div>
+  </aside>
+  <div class="scrim" id="scrim" hidden></div>
+
+  <div class="main-col">
+    <!-- ===================== Cabeçalho ===================== -->
+    <header class="topbar">
+      <button class="icon-btn menu-btn" id="menu-btn" aria-label="Abrir navegação" aria-controls="sidebar" aria-expanded="false"><i data-ic="menu"></i></button>
+      <div class="titles">
+        <p class="crumb" id="crumb">Shopping Exemplo / Piso G1 (exemplo)</p>
+        <h1 id="page-title" tabindex="-1">Visão geral</h1>
+      </div>
+      <div class="top-actions">
+        <span class="demo-pill" title="Todos os números desta tela são fictícios"><i data-ic="flask"></i><span class="txt">Dados de demonstração</span></span>
+        <span class="live" aria-label="Atualização ao vivo simulada">Ao vivo, <span id="clock">11:42:08</span></span>
+        <button class="btn btn-secondary btn-sm theme-toggle" id="theme-toggle" aria-pressed="false"><i data-ic="moon"></i><span class="txt">Tema escuro</span></button>
+      </div>
+    </header>
+
+    <main id="main" tabindex="-1">
+
+<!-- ======================================================
+     TELA 1 — DASHBOARD
+     ====================================================== -->
+<section class="view" id="view-dashboard" data-title="Visão geral" aria-labelledby="page-title">
+  <div class="panel kpi-band" role="list" aria-label="Indicadores do Piso G1 (exemplo)">
+    <div class="kpi" role="listitem">
+      <span class="kpi-label"><i data-ic="parking"></i>Total de vagas</span>
+      <span class="kpi-value">312</span>
+      <span class="kpi-note">4 zonas, 15 setores</span>
+    </div>
+    <div class="kpi is-primary" role="listitem">
+      <span class="kpi-label"><i data-ic="check"></i>Disponíveis</span>
+      <span class="kpi-value">82</span>
+      <span class="kpi-note">26% do total; 10 já direcionados</span>
+    </div>
+    <div class="kpi" role="listitem">
+      <span class="kpi-label"><i data-ic="car"></i>Ocupadas</span>
+      <span class="kpi-value">210</span>
+      <span class="kpi-note">20 reservadas, bloqueadas ou com erro</span>
+    </div>
+    <div class="kpi" role="listitem">
+      <span class="kpi-label"><i data-ic="gauge"></i>Ocupação</span>
+      <span class="kpi-value">67<small>%</small></span>
+      <div class="meter lvl-normal" role="meter" aria-valuemin="0" aria-valuemax="100" aria-valuenow="67" aria-label="Ocupação total 67%, Normal"><i style="--v:67%"></i><span class="tick" style="left:70%"></span><span class="tick" style="left:90%"></span></div>
+      <span class="kpi-note">Normal, a 3 pontos do nível Alta</span>
+    </div>
+    <div class="kpi" role="listitem">
+      <span class="kpi-label"><i data-ic="login"></i>Veículos no estacionamento</span>
+      <span class="kpi-value">220</span>
+      <span class="kpi-note">210 estacionados e 10 a caminho da vaga</span>
+    </div>
+  </div>
+
+  <div class="dash-grid">
+    <section class="panel" aria-labelledby="h-zonas">
+      <div class="panel-h">
+        <h2 id="h-zonas">Ocupação por zona</h2>
+        <div class="thresholds" aria-label="Faixas de ocupação">
+          <span class="lvl-normal"><i></i>Normal &lt; 70%</span>
+          <span class="lvl-alta"><i></i>Alta 70–89%</span>
+          <span class="lvl-lotada"><i></i>Lotada ≥ 90%</span>
+        </div>
+      </div>
+      <div class="panel-b" id="zone-meters" style="padding-top:0;padding-bottom:var(--pv-space-2)"></div>
+    </section>
+
+    <section class="panel" aria-labelledby="h-sens">
+      <div class="panel-h"><h2 id="h-sens">Saúde dos sensores</h2><span class="meta">Heartbeat a cada 30 s</span></div>
+      <div class="panel-b" id="sensor-health"></div>
+    </section>
+
+    <section class="panel" aria-labelledby="h-chart">
+      <div class="panel-h"><h2 id="h-chart">Ocupação ao longo do dia</h2><span class="meta">Hoje, 08:00 até agora, piso inteiro</span></div>
+      <div class="panel-b chart" id="occ-chart"></div>
+    </section>
+
+    <section class="panel" aria-labelledby="h-alerts">
+      <div class="panel-h"><h2 id="h-alerts">Alertas recentes</h2><a href="#mapa" class="meta">Ver no mapa</a></div>
+      <ul class="alerts" id="alerts"></ul>
+    </section>
+  </div>
+</section>
+
+<!-- ======================================================
+     TELA 2 — MAPA
+     ====================================================== -->
+<section class="view" id="view-mapa" data-title="Mapa de vagas" aria-labelledby="page-title" hidden>
+  <section class="panel" aria-labelledby="h-planta">
+    <div class="panel-h"><h2 id="h-planta">Planta real: proposta de zonas</h2><span class="badge badge-warning"><i data-ic="alert"></i>Proposta, validar com a operação</span></div>
+    <div class="panel-b" style="display:flex;flex-direction:column;gap:var(--pv-space-5)">
+      <p class="secondary">Capim Dourado Shopping, Planta Mix (nov/2026). A planta informa as vagas dos dois subsolos; nos pátios descobertos a quantidade não está escrita e será contada no local. Retângulos = delimitação aproximada sobre o desenho; marcadores âmbar = pontos de acesso e de decisão para painéis.</p>
+      <div class="plan-grid">
+        <figure class="plan-fig">
+          <div class="plan">
+            <img src="assets/planta/terreo.png" alt="Planta do térreo do Capim Dourado Shopping com os pátios de estacionamento norte e sul" loading="lazy">
+            <span class="pz" style="left:17.5%;top:27.5%;width:16%;height:16.5%"><b>N1</b></span><span class="pz" style="left:34%;top:17.5%;width:13.5%;height:14%"><b>N2</b></span><span class="pz" style="left:47.5%;top:16.5%;width:13.5%;height:27.5%"><b>N3</b></span>
+            <span class="pz" style="left:13%;top:74.5%;width:21%;height:7.5%"><b>S1</b></span><span class="pz" style="left:51%;top:74%;width:27%;height:7.5%"><b>S2</b></span>
+            <span class="pm" style="left:57.7%;top:17.2%">Rotatória</span><span class="pm" style="left:80%;top:10%">Acesso motos, pedestres e subsolos</span><span class="pm" style="left:41%;top:72%">Entrada principal</span><span class="pm" style="left:41.5%;top:83%">Acessos pela Av. NS-05</span>
+          </div>
+          <figcaption><b>Térreo: pátios descobertos.</b> Norte (N1–N3, frente à C&amp;A e ao Wow Park) e Sul (S1–S2, frente à entrada principal na Av. NS-05). Vagas de idoso e PNE aparecem junto às entradas.</figcaption>
+        </figure>
+        <div class="plan-col">
+          <figure class="plan-fig">
+            <div class="plan">
+              <img src="assets/planta/subsolo1.png" alt="Planta do Subsolo 1 com 140 vagas, estacionamento de motos e bicicletário" loading="lazy">
+              <span class="pz" style="left:10%;top:19%;width:61%;height:66%"><b>SS1-A</b></span><span class="pz" style="left:74%;top:44%;width:8%;height:54%"><b>SS1-B</b></span><span class="pz moto" style="left:74%;top:7%;width:23%;height:35%"><b>SS1-M</b></span>
+              <span class="pm" style="left:17%;top:32%">Entrada</span><span class="pm" style="left:86%;top:6%">Rampa de motos</span><span class="pm" style="left:25%;top:80%">Escadas rolantes</span>
+            </div>
+            <figcaption><b>Subsolo 1: 140 vagas</b> (3 PNE, 11 idoso, 2 neurodiverso, 4 gestante e criança), corredores de mão única, motos com rampa própria e bicicletário.</figcaption>
+          </figure>
+          <figure class="plan-fig">
+            <div class="plan">
+              <img src="assets/planta/subsolo2.png" alt="Planta do Subsolo 2 com 216 vagas e circulação em anel" loading="lazy">
+              <span class="pz" style="left:3%;top:26%;width:32%;height:70%"><b>SS2-O</b></span><span class="pz" style="left:35%;top:26%;width:26%;height:70%"><b>SS2-C</b></span><span class="pz" style="left:61%;top:26%;width:36%;height:70%"><b>SS2-L</b></span>
+              <span class="pm" style="left:88%;top:14%">Rampa</span>
+            </div>
+            <figcaption><b>Subsolo 2: 216 vagas</b> (5 PNE, 8 idoso, 1 neurodiverso, 4 gestante e criança), circulação em anel no sentido anti-horário e rampa de acesso no lado leste.</figcaption>
+          </figure>
+        </div>
+      </div>
+      <div class="table-scroll"><table class="table plan-table">
+        <caption class="sr-only">Zonas propostas a partir da planta</caption>
+        <thead><tr><th scope="col">Zona</th><th scope="col">Pavimento</th><th scope="col">Referência física</th><th scope="col" class="r">Vagas</th><th scope="col">Situação</th></tr></thead>
+        <tbody>
+          <tr><td><b>N1, N2, N3</b></td><td>Térreo, pátio norte</td><td>Fileiras em leque entre a C&amp;A, a rotatória e o bloco Big/Wow Park</td><td class="r muted">a contar</td><td><span class="badge badge-warning"><i data-ic="alert"></i>Quantidade não escrita na planta</span></td></tr>
+          <tr><td><b>S1, S2</b></td><td>Térreo, pátio sul</td><td>Bolsões dos dois lados do retorno de embarque da entrada principal</td><td class="r muted">a contar</td><td><span class="badge badge-warning"><i data-ic="alert"></i>Quantidade não escrita na planta</span></td></tr>
+          <tr><td><b>SS1-A, SS1-B</b></td><td>Subsolo 1</td><td>Quatro ilhas com corredores de mão única e faixa leste em L</td><td class="r">140</td><td><span class="badge badge-success"><i data-ic="check"></i>Total informado na planta</span></td></tr>
+          <tr><td><b>SS1-M</b></td><td>Subsolo 1</td><td>Estacionamento de motos com rampa própria</td><td class="r muted">a contar</td><td><span class="badge badge-warning"><i data-ic="alert"></i>Quantidade não escrita na planta</span></td></tr>
+          <tr><td><b>SS2-O, SS2-C, SS2-L</b></td><td>Subsolo 2</td><td>Três blocos de ilhas dentro do anel de circulação</td><td class="r">216</td><td><span class="badge badge-success"><i data-ic="check"></i>Total informado na planta</span></td></tr>
+        </tbody></table></div>
+    </div>
+  </section>
+
+  <div class="provisional" role="note">
+    <i data-ic="alert"></i>
+    <div>
+      <strong>Simulação do componente de mapa (dados de exemplo)</strong>
+      <span>O mapa interativo abaixo ainda usa zonas fictícias (Z1–Z4) para demonstrar estados de vaga, filtros e legenda. Na Fase 1 ele passa a desenhar as zonas reais propostas acima.</span>
+    </div>
+  </div>
+
+  <div class="map-toolbar">
+    <div class="chips" role="group" aria-label="Visualizar zona" id="zone-chips"></div>
+    <span class="secondary">Piso G1 (exemplo) · circulação ilustrativa: sentidos e acessos virão da planta real</span>
+  </div>
+
+  <ul class="legend" id="map-legend" aria-label="Legenda dos estados de vaga"></ul>
+  <div class="map-detail" id="map-detail" aria-live="polite"><i data-ic="info"></i><span>Clique em uma vaga para ver o estado, o sensor e a última leitura.</span></div>
+
+  <div class="panel map-stage" id="map-stage">
+    <div class="floor-wrap" id="floor-wrap"></div>
+  </div>
+
+  <details class="summary-table panel panel-b">
+    <summary>Resumo acessível por setor (tabela)</summary>
+    <div class="table-scroll"><table class="table" id="sector-table"><caption class="sr-only">Contagem de vagas por estado em cada setor</caption></table></div>
+  </details>
+</section>
+
+<!-- ======================================================
+     TELA 3 — DISTRIBUIÇÃO INTELIGENTE
+     ====================================================== -->
+<section class="view" id="view-distribuicao" data-title="Distribuição inteligente" aria-labelledby="page-title" hidden>
+  <div class="dist-top">
+    <section class="panel" aria-labelledby="h-veic">
+      <div class="panel-h"><h2 id="h-veic">Veículo identificado</h2><span class="badge badge-info"><i data-ic="login"></i>Na cancela agora</span></div>
+      <div class="panel-b">
+        <dl class="dl">
+          <dt>Ticket</dt><dd><span class="ticket-id">PV-1113-0527</span></dd>
+          <dt>Categoria</dt><dd><span class="cat"><i data-ic="car"></i>Carro grande</span><span class="hint">selecionada no totem</span></dd>
+          <dt>Horário</dt><dd class="num">13/11/2026 11:42:05</dd>
+          <dt>Totem</dt><dd>T-ENT-01, entrada principal</dd>
+          <dt>Placa</dt><dd><span class="muted">— (leitura de placa fora do escopo da v1)</span></dd>
+        </dl>
+        <div style="margin-top:var(--pv-space-5)">
+          <p class="ds-sub">Painel de entrada mostra</p>
+          <div class="sign sm" role="img" aria-label="Painel de sinalização: Zona Z2, seta para a esquerda, 48 vagas livres"><span>Z2</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 15h-9v4l-7-7 7-7v4h9z"/></svg><span class="count">48 LIVRES</span></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel reco" aria-labelledby="h-reco">
+      <div class="panel-h"><h2 id="h-reco">Zona recomendada</h2><span class="meta">Calculado em 38 ms</span></div>
+      <div class="reco-body">
+        <div class="reco-zone"><small>Siga para a</small>Z2</div>
+        <div class="reco-facts">
+          <div class="fact"><b>0,591</b><span>Score, maior entre as zonas elegíveis</span></div>
+          <div class="fact"><b>44</b><span>Livres efetivas (48 livres − 4 a caminho)</span></div>
+          <div class="fact"><b>Setor B</b><span>Sugestão impressa no ticket</span></div>
+          <div class="fact"><b>85 m</b><span>Distância pela rota (ilustrativa)</span></div>
+        </div>
+      </div>
+      <div class="reco-foot">
+        <div class="alert alert-info" role="note"><i data-ic="info"></i><div><strong>v1 recomenda zona; não garante vaga individual</strong>O motorista escolhe qualquer vaga livre da Z2. A reserva de vaga específica (validade de 5 min) está prevista para uma versão futura.</div></div>
+      </div>
+    </section>
+  </div>
+
+  <div class="dist-mid">
+    <section class="panel" aria-labelledby="h-score">
+      <div class="panel-h"><h2 id="h-score">Por que a Z2?</h2><span class="meta">Valores arredondados em 3 casas</span></div>
+      <div class="panel-b" style="padding-bottom:0">
+        <p class="formula" aria-label="Fórmula do score">Score(z) = 0,40·Disp + 0,25·(1 − DistNorm) + 0,25·(1 − FluxoNorm) + 0,10·Saúde</p>
+      </div>
+      <div class="table-scroll">
+        <table class="table score-table">
+          <caption class="sr-only">Cálculo do score por critério para cada zona, categoria Carro grande</caption>
+          <thead><tr><th scope="col">Critério</th><th scope="col">Peso</th><th scope="col" class="zc is-win">Z2</th><th scope="col" class="zc">Z3</th><th scope="col" class="zc is-out">Z1</th><th scope="col" class="zc is-out">Z4</th></tr></thead>
+          <tbody>
+            <tr><td class="crit">Disponibilidade<small>Livres efetivas ÷ vagas compatíveis</small></td><td><span class="weight">40%</span></td>
+              <td class="zc is-win"><span class="pts">0,183</span><span class="raw">44 ÷ 96 = 0,458</span></td>
+              <td class="zc"><span class="pts">0,056</span><span class="raw">10 ÷ 72 = 0,139</span></td>
+              <td class="zc is-out"><span class="raw">0 ÷ 80</span></td><td class="zc is-out"><span class="raw">0 compatíveis</span></td></tr>
+            <tr><td class="crit">Distância<small>1 − rota ÷ maior rota (150 m)</small></td><td><span class="weight">25%</span></td>
+              <td class="zc is-win"><span class="pts">0,108</span><span class="raw">85 m → 0,433</span></td>
+              <td class="zc"><span class="pts">0,050</span><span class="raw">120 m → 0,200</span></td>
+              <td class="zc is-out"><span class="raw">40 m</span></td><td class="zc is-out"><span class="raw">150 m</span></td></tr>
+            <tr><td class="crit">Fluxo<small>1 − direcionados em 5 min ÷ vazão em 5 min (6 veíc./min × 5)</small></td><td><span class="weight">25%</span></td>
+              <td class="zc is-win"><span class="pts">0,200</span><span class="raw">6 ÷ 30 → 0,800</span></td>
+              <td class="zc"><span class="pts">0,225</span><span class="raw">3 ÷ 30 → 0,900</span></td>
+              <td class="zc is-out"><span class="raw">9 ÷ 30</span></td><td class="zc is-out"><span class="raw">2 ÷ 30</span></td></tr>
+            <tr><td class="crit">Saúde dos sensores<small>Sensores online ÷ total da zona</small></td><td><span class="weight">10%</span></td>
+              <td class="zc is-win"><span class="pts">0,099</span><span class="raw">95 ÷ 96 = 0,990</span></td>
+              <td class="zc"><span class="pts">0,093</span><span class="raw">67 ÷ 72 = 0,931</span></td>
+              <td class="zc is-out"><span class="raw">79 ÷ 80</span></td><td class="zc is-out"><span class="raw">61 ÷ 64</span></td></tr>
+          </tbody>
+          <tfoot><tr><td>Score</td><td></td><td class="zc is-win"><span class="pts">0,591</span></td><td class="zc"><span class="pts">0,424</span></td><td class="zc is-out">Inelegível</td><td class="zc is-out">Inelegível</td></tr></tfoot>
+        </table>
+      </div>
+      <div class="panel-b">
+        <div class="score-bars" aria-hidden="true">
+          <div class="sb win"><b>Z2</b><div class="bar"><i style="--v:59.1%"></i></div><span>0,591</span></div>
+          <div class="sb"><b>Z3</b><div class="bar"><i style="--v:42.4%"></i></div><span>0,424</span></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel" aria-labelledby="h-rota">
+      <div class="panel-h"><h2 id="h-rota">Rota sugerida</h2><span class="meta">Mesma rota dos painéis</span></div>
+      <div class="panel-b route-map">
+        <svg viewBox="0 0 340 290" role="img" aria-labelledby="rm-t">
+          <title id="rm-t">Mini-mapa ilustrativo: da entrada, subir pelo corredor lateral esquerdo e entrar na Zona Z2</title>
+          <rect class="rm-floor" x="0" y="0" width="340" height="290" rx="12"/>
+          <line class="rm-dash" x1="22" y1="20" x2="22" y2="262"/><line class="rm-dash" x1="22" y1="22" x2="318" y2="22"/><line class="rm-dash" x1="318" y1="22" x2="318" y2="268"/><line class="rm-dash" x1="22" y1="146" x2="318" y2="146"/><line class="rm-dash" x1="40" y1="268" x2="300" y2="268"/>
+          <rect class="rm-zone win" x="44" y="44" width="122" height="82" rx="6"/>
+          <text class="rm-label" x="58" y="76">Z2</text><text class="rm-sub" x="58" y="94">46% Normal</text><text class="rm-sub" x="58" y="110">Recomendada</text>
+          <rect class="rm-zone" x="190" y="44" width="106" height="82" rx="6"/>
+          <text class="rm-label" x="204" y="76">Z3</text><text class="rm-sub" x="204" y="94">72% Alta</text>
+          <rect class="rm-zone out" x="44" y="166" width="122" height="82" rx="6"/>
+          <text class="rm-label" x="58" y="198">Z1</text><text class="rm-sub" x="58" y="216">93% Lotada</text><text class="rm-sub" x="58" y="232">Inelegível</text>
+          <rect class="rm-zone out" x="190" y="166" width="106" height="82" rx="6"/>
+          <text class="rm-label" x="204" y="198">Z4</text><text class="rm-sub" x="204" y="216">Sem vaga p/ carro</text><text class="rm-sub" x="204" y="232">grande</text>
+          <rect class="rm-gate" x="4" y="256" width="58" height="26" rx="4"/><text class="rm-gate-t" x="12" y="273">Entrada</text>
+          <rect class="rm-gate" x="282" y="256" width="54" height="26" rx="4"/><text class="rm-gate-t" x="292" y="273">Saída</text>
+          <path class="rm-route-casing" d="M22 252 V86 H40"/>
+          <path class="rm-route" d="M22 252 V86 H40"/>
+          <path class="rm-arrowhead" d="M38 76 L54 86 L38 96 Z"/>
+        </svg>
+        <ol class="steps">
+          <li><span>Depois da cancela, siga as setas âmbar pelo corredor lateral (trajeto ilustrativo).</span></li>
+          <li><span>Passe pela Zona Z1 sem entrar: ela está lotada.</span></li>
+          <li><span>Entre à direita na Zona Z2. O setor B tem mais vagas livres.</span></li>
+        </ol>
+      </div>
+    </section>
+  </div>
+
+  <section class="panel" aria-labelledby="h-inel">
+    <div class="panel-h"><h2 id="h-inel">Zonas inelegíveis para este veículo</h2><span class="meta">Elegível = vagas compatíveis, livres efetivas &gt; reserva mínima (padrão 0) e saúde ≥ 0,6</span></div>
+    <div class="panel-b inelig">
+      <div class="inelig-item"><span class="zid">Z1</span><div><span class="badge badge-danger"><i data-ic="ban"></i>Sem livres efetivas</span><p>3 vagas livres, mas 3 veículos já foram direcionados e ainda estão a caminho. Livres efetivas = 3 − 3 = 0.</p></div></div>
+      <div class="inelig-item"><span class="zid">Z4</span><div><span class="badge badge-neutral"><i data-ic="ban"></i>Categoria incompatível</span><p>A zona atende só Carro pequeno e Moto (exemplo). Nenhuma vaga compatível com Carro grande.</p></div></div>
+    </div>
+  </section>
+</section>
+
+<!-- ======================================================
+     TELA 4 — VEÍCULOS E TICKETS
+     ====================================================== -->
+<section class="view" id="view-tickets" data-title="Veículos e tickets" aria-labelledby="page-title" hidden>
+  <div class="toolbar" role="search">
+    <label class="search"><span class="sr-only">Buscar ticket</span><i data-ic="search"></i><input class="input" type="search" id="tk-search" placeholder="Buscar por ticket, placa ou código curto" autocomplete="off"></label>
+    <label class="select-wrap"><span class="sr-only">Status</span><select class="select" id="tk-status"><option value="">Todos os status</option><option>Em andamento</option><option>Pagamento pendente</option><option>Pago</option><option>Saída registrada</option></select><i data-ic="chevron-down"></i></label>
+    <label class="select-wrap"><span class="sr-only">Categoria</span><select class="select" id="tk-cat"><option value="">Todas as categorias</option><option>Moto</option><option>Carro pequeno</option><option>Carro grande</option></select><i data-ic="chevron-down"></i></label>
+    <span class="count" id="tk-count" aria-live="polite"></span>
+  </div>
+  <div class="panel">
+    <div class="table-scroll">
+      <table class="table" id="tk-table">
+        <caption class="sr-only">Tickets de hoje. Selecione um ticket para ver o detalhe.</caption>
+        <thead><tr><th scope="col">Ticket</th><th scope="col">Placa</th><th scope="col">Categoria</th><th scope="col">Entrada</th><th scope="col">Zona / setor</th><th scope="col">Permanência</th><th scope="col">Status</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <div class="empty" id="tk-empty" hidden>
+      <i data-ic="search"></i>
+      <h3>Nenhum ticket encontrado</h3>
+      <p>Confira o código impresso no ticket (ex.: PV-1113-0418 ou 418 273) ou limpe os filtros.</p>
+      <button class="btn btn-secondary" id="tk-clear">Limpar filtros</button>
+    </div>
+  </div>
+  <p class="hint">Mostrando os tickets mais recentes de hoje. A placa só aparece quando informada no caixa; leitura automática de placa está fora do escopo da v1.</p>
+</section>
+
+<!-- ======================================================
+     TELA 5 — PAGAMENTO QR CODE
+     ====================================================== -->
+<section class="view" id="view-pagamento" data-title="Pagamento por QR Code" aria-labelledby="page-title" hidden>
+  <div class="pay-layout">
+    <div class="phone" role="region" aria-label="Simulação da página de pagamento aberta no celular do motorista">
+      <div class="phone-screen">
+        <div class="phone-notch" aria-hidden="true"></div>
+        <div class="m-status" aria-hidden="true"></div>
+        <div class="m-head">
+          <svg viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="14" class="lg-plate"/><rect x="17" y="13" width="8" height="38" rx="2" class="lg-p"/><path class="lg-p" fill-rule="evenodd" d="M21 13h14a14 14 0 0 1 0 28H21zM35 20.5a6.5 6.5 0 1 0 0 13 6.5 6.5 0 0 0 0-13z"/><circle cx="35" cy="27" r="3" class="lg-eye"/></svg>
+          <b>ParkVision</b><span class="badge badge-neutral">Shopping Exemplo</span>
+        </div>
+        <div class="m-sim" role="note"><i data-ic="flask"></i>Simulação — sem pagamento real</div>
+        <div class="m-body" id="m-body" aria-live="polite"></div>
+      </div>
+    </div>
+
+    <aside class="pay-side">
+      <div>
+        <h2 style="font-size:var(--pv-font-size-2xl)">Fluxo do motorista no celular</h2>
+        <p class="secondary" style="margin-top:var(--pv-space-2)">O motorista aponta a câmera para o QR do ticket e cai nesta página, sem instalar app e sem login. Navegue pelos passos:</p>
+      </div>
+      <ol class="stepper" id="pay-stepper">
+        <li><button data-step="1"><span class="n">1</span><span><b>Resumo do ticket</b><small>Identificação, permanência e valor</small></span></button></li>
+        <li><button data-step="2"><span class="n">2</span><span><b>Forma de pagamento</b><small>Pix, cartão (em breve) ou caixa</small></span></button></li>
+        <li><button data-step="3"><span class="n">3</span><span><b>Confirmação</b><small>Comprovante e tempo para sair</small></span></button></li>
+      </ol>
+      <div class="alert alert-warning" role="note"><i data-ic="flask"></i><div><strong>Simulação — sem pagamento real</strong>Nesta etapa o pagamento usa um provedor simulado (MockProvider). Nenhum valor é cobrado e o código Pix não é pagável.</div></div>
+      <section class="card">
+        <h3 class="section-title">Como o QR funciona</h3>
+        <ul class="note-list">
+          <li>O QR leva a <span class="mono">/t/{token}</span>: um código aleatório de 22 caracteres, sem placa nem dados pessoais.</li>
+          <li>O token deixa de aceitar pagamento quando a saída é registrada.</li>
+          <li>Quem não tem celular paga no caixa com o código curto impresso (ex.: <span class="mono">418 273</span>).</li>
+          <li>Todos os botões têm no mínimo 48 px de altura.</li>
+        </ul>
+      </section>
+    </aside>
+  </div>
+</section>
+
+<!-- ======================================================
+     TELA 6 — CONFIGURAÇÕES
+     ====================================================== -->
+<section class="view" id="view-config" data-title="Configurações" aria-labelledby="page-title" hidden>
+  <div class="alert alert-warning" role="note"><i data-ic="alert"></i><div><strong>Estrutura de exemplo</strong>Zonas, setores e vagas abaixo são provisórios. O cadastro definitivo será feito após a análise da planta real.</div></div>
+  <div>
+    <div class="tabs" role="tablist" aria-label="Seções de configuração">
+      <button class="tab" role="tab" id="tab-zonas" aria-controls="tp-zonas" aria-selected="true"><i data-ic="map"></i>Zonas</button>
+      <button class="tab" role="tab" id="tab-vagas" aria-controls="tp-vagas" aria-selected="false" tabindex="-1"><i data-ic="parking"></i>Vagas</button>
+      <button class="tab" role="tab" id="tab-cat" aria-controls="tp-cat" aria-selected="false" tabindex="-1"><i data-ic="car"></i>Categorias de veículos</button>
+      <button class="tab" role="tab" id="tab-sens" aria-controls="tp-sens" aria-selected="false" tabindex="-1"><i data-ic="radio"></i>Sensores</button>
+      <button class="tab" role="tab" id="tab-sin" aria-controls="tp-sin" aria-selected="false" tabindex="-1"><i data-ic="signpost"></i>Sinalização</button>
+    </div>
+
+    <!-- Zonas -->
+    <div class="tabpanel" role="tabpanel" id="tp-zonas" aria-labelledby="tab-zonas">
+      <div class="config-grid">
+        <section class="panel">
+          <div class="panel-h"><h2>Zonas do Piso G1 (exemplo)</h2><button class="btn btn-secondary btn-sm"><i data-ic="plus"></i>Nova zona</button></div>
+          <div class="table-scroll"><table class="table">
+            <thead><tr><th>Zona</th><th class="r">Vagas</th><th>Categorias</th><th class="r">Vazão (veíc./min)</th><th>Distribuição</th></tr></thead>
+            <tbody>
+              <tr><td><b>Z1</b> <span class="muted">4 setores</span></td><td class="r">80</td><td>Carro pequeno, Carro grande</td><td class="r">6</td><td><span class="badge badge-success"><i data-ic="check"></i>Ativa</span></td></tr>
+              <tr><td><b>Z2</b> <span class="muted">4 setores</span></td><td class="r">96</td><td>Carro pequeno, Carro grande</td><td class="r">6</td><td><span class="badge badge-success"><i data-ic="check"></i>Ativa</span></td></tr>
+              <tr><td><b>Z3</b> <span class="muted">4 setores</span></td><td class="r">72</td><td>Carro pequeno, Carro grande</td><td class="r">6</td><td><span class="badge badge-success"><i data-ic="check"></i>Ativa</span></td></tr>
+              <tr><td><b>Z4</b> <span class="muted">3 setores</span></td><td class="r">64</td><td>Carro pequeno, Moto</td><td class="r">6</td><td><span class="badge badge-success"><i data-ic="check"></i>Ativa</span></td></tr>
+            </tbody>
+          </table></div>
+        </section>
+        <section class="panel">
+          <div class="panel-h"><h2>Editar zona Z2</h2><span class="meta">Alterações valem para novos direcionamentos</span></div>
+          <form class="panel-b form-grid" onsubmit="return false" novalidate>
+            <div class="field"><label for="z-id">Código</label><input class="input" id="z-id" value="Z2" disabled aria-describedby="z-id-h"><span class="hint" id="z-id-h">Gerado pelo sistema; não editável.</span></div>
+            <div class="field"><label for="z-nome">Nome exibido nos painéis</label><input class="input is-focus" id="z-nome" value="Zona Z2"><span class="hint">Exemplo de campo em foco.</span></div>
+            <div class="field"><label for="z-pav">Pavimento</label><span class="select-wrap"><select class="select" id="z-pav"><option>Piso G1 (exemplo)</option><option>Piso G2 (exemplo)</option></select><i data-ic="chevron-down"></i></span></div>
+            <div class="field"><label for="z-vazao">Capacidade de vazão</label><span class="input-suffix"><input class="input" id="z-vazao" inputmode="numeric" value="6"><span>veíc./min</span></span></div>
+            <div class="field"><label for="z-alta">Limite de ocupação alta</label><span class="input-suffix"><input class="input" id="z-alta" inputmode="numeric" value="70"><span>%</span></span></div>
+            <div class="field"><label for="z-lot">Limite de lotação</label><span class="input-suffix"><input class="input" id="z-lot" inputmode="numeric" value="65" aria-invalid="true" aria-describedby="z-lot-e"><span>%</span></span><span class="field-error" id="z-lot-e"><i data-ic="alert"></i>Use um valor maior que o limite de ocupação alta (70%).</span></div>
+            <div class="field span-2"><span class="label" id="z-dist-l">Participa da distribuição inteligente</span><button type="button" class="toggle" role="switch" aria-checked="true" aria-labelledby="z-dist-l"><span class="track"></span><span class="state">Ativa</span></button></div>
+            <div class="form-actions span-2"><button type="button" class="btn btn-ghost">Descartar</button><button type="button" class="btn btn-primary">Salvar zona</button></div>
+          </form>
+        </section>
+      </div>
+    </div>
+
+    <!-- Vagas -->
+    <div class="tabpanel" role="tabpanel" id="tp-vagas" aria-labelledby="tab-vagas" hidden>
+      <div class="config-grid">
+        <section class="panel">
+          <div class="panel-h"><h2>Vagas da Zona Z2, setor D</h2><span class="meta">24 vagas</span></div>
+          <div class="table-scroll"><table class="table" id="cfg-vagas"></table></div>
+        </section>
+        <section class="panel">
+          <div class="panel-h"><h2>Alterar estado manualmente</h2></div>
+          <form class="panel-b form-grid" onsubmit="return false" novalidate>
+            <div class="field span-2"><label for="v-ids">Vagas</label><input class="input" id="v-ids" value="Z2-D-03, Z2-D-04"><span class="hint">Separe por vírgula.</span></div>
+            <div class="field"><label for="v-st">Novo estado</label><span class="select-wrap"><select class="select" id="v-st"><option>Em manutenção</option><option>Indisponível</option><option>Liberar (voltar ao sensor)</option></select><i data-ic="chevron-down"></i></span></div>
+            <div class="field"><label for="v-ate">Previsão de término</label><input class="input" id="v-ate" placeholder="hh:mm"></div>
+            <div class="field span-2"><label for="v-mot">Motivo</label><input class="input" id="v-mot" value="Pintura de faixa"></div>
+            <div class="field span-2"><label for="v-cat">Categoria da vaga</label><span class="select-wrap"><select class="select" id="v-cat" disabled><option>Carro pequeno ou grande</option></select><i data-ic="chevron-down"></i></span><span class="hint">Compatibilidade definida por vaga (tabela vaga × categoria).</span></div>
+            <div class="form-actions span-2"><button type="button" class="btn btn-secondary">Cancelar</button><button type="button" class="btn btn-primary" data-open-modal>Aplicar a 2 vagas</button></div>
+          </form>
+        </section>
+      </div>
+    </div>
+
+    <!-- Categorias -->
+    <div class="tabpanel" role="tabpanel" id="tp-cat" aria-labelledby="tab-cat" hidden>
+      <div class="config-grid">
+        <section class="panel">
+          <div class="panel-h"><h2>Categorias de veículos</h2><span class="meta">Selecionadas no totem de entrada</span></div>
+          <div class="table-scroll"><table class="table">
+            <thead><tr><th>Categoria</th><th>Botão no totem</th><th>Vagas compatíveis</th><th>Verificação por barreira IR</th></tr></thead>
+            <tbody>
+              <tr><td><span class="cat"><i data-ic="bike"></i>Moto</span></td><td>Botão 1</td><td>Moto</td><td><span class="badge badge-neutral"><i data-ic="clock"></i>Planejada</span></td></tr>
+              <tr><td><span class="cat"><i data-ic="car"></i>Carro pequeno</span></td><td>Botão 2</td><td>Carro pequeno, Carro grande</td><td><span class="badge badge-neutral"><i data-ic="clock"></i>Planejada</span></td></tr>
+              <tr><td><span class="cat"><i data-ic="car"></i>Carro grande</span></td><td>Botão 3</td><td>Carro grande</td><td><span class="badge badge-neutral"><i data-ic="clock"></i>Planejada</span></td></tr>
+            </tbody>
+          </table></div>
+        </section>
+        <section class="panel">
+          <div class="panel-h"><h2>Editar Carro grande</h2></div>
+          <form class="panel-b form-grid" onsubmit="return false" novalidate>
+            <div class="field span-2"><label for="c-nome">Nome no totem</label><input class="input" id="c-nome" value="Carro grande"></div>
+            <div class="field"><label for="c-alt">Altura mínima</label><input class="input" id="c-alt" placeholder="A definir" disabled aria-describedby="c-h"></div>
+            <div class="field"><label for="c-comp">Comprimento mínimo</label><input class="input" id="c-comp" placeholder="A definir" disabled aria-describedby="c-h"></div>
+            <p class="hint span-2" id="c-h">Limites da barreira infravermelha serão definidos com o equipamento e a planta real. Nenhuma dimensão foi fixada.</p>
+            <div class="field span-2"><span class="label" id="c-ac-l">Aceita vaga de carro pequeno quando não houver outra</span><button type="button" class="toggle" role="switch" aria-checked="false" aria-labelledby="c-ac-l"><span class="track"></span><span class="state">Não</span></button></div>
+            <div class="form-actions span-2"><button type="button" class="btn btn-primary">Salvar categoria</button></div>
+          </form>
+        </section>
+      </div>
+    </div>
+
+    <!-- Sensores -->
+    <div class="tabpanel" role="tabpanel" id="tp-sens" aria-labelledby="tab-sens" hidden>
+      <div class="config-grid">
+        <section class="panel">
+          <div class="panel-h"><h2>Sensores com atenção</h2><span class="meta">10 de 312</span></div>
+          <div class="table-scroll"><table class="table" id="cfg-sens"></table></div>
+        </section>
+        <section class="panel">
+          <div class="panel-h"><h2>Parâmetros de comunicação</h2><span class="meta">MQTT, QoS 1</span></div>
+          <form class="panel-b form-grid" onsubmit="return false" novalidate>
+            <div class="field"><label for="s-hb">Intervalo de heartbeat</label><span class="input-suffix"><input class="input" id="s-hb" value="30"><span>segundos</span></span></div>
+            <div class="field"><label for="s-db">Debounce no firmware</label><span class="input-suffix"><input class="input" id="s-db" value="3"><span>segundos</span></span></div>
+            <div class="field"><label for="s-off">Considerar offline após</label><span class="input-suffix"><input class="input" id="s-off" value="0" aria-invalid="true" aria-describedby="s-off-e"><span>heartbeats</span></span><span class="field-error" id="s-off-e"><i data-ic="alert"></i>Informe ao menos 1 heartbeat perdido.</span></div>
+            <div class="field"><label for="s-tp">Tópico base</label><input class="input mono" id="s-tp" value="parkvision/shopping-exemplo" disabled></div>
+            <div class="field span-2"><span class="label" id="s-lwt-l">Marcar vaga como "Erro de sensor" ao receber LWT</span><button type="button" class="toggle" role="switch" aria-checked="true" aria-labelledby="s-lwt-l"><span class="track"></span><span class="state">Sim</span></button></div>
+            <div class="form-actions span-2"><button type="button" class="btn btn-primary">Salvar parâmetros</button></div>
+          </form>
+        </section>
+      </div>
+    </div>
+
+    <!-- Sinalização -->
+    <div class="tabpanel" role="tabpanel" id="tp-sin" aria-labelledby="tab-sin" hidden>
+      <div class="config-grid">
+        <section class="panel">
+          <div class="panel-h"><h2>Painéis de sinalização</h2><span class="meta">Mensagem retida: o painel volta com o último texto após reiniciar</span></div>
+          <div class="table-scroll"><table class="table">
+            <thead><tr><th>Painel</th><th>Local (exemplo)</th><th>Modo</th><th>Mostrando agora</th><th>Status</th></tr></thead>
+            <tbody>
+              <tr><td class="mono">P-ENT-01</td><td>Entrada principal</td><td>Automático</td><td>Z2 ← 48 LIVRES</td><td><span class="badge badge-success"><i data-ic="check"></i>Online</span></td></tr>
+              <tr><td class="mono">P-G1-L1</td><td>Corredor lateral, frente à Z1</td><td>Automático</td><td>Z1 LOTADA</td><td><span class="badge badge-success"><i data-ic="check"></i>Online</span></td></tr>
+              <tr><td class="mono">P-G1-C1</td><td>Corredor central</td><td>Automático</td><td>Z3 → 10 LIVRES</td><td><span class="badge badge-success"><i data-ic="check"></i>Online</span></td></tr>
+              <tr><td class="mono">P-G1-S1</td><td>Saída</td><td>Manual</td><td>SAÍDA →</td><td><span class="badge badge-warning"><i data-ic="alert"></i>Sem resposta há 3 min</span></td></tr>
+            </tbody>
+          </table></div>
+        </section>
+        <section class="panel">
+          <div class="panel-h"><h2>Painel P-G1-L1</h2></div>
+          <div class="panel-b sign-preview">
+            <div class="sign sm" role="img" aria-label="Prévia: Zona Z1 lotada"><span>Z1</span><span class="full">LOTADA</span></div>
+            <form class="form-grid" onsubmit="return false" novalidate>
+              <div class="field"><label for="p-modo">Modo</label><span class="select-wrap"><select class="select" id="p-modo"><option>Automático (segue a distribuição)</option><option>Manual (texto fixo)</option></select><i data-ic="chevron-down"></i></span></div>
+              <div class="field"><label for="p-txt">Texto manual</label><input class="input" id="p-txt" placeholder="Ex.: Z3 →" disabled><span class="hint">Disponível só no modo manual.</span></div>
+              <div class="field span-2"><label for="p-bri">Brilho</label><input id="p-bri" type="range" min="10" max="100" value="80" style="accent-color:var(--pv-brand-primary)"></div>
+              <div class="form-actions span-2"><button type="button" class="btn btn-secondary">Enviar teste ao painel</button><button type="button" class="btn btn-primary">Salvar painel</button></div>
+            </form>
+          </div>
+        </section>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ======================================================
+     DESIGN SYSTEM — vitrine viva
+     ====================================================== -->
+<section class="view" id="view-design-system" data-title="Design System" aria-labelledby="page-title" hidden>
+  <div>
+    <p class="view-intro">Vitrine viva dos tokens e componentes do ParkVision. Tudo aqui lê <span class="mono">assets/tokens.css</span>; troque o tema no cabeçalho para ver as duas versões.</p>
+    <nav class="ds-nav" aria-label="Seções do Design System" style="margin-top:var(--pv-space-4)">
+      <a href="#ds-logo">Logo</a><a href="#ds-cores">Cores</a><a href="#ds-tipo">Tipografia</a><a href="#ds-espaco">Espaçamento, raios e sombras</a><a href="#ds-botoes">Botão</a><a href="#ds-badges">Badge</a><a href="#ds-campos">Campo de formulário</a><a href="#ds-alertas">Alerta</a><a href="#ds-modal">Modal</a><a href="#ds-card">Card e Tabela</a><a href="#ds-medidor">Medidor de ocupação</a><a href="#ds-vaga">Vaga</a><a href="#ds-skeleton">Skeleton</a><a href="#ds-sinal">Painel de sinalização</a>
+    </nav>
+  </div>
+
+  <div>
+  <section class="ds-section" id="ds-logo">
+    <header><h2>Logo</h2><p>Placa azul de estacionamento com um “P” cujo bojo é uma lente; a pupila âmbar é o sensor.</p><code>brand/logo-symbol.svg, brand/logo-horizontal.svg</code></header>
+    <div class="ds-body">
+      <div class="logo-stage">
+        <div class="logo-tile light"><svg viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="14" class="lg-plate"/><rect x="17" y="13" width="8" height="38" rx="2" class="lg-p"/><path class="lg-p" fill-rule="evenodd" d="M21 13h14a14 14 0 0 1 0 28H21zM35 20.5a6.5 6.5 0 1 0 0 13 6.5 6.5 0 0 0 0-13z"/><circle cx="35" cy="27" r="3" class="lg-eye"/></svg><span class="wm">Park<b>Vision</b></span></div>
+        <div class="logo-tile dark"><svg viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="14" class="lg-plate"/><rect x="17" y="13" width="8" height="38" rx="2" class="lg-p"/><path class="lg-p" fill-rule="evenodd" d="M21 13h14a14 14 0 0 1 0 28H21zM35 20.5a6.5 6.5 0 1 0 0 13 6.5 6.5 0 0 0 0-13z"/><circle cx="35" cy="27" r="3" class="lg-eye"/></svg><span class="wm">Park<b>Vision</b></span></div>
+      </div>
+      <div class="dos">
+        <div class="alert alert-success"><i data-ic="check"></i><div><strong>Faça</strong>Use o símbolo com área de respiro de ¼ da largura. Em fundo escuro, “Vision” passa para Vision 300.</div></div>
+        <div class="alert alert-danger"><i data-ic="ban"></i><div><strong>Evite</strong>Recolorir a placa, girar o símbolo ou usar o âmbar fora da pupila e das rotas.</div></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="ds-section" id="ds-cores">
+    <header><h2>Cores</h2><p>Primitivos nomeados pelo mundo do estacionamento: Asfalto (neutros), Vision (marca, azul de placa), Faixa (âmbar, só orientação e rotas) e cores de status. Os semânticos apontam para os primitivos e mudam por tema.</p><code>--pv-color-* → --pv-bg-*, --pv-status-*</code></header>
+    <div class="ds-body" id="ds-colors"></div>
+  </section>
+
+  <section class="ds-section" id="ds-tipo">
+    <header><h2>Tipografia</h2><p>Barlow para números, títulos e sinalização; IBM Plex Sans para a interface; IBM Plex Mono para tickets, placas e IDs.</p><code>--pv-font-family-display / sans / mono</code></header>
+    <div class="ds-body">
+      <div>
+        <div class="type-row"><code>sign 64 / Barlow 700</code><span style="font-family:var(--pv-font-family-display);font-weight:700;font-size:var(--pv-font-size-sign);line-height:1">Z2 48</span></div>
+        <div class="type-row"><code>5xl 48 / Barlow 600</code><span style="font-family:var(--pv-font-family-display);font-weight:600;font-size:var(--pv-font-size-5xl);line-height:1.1">312 vagas</span></div>
+        <div class="type-row"><code>2xl 24 / Barlow 600</code><span style="font-family:var(--pv-font-family-display);font-weight:600;font-size:var(--pv-font-size-2xl)">Ocupação por zona</span></div>
+        <div class="type-row"><code>lg 18 / Barlow 600</code><span style="font-family:var(--pv-font-family-display);font-weight:600;font-size:var(--pv-font-size-lg)">Título de painel</span></div>
+        <div class="type-row"><code>md 16 / Plex Sans 400</code><span style="font-size:var(--pv-font-size-md)">Siga as setas âmbar até a Zona Z2.</span></div>
+        <div class="type-row"><code>sm 14 / Plex Sans 400–600</code><span>Texto padrão da interface, tabelas e formulários.</span></div>
+        <div class="type-row"><code>xs 12 / Plex Sans 500</code><span style="font-size:var(--pv-font-size-xs);font-weight:500">Legendas, dicas e metadados</span></div>
+        <div class="type-row"><code>mono / Plex Mono 500</code><span class="mono" style="font-size:var(--pv-font-size-lg)">PV-1113-0418 · RIO4F22 · 418 273</span></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="ds-section" id="ds-espaco">
+    <header><h2>Espaçamento, raios e sombras</h2><p>Escala de 4 px. Raios crescem com o tamanho do componente: vaga 4, botão e campo 8, card 12, modal 16.</p><code>--pv-space-* / --pv-radius-* / --pv-shadow-*</code></header>
+    <div class="ds-body">
+      <div id="ds-space" style="display:flex;flex-direction:column;gap:var(--pv-space-2)"></div>
+      <div class="box-row" id="ds-radius"></div>
+      <div class="box-row" id="ds-shadow"></div>
+    </div>
+  </section>
+
+  <section class="ds-section" id="ds-botoes">
+    <header><h2>Botão</h2><p>Quatro variantes, três alturas (32, 40, 48 px). No celular, use sempre 48 px. Rótulos dizem a ação: “Salvar zona”, não “Enviar”.</p><code>--pv-button-*</code></header>
+    <div class="ds-body">
+      <div class="table-scroll panel"><table class="table btn-matrix" id="ds-btn-matrix"></table></div>
+      <div class="specimen"><button class="btn btn-primary btn-sm">Pequeno 32</button><button class="btn btn-primary">Médio 40</button><button class="btn btn-primary btn-lg">Grande 48</button><button class="icon-btn" aria-label="Fechar"><i data-ic="x"></i></button></div>
+    </div>
+  </section>
+
+  <section class="ds-section" id="ds-badges">
+    <header><h2>Badge</h2><p>Sempre com ícone e texto; a cor reforça, nunca é o único sinal.</p><code>--pv-badge-*</code></header>
+    <div class="ds-body">
+      <div class="specimen">
+        <span class="badge badge-info"><i data-ic="clock"></i>Em andamento</span>
+        <span class="badge badge-success"><i data-ic="check"></i>Pago</span>
+        <span class="badge badge-neutral"><i data-ic="logout"></i>Saída registrada</span>
+        <span class="badge badge-warning"><i data-ic="alert"></i>Pagamento pendente</span>
+        <span class="badge badge-danger"><i data-ic="alert"></i>Lotada</span>
+        <span class="badge badge-brand"><i data-ic="route"></i>Recomendada</span>
+        <span class="badge badge-erro"><i data-ic="radio"></i>Erro de sensor</span>
+      </div>
+    </div>
+  </section>
+
+  <section class="ds-section" id="ds-campos">
+    <header><h2>Campo de formulário</h2><p>Rótulo sempre visível acima do campo. Erros dizem o que fazer, com ícone, e ligam-se ao campo por <span class="mono">aria-describedby</span>.</p><code>--pv-input-*</code></header>
+    <div class="ds-body">
+      <div class="two-col">
+        <div class="field"><label for="ds-i1">Padrão</label><input class="input" id="ds-i1" placeholder="Ex.: Zona Z5"></div>
+        <div class="field"><label for="ds-i2">Foco</label><input class="input is-focus" id="ds-i2" value="Zona Z2"></div>
+        <div class="field"><label for="ds-i3">Erro</label><input class="input" id="ds-i3" value="65" aria-invalid="true" aria-describedby="ds-i3e"><span class="field-error" id="ds-i3e"><i data-ic="alert"></i>Use um valor maior que 70%.</span></div>
+        <div class="field"><label for="ds-i4">Desabilitado</label><input class="input" id="ds-i4" value="Z2" disabled></div>
+        <div class="field"><label for="ds-i5">Seleção</label><span class="select-wrap"><select class="select" id="ds-i5"><option>Carro grande</option><option>Carro pequeno</option><option>Moto</option></select><i data-ic="chevron-down"></i></span></div>
+        <div class="field"><span class="label">Toggle</span><div class="specimen"><button type="button" class="toggle" role="switch" aria-checked="true" aria-label="Exemplo ligado"><span class="track"></span><span class="state">Sim</span></button><button type="button" class="toggle" role="switch" aria-checked="false" aria-label="Exemplo desligado"><span class="track"></span><span class="state">Não</span></button><button type="button" class="toggle" role="switch" aria-checked="true" disabled aria-label="Exemplo desabilitado"><span class="track"></span><span class="state">Sim</span></button></div></div>
+      </div>
+      <div><p class="ds-sub">Chip de filtro e Abas</p>
+        <div class="chips" style="margin-bottom:var(--pv-space-4)"><button class="chip" aria-pressed="true"><i data-ic="check" class="chip-check"></i>Piso inteiro</button><button class="chip" aria-pressed="false"><i data-ic="check" class="chip-check"></i>Z1</button><button class="chip" aria-pressed="false"><i data-ic="check" class="chip-check"></i>Z2</button></div>
+        <div class="tabs" role="presentation"><span class="tab" aria-selected="true">Selecionada</span><span class="tab">Aba</span><span class="tab">Aba</span></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="ds-section" id="ds-alertas">
+    <header><h2>Alerta</h2><p>Quatro severidades. Título diz o que aconteceu; o texto diz o que fazer.</p><code>--pv-alert-*, --pv-feedback-*</code></header>
+    <div class="ds-body">
+      <div class="alert alert-info"><i data-ic="info"></i><div><strong>Distribuição recalculada</strong>Os painéis de entrada passaram a indicar a Zona Z2.</div></div>
+      <div class="alert alert-success"><i data-ic="check"></i><div><strong>Sensor restabelecido</strong>Vaga Z4-M-05 voltou a responder.</div></div>
+      <div class="alert alert-warning"><i data-ic="alert"></i><div><strong>Zona Z3 em ocupação alta</strong>Acompanhe; a zona segue elegível para a distribuição.</div></div>
+      <div class="alert alert-danger"><i data-ic="alert"></i><div><strong>Zona Z1 lotada</strong>Novos veículos não serão direcionados para a Z1 até liberar vagas.</div></div>
+    </div>
+  </section>
+
+  <section class="ds-section" id="ds-modal">
+    <header><h2>Modal</h2><p>Para confirmar ações que mudam a operação. Fecha com Esc, com o botão de fechar ou clicando fora. O foco volta ao botão de origem.</p><code>--pv-modal-*</code></header>
+    <div class="ds-body"><div class="specimen"><button class="btn btn-primary" data-open-modal>Abrir modal de exemplo</button></div></div>
+  </section>
+
+  <section class="ds-section" id="ds-card">
+    <header><h2>Card e Tabela</h2><p>Card agrupa um assunto. Tabela usa cabeçalho em fundo sutil, linhas de 48 px e IDs em mono.</p><code>--pv-card-*, --pv-table-*</code></header>
+    <div class="ds-body">
+      <div class="two-col">
+        <div class="card"><h3 class="section-title">Card</h3><p class="secondary">Título em Barlow 18, conteúdo em Plex Sans 14, padding de 20 px.</p><div style="margin-top:var(--pv-space-4)"><button class="btn btn-secondary btn-sm">Ação secundária</button></div></div>
+        <div class="card"><h3 class="section-title">Indicador (KPI)</h3><span class="kpi-value">82</span><span class="kpi-note">Vagas disponíveis agora</span></div>
+      </div>
+      <div class="panel table-scroll"><table class="table">
+        <thead><tr><th>Ticket</th><th>Categoria</th><th>Entrada</th><th>Status</th></tr></thead>
+        <tbody><tr><td class="mono">PV-1113-0418</td><td><span class="cat"><i data-ic="car"></i>Carro grande</span></td><td>09:31</td><td><span class="badge badge-warning"><i data-ic="alert"></i>Pagamento pendente</span></td></tr>
+        <tr><td class="mono">PV-1113-0409</td><td><span class="cat"><i data-ic="car"></i>Carro pequeno</span></td><td>09:12</td><td><span class="badge badge-success"><i data-ic="check"></i>Pago</span></td></tr></tbody>
+      </table></div>
+    </div>
+  </section>
+
+  <section class="ds-section" id="ds-medidor">
+    <header><h2>Medidor de ocupação</h2><p>Barra com marcas em 70% e 90% e rótulo textual do nível. Normal &lt; 70%, Alta 70–89%, Lotada ≥ 90%.</p><code>--pv-meter-*, --pv-occupancy-*</code></header>
+    <div class="ds-body" id="ds-meters"></div>
+  </section>
+
+  <section class="ds-section" id="ds-vaga">
+    <header><h2>Vaga</h2><p>Sete estados, cada um com cor, ícone, código e rótulo. Padrões extras para quem não distingue cores: hachura (indisponível), listras (manutenção), borda tracejada (erro). Vaga de moto é menor.</p><code>--pv-spot-*, --pv-status-*</code></header>
+    <div class="ds-body">
+      <div class="spot-states" id="ds-spots"></div>
+      <div><p class="ds-sub">Tamanhos: carro (36 × 56) e moto (24 × 36)</p><div class="specimen" id="ds-spot-sizes"></div></div>
+    </div>
+  </section>
+
+  <section class="ds-section" id="ds-skeleton">
+    <header><h2>Skeleton</h2><p>Mostrado enquanto os dados chegam. Leitores de tela ouvem “Atualizando…”.</p><code>--pv-status-carregamento-*</code></header>
+    <div class="ds-body">
+      <div class="card" role="status" aria-label="Atualizando…" id="ds-sk">
+        <span class="sk" style="width:40%;height:18px"></span>
+        <span class="sk" style="width:24%;height:44px;margin:var(--pv-space-3) 0"></span>
+        <span class="sk" style="width:100%;height:8px"></span>
+        <span class="sk" style="width:70%;height:12px;margin-top:var(--pv-space-3)"></span>
+      </div>
+      <div class="specimen"><button class="btn btn-secondary" id="ds-sk-btn"><i data-ic="refresh"></i>Simular carregamento de 2 s</button></div>
+    </div>
+  </section>
+
+  <section class="ds-section" id="ds-sinal">
+    <header><h2>Painel de sinalização</h2><p>Simulação do painel físico de LED: fundo escuro nos dois temas, seta em âmbar Faixa, contagem em Barlow grande. Legível de longe sem smartphone.</p><code>--pv-font-size-sign, --pv-color-faixa-500</code></header>
+    <div class="ds-body">
+      <div class="sign" role="img" aria-label="Painel: Zona Z2, seta para a direita, 48 vagas livres"><span>Z2</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9h9V5l7 7-7 7v-4H4z"/></svg><span class="count">48 LIVRES</span></div>
+      <div class="signs-row">
+        <div class="sign sm" role="img" aria-label="Painel: Zona Z1 lotada"><span>Z1</span><span class="full">LOTADA</span></div>
+        <div class="sign sm" role="img" aria-label="Painel: Zona Z3, seguir em frente, 12 livres"><span>Z3</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 20v-9H5l7-7 7 7h-4v9z"/></svg><span class="count">12</span></div>
+      </div>
+    </div>
+  </section>
+  </div>
+</section>
+
+    </main>
+  </div>
+</div>
+
+<!-- Drawer de detalhe de ticket -->
+<div class="drawer-backdrop" id="tk-drawer" hidden>
+  <div class="drawer" role="dialog" aria-modal="true" aria-labelledby="drawer-title" tabindex="-1">
+    <div class="drawer-h">
+      <div><p class="crumb">Detalhe do ticket</p><h2 id="drawer-title" class="ticket-id"></h2></div>
+      <button class="icon-btn" data-close-drawer aria-label="Fechar detalhe do ticket"><i data-ic="x"></i></button>
+    </div>
+    <div class="drawer-b" id="drawer-body"></div>
+    <div class="drawer-f" id="drawer-foot"></div>
+  </div>
+</div>
+
+<!-- Modal -->
+<div class="modal-backdrop" id="modal" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title" aria-describedby="modal-desc">
+    <div class="modal-h"><h2 id="modal-title" style="font-size:var(--pv-font-size-xl)">Marcar 2 vagas como em manutenção?</h2><button class="icon-btn" data-close-modal aria-label="Fechar"><i data-ic="x"></i></button></div>
+    <div class="modal-b">
+      <p id="modal-desc">As vagas Z2-D-03 e Z2-D-04 deixam de contar como livres e não entram na distribuição até serem liberadas.</p>
+      <div class="specimen"><div class="spot st-manutencao" role="img" aria-label="Em manutenção"><i data-ic="wrench"></i><b>M</b></div><div class="spot st-manutencao" role="img" aria-label="Em manutenção"><i data-ic="wrench"></i><b>M</b></div></div>
+    </div>
+    <div class="modal-f"><button class="btn btn-secondary" data-close-modal>Cancelar</button><button class="btn btn-primary" data-close-modal>Marcar em manutenção</button></div>
+  </div>
+</div>
+
+<script>
+(function () {
+'use strict';
+/* =========================================================
+   ParkVision — protótipo navegável (dados fictícios)
+   ========================================================= */
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
+const fmt = (n, d = 0) => n.toLocaleString('pt-BR', { minimumFractionDigits: d, maximumFractionDigits: d });
+
+/* ---------- Ícones (traço estilo Lucide) ---------- */
+const P = (d) => `<path d="${d}"/>`, C = (x, y, r) => `<circle cx="${x}" cy="${y}" r="${r}"/>`, R = (x, y, w, h, rx = 0) => `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${rx}"/>`;
+const ICONS = {
+  dashboard: R(3,3,7,9,1)+R(14,3,7,5,1)+R(14,12,7,9,1)+R(3,16,7,5,1),
+  map: P('M3 6l6-3 6 3 6-3v15l-6 3-6-3-6 3z')+P('M9 3v15')+P('M15 6v15'),
+  route: C(6,19,3)+P('M9 19h8.5a3.5 3.5 0 0 0 0-7h-11a3.5 3.5 0 0 1 0-7H15')+C(18,5,3),
+  ticket: P('M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z')+P('M13 5v2M13 17v2M13 11v2'),
+  qr: R(3,3,5,5,1)+R(16,3,5,5,1)+R(3,16,5,5,1)+P('M21 16h-3a2 2 0 0 0-2 2v3M21 21v.01M12 7v3a2 2 0 0 1-2 2H7M3 12h.01M12 3h.01M12 16v.01M16 12h1M21 12v.01M12 21v-1'),
+  sliders: P('M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M2 14h4M10 8h4M18 16h4'),
+  layers: P('M12 2 2 7l10 5 10-5-10-5z')+P('M2 17l10 5 10-5')+P('M2 12l10 5 10-5'),
+  menu: P('M4 6h16M4 12h16M4 18h16'),
+  flask: P('M10 2v7.31M14 9.3V2M8.5 2h7M14 9.3a6.5 6.5 0 1 1-4 0M5.52 16h12.96'),
+  moon: P('M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z'),
+  sun: C(12,12,4)+P('M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41'),
+  parking: R(3,3,18,18,2)+P('M9 17V7h4a3 3 0 0 1 0 6H9'),
+  check: P('M20 6 9 17l-5-5'),
+  'circle-check': C(12,12,10)+P('m9 12 2 2 4-4'),
+  car: P('M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 12v4c0 .6.4 1 1 1h2M9 17h6')+C(7,17,2)+C(17,17,2),
+  gauge: P('m12 14 4-4M3.34 19a10 10 0 1 1 17.32 0'),
+  login: P('M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M10 17l5-5-5-5M15 12H3'),
+  logout: P('M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9'),
+  alert: P('m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3M12 9v4M12 17h.01'),
+  info: C(12,12,10)+P('M12 16v-4M12 8h.01'),
+  ban: C(12,12,10)+P('m4.9 4.9 14.2 14.2'),
+  bike: C(5.5,17.5,3.5)+C(18.5,17.5,3.5)+P('M15 6a1 1 0 1 0 0-2 1 1 0 0 0 0 2zm-3 11.5V14l-3-3 4-3 2 3h2'),
+  clock: C(12,12,10)+P('M12 6v6l4 2'),
+  radio: P('M4.9 19.1C1 15.2 1 8.8 4.9 4.9M7.8 16.2c-2.3-2.3-2.3-6.1 0-8.5M16.2 7.8c2.3 2.3 2.3 6.1 0 8.5M19.1 4.9C23 8.8 23 15.1 19.1 19')+C(12,12,2),
+  signpost: P('M12 3v3M18.5 13h-13L2 9.5 5.5 6h13L22 9.5ZM12 13v8'),
+  plus: P('M5 12h14M12 5v14'),
+  'chevron-down': P('m6 9 6 6 6-6'),
+  search: C(11,11,8)+P('m21 21-4.3-4.3'),
+  x: P('M18 6 6 18M6 6l12 12'),
+  wrench: P('M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z'),
+  refresh: P('M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8M21 3v5h-5M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16M8 16H3v5'),
+  loader: P('M21 12a9 9 0 1 1-6.219-8.56'),
+  copy: R(8,8,14,14,2)+P('M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2'),
+  card: R(2,5,20,14,2)+P('M2 10h20'),
+  cash: R(2,6,20,12,2)+C(12,12,2)+P('M6 12h.01M18 12h.01'),
+  pix: P('M12 2.5 21.5 12 12 21.5 2.5 12Z')+P('M8.5 12 12 8.5 15.5 12 12 15.5Z'),
+  receipt: P('M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1ZM16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8M12 17.5v-11'),
+  pin: P('M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z')+C(12,10,3),
+  'arrow-up': P('M12 19V5M5 12l7-7 7 7'),
+  'arrow-right': P('M5 12h14M12 5l7 7-7 7'),
+  'arrow-left': P('M19 12H5M12 19l-7-7 7-7'),
+  'wifi-off': P('M12 20h.01M8.5 16.43a5 5 0 0 1 7 0M2 8.82a15 15 0 0 1 4.17-2.65M10.66 5c4.01-.36 8.14.9 11.34 3.76M16.85 11.25a10 10 0 0 1 2.22 1.68M5 13a10 10 0 0 1 5.24-2.76M2 2l20 20'),
+};
+const icon = (name, cls = '') => `<svg class="ic${cls ? ' ' + cls : ''}" viewBox="0 0 24 24" aria-hidden="true">${ICONS[name] || ICONS.info}</svg>`;
+function hydrateIcons(root = document) {
+  $$('i[data-ic]', root).forEach((el) => {
+    const t = document.createElement('template');
+    t.innerHTML = icon(el.dataset.ic, el.className);
+    el.replaceWith(t.content.firstChild);
+  });
+}
+const ARROW = { // setas preenchidas (âmbar) das faixas
+  right: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9h9V5l7 7-7 7v-4H4z"/></svg>',
+  left: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 15h-9v4l-7-7 7-7v4h9z"/></svg>',
+  up: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 20v-9H5l7-7 7 7h-4v9z"/></svg>',
+  down: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 4v9h4l-7 7-7-7h4V4z"/></svg>',
+};
+
+/* ---------- Estados de vaga (mesmo mapa do Design System) ---------- */
+const ESTADOS = {
+  livre:        { rotulo: 'Livre',          codigo: 'L', icone: 'circle-check' },
+  ocupada:      { rotulo: 'Ocupada',        codigo: 'O', icone: 'car' },
+  reservada:    { rotulo: 'Reservada',      codigo: 'R', icone: 'clock' },
+  indisponivel: { rotulo: 'Indisponível',   codigo: 'X', icone: 'ban' },
+  manutencao:   { rotulo: 'Em manutenção',  codigo: 'M', icone: 'wrench' },
+  erro:         { rotulo: 'Erro de sensor', codigo: 'E', icone: 'alert' },
+  carregamento: { rotulo: 'Atualizando…',   codigo: '·', icone: 'loader' },
+};
+const faixa = (pct) => (pct >= 90 ? 'lotada' : pct >= 70 ? 'alta' : 'normal');
+const FAIXA_TXT = { normal: 'Normal', alta: 'Alta', lotada: 'Lotada' };
+const FAIXA_BADGE = { normal: ['badge-success', 'check'], alta: ['badge-warning', 'alert'], lotada: ['badge-danger', 'alert'] };
+
+/* ---------- Dados fictícios (coerentes com os KPIs) ---------- */
+// 312 vagas · 82 livres · 210 ocupadas · 20 em outros estados · 10 a caminho
+const ZONAS = [
+  { id: 'Z1', area: 'z1', cats: 'Carro pequeno, Carro grande', transito: 3, cols: 10,
+    setores: ['A', 'B', 'C', 'D'].map((s) => ({ id: s, n: 20 })),
+    contagem: { livre: 3, ocupada: 74, manutencao: 2, erro: 1 } },
+  { id: 'Z2', area: 'z2', cats: 'Carro pequeno, Carro grande', transito: 4, cols: 12,
+    setores: ['A', 'B', 'C', 'D'].map((s) => ({ id: s, n: 24 })),
+    contagem: { livre: 48, ocupada: 44, indisponivel: 1, manutencao: 2, erro: 1 } },
+  { id: 'Z3', area: 'z3', cats: 'Carro pequeno, Carro grande', transito: 3, cols: 9,
+    setores: ['A', 'B', 'C', 'D'].map((s) => ({ id: s, n: 18 })),
+    contagem: { livre: 13, ocupada: 52, indisponivel: 2, erro: 5 } },
+  { id: 'Z4', area: 'z4', cats: 'Carro pequeno, Moto', transito: 0, cols: 12,
+    setores: [{ id: 'A', n: 24 }, { id: 'B', n: 24 }, { id: 'M', n: 16, moto: true }],
+    contagem: { livre: 18, ocupada: 40, indisponivel: 3, erro: 3 } },
+];
+// PRNG determinístico para distribuir estados sempre igual
+let seed = 20261113;
+const rnd = () => ((seed = (seed * 1664525 + 1013904223) >>> 0) / 4294967296);
+ZONAS.forEach((z) => {
+  const total = z.setores.reduce((a, s) => a + s.n, 0);
+  const pool = [];
+  Object.entries(z.contagem).forEach(([st, n]) => { for (let i = 0; i < n; i++) pool.push(st); });
+  while (pool.length < total) pool.push('livre');
+  for (let i = pool.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); [pool[i], pool[j]] = [pool[j], pool[i]]; }
+  let k = 0;
+  z.total = total;
+  z.vagas = [];
+  z.setores.forEach((s) => {
+    s.vagas = [];
+    for (let i = 1; i <= s.n; i++) {
+      const v = { id: `${z.id}-${s.id}-${String(i).padStart(2, '0')}`, zona: z.id, setor: s.id, moto: !!s.moto, estado: pool[k++] };
+      s.vagas.push(v); z.vagas.push(v);
+    }
+  });
+  z.ocupadas = z.contagem.ocupada;
+  z.livres = z.contagem.livre;
+  z.pct = Math.round((z.ocupadas / z.total) * 100);
+  z.sensoresOk = z.total - (z.contagem.erro || 0);
+});
+// Ajustes pontuais para casar com textos das telas
+(function () {
+  const z2d = ZONAS[1].setores[3].vagas; // Z2-D-03 e Z2-D-04 livres (alvo do exemplo de manutenção)
+  ['Z2-D-03', 'Z2-D-04'].forEach((id) => {
+    const v = z2d.find((x) => x.id === id);
+    if (v.estado !== 'livre') { const sw = ZONAS[1].vagas.find((x) => x.estado === 'livre' && x.setor !== 'D'); sw.estado = v.estado; v.estado = 'livre'; }
+  });
+  const z4m = ZONAS[3].setores[2].vagas.find((x) => x.id === 'Z4-M-05');
+  if (z4m.estado === 'erro') { const sw = ZONAS[3].vagas.find((x) => x.estado === 'ocupada'); sw.estado = 'erro'; z4m.estado = 'ocupada'; }
+})();
+const ALL = ZONAS.flatMap((z) => z.vagas);
+const countBy = (list) => list.reduce((a, v) => ((a[v.estado] = (a[v.estado] || 0) + 1), a), {});
+
+/* ---------- Navegação por hash ---------- */
+const VIEWS = ['dashboard', 'mapa', 'distribuicao', 'tickets', 'pagamento', 'config', 'design-system'];
+function route() {
+  let h = (location.hash || '#dashboard').slice(1);
+  let anchor = null;
+  if (h.startsWith('ds-')) { anchor = h; h = 'design-system'; }
+  if (!VIEWS.includes(h)) h = 'dashboard';
+  $$('.view').forEach((v) => { v.hidden = v.id !== 'view-' + h; });
+  $$('[data-nav]').forEach((a) => (a.dataset.nav === h ? a.setAttribute('aria-current', 'page') : a.removeAttribute('aria-current')));
+  const view = $('#view-' + h);
+  $('#page-title').textContent = view.dataset.title;
+  closeMenu();
+  if (h === 'mapa') fitMap();
+  if (anchor) { const el = document.getElementById(anchor); if (el) el.scrollIntoView(); }
+  else if (route.started) { window.scrollTo(0, 0); $('#page-title').focus({ preventScroll: true }); }
+  route.started = true;
+}
+
+/* ---------- Tema ---------- */
+const mq = window.matchMedia('(prefers-color-scheme: dark)');
+const isDark = () => (document.documentElement.dataset.theme ? document.documentElement.dataset.theme === 'dark' : mq.matches);
+function paintThemeBtn() {
+  const b = $('#theme-toggle'), d = isDark();
+  b.setAttribute('aria-pressed', String(d));
+  b.innerHTML = icon(d ? 'sun' : 'moon') + `<span class="txt">${d ? 'Tema claro' : 'Tema escuro'}</span>`;
+}
+function initTheme() {
+  try { const t = localStorage.getItem('pv-theme'); if (t) document.documentElement.dataset.theme = t; } catch (e) { /* sem storage */ }
+  paintThemeBtn();
+  $('#theme-toggle').addEventListener('click', () => {
+    const t = isDark() ? 'light' : 'dark';
+    document.documentElement.dataset.theme = t;
+    try { localStorage.setItem('pv-theme', t); } catch (e) { /* ignora */ }
+    paintThemeBtn();
+    renderColors();
+  });
+  mq.addEventListener?.('change', () => { paintThemeBtn(); renderColors(); });
+}
+
+/* ---------- Menu mobile ---------- */
+function closeMenu() { $('#sidebar').classList.remove('open'); $('#scrim').hidden = true; $('#menu-btn').setAttribute('aria-expanded', 'false'); }
+function initMenu() {
+  $('#menu-btn').addEventListener('click', () => {
+    const open = !$('#sidebar').classList.contains('open');
+    $('#sidebar').classList.toggle('open', open); $('#scrim').hidden = !open; $('#menu-btn').setAttribute('aria-expanded', String(open));
+  });
+  $('#scrim').addEventListener('click', closeMenu);
+}
+
+/* ---------- Relógio "ao vivo" ---------- */
+function tick() { $('#clock').textContent = new Date().toLocaleTimeString('pt-BR'); }
+
+/* =========================================================
+   TELA 1 — Dashboard
+   ========================================================= */
+const meterHTML = (pct, label) => `<div class="meter lvl-${faixa(pct)}" role="meter" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}" aria-label="${label} ${pct}%, ${FAIXA_TXT[faixa(pct)]}"><i style="--v:${pct}%"></i><span class="tick" style="left:70%"></span><span class="tick" style="left:90%"></span></div>`;
+const faixaBadge = (pct) => { const f = faixa(pct), [c, ic] = FAIXA_BADGE[f]; return `<span class="badge ${c}">${icon(ic)}${FAIXA_TXT[f]}</span>`; };
+function renderDashboard() {
+  $('#zone-meters').innerHTML = ZONAS.map((z) => `
+    <div class="zm">
+      <span class="zm-id">${z.id}</span>
+      <div>
+        <div class="zm-top"><span><b>${z.livres} livres</b> de ${z.total}</span><span>Setores ${z.setores.map((s) => s.id).join(', ')}</span></div>
+        ${meterHTML(z.pct, 'Ocupação da zona ' + z.id)}
+        <p class="zm-sub">${z.transito} a caminho · sensores ${z.sensoresOk}/${z.total} · ${z.cats}</p>
+      </div>
+      <span class="zm-pct">${z.pct}%</span>
+      ${faixaBadge(z.pct)}
+    </div>`).join('');
+
+  const online = 302, offline = 6, erroLeit = 4, tot = 312;
+  $('#sensor-health').innerHTML = `
+    <div class="health-big"><b>${online}</b><span class="secondary">de ${tot} sensores online (${fmt((online / tot) * 100, 1)}%)</span></div>
+    <div class="health-bar" role="img" aria-label="${online} online, ${offline} offline, ${erroLeit} com leitura incoerente">
+      <i style="width:${(online / tot) * 100}%;background:var(--pv-status-livre-solid)"></i>
+      <i style="width:${Math.max((offline / tot) * 100, 1.5)}%;background:var(--pv-status-erro-solid)"></i>
+      <i style="width:${Math.max((erroLeit / tot) * 100, 1.5)}%;background:var(--pv-status-manutencao-solid)"></i>
+    </div>
+    <div class="health-legend">
+      <div class="hl" style="--c:var(--pv-status-livre-solid)"><span>${icon('circle-check')}Online</span><b>${online}</b></div>
+      <div class="hl" style="--c:var(--pv-status-erro-solid)"><span>${icon('wifi-off')}Offline (LWT)</span><b>${offline}</b></div>
+      <div class="hl" style="--c:var(--pv-status-manutencao-solid)"><span>${icon('alert')}Leitura incoerente</span><b>${erroLeit}</b></div>
+    </div>
+    <table class="table mini-table"><caption class="sr-only">Zonas com mais sensores em atenção</caption>
+      <thead><tr><th scope="col">Zona</th><th scope="col" class="r">Em atenção</th><th scope="col">Efeito</th></tr></thead>
+      <tbody>
+        <tr><td><b>Z3</b></td><td class="r">5</td><td><span class="badge badge-warning">${icon('alert')}Saúde 93%</span></td></tr>
+        <tr><td><b>Z4</b></td><td class="r">3</td><td><span class="badge badge-neutral">${icon('info')}Saúde 95%</span></td></tr>
+      </tbody></table>`;
+
+  // Gráfico de ocupação (SVG desenhado em escala)
+  const pts = [18, 22, 27, 33, 39, 44, 50, 55, 58, 61, 63, 64, 66, 67];
+  const labels = ['08:00', '', '', '09:00', '', '', '10:00', '', '', '11:00', '', '', '', '11:40'];
+  const W = 640, H = 250, L = 40, Rr = 92, T = 16, B = 30;
+  const x = (i) => L + (i * (W - L - Rr)) / (pts.length - 1);
+  const y = (v) => T + ((100 - v) * (H - T - B)) / 100;
+  const line = pts.map((v, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)} ${y(v).toFixed(1)}`).join(' ');
+  const area = `${line} L${x(pts.length - 1).toFixed(1)} ${y(0)} L${x(0)} ${y(0)} Z`;
+  const grid = [0, 25, 50, 75, 100].map((v) => `<line class="ch-grid" x1="${L}" x2="${W - Rr}" y1="${y(v)}" y2="${y(v)}"/><text class="ch-axis" x="${L - 8}" y="${y(v) + 4}" text-anchor="end">${v}%</text>`).join('');
+  const xl = labels.map((t, i) => (t ? `<text class="ch-axis" x="${x(i)}" y="${H - 8}" text-anchor="middle">${t}</text>` : '')).join('');
+  const last = pts.length - 1;
+  $('#occ-chart').innerHTML = `
+    <svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-labelledby="occ-t occ-d">
+      <title id="occ-t">Ocupação do piso ao longo do dia</title>
+      <desc id="occ-d">Subiu de 18% às 08:00 para 67% às 11:40, abaixo do limite de ocupação alta (70%).</desc>
+      ${grid}
+      <line class="ch-th ch-th-alta" x1="${L}" x2="${W - Rr}" y1="${y(70)}" y2="${y(70)}"/><text class="ch-th-label alta" x="${W - Rr + 6}" y="${y(70) + 4}">Alta 70%</text>
+      <line class="ch-th ch-th-lotada" x1="${L}" x2="${W - Rr}" y1="${y(90)}" y2="${y(90)}"/><text class="ch-th-label lotada" x="${W - Rr + 6}" y="${y(90) + 4}">Lotada 90%</text>
+      <path class="ch-area" d="${area}"/><path class="ch-line" d="${line}"/>
+      ${xl}
+      <circle class="ch-now" cx="${x(last)}" cy="${y(pts[last])}" r="5"/>
+      <text class="ch-now-label" x="${x(last) + 10}" y="${y(pts[last]) + 22}">67%</text>
+      <text class="ch-now-sub" x="${x(last) + 10}" y="${y(pts[last]) + 38}">agora</text>
+    </svg>
+    <p class="hint">Resumo: ocupação crescente desde a abertura, ainda em faixa Normal. Pico típico de fim de semana a validar com dados reais.</p>`;
+
+  const AL = [
+    ['danger', 'alert', 'Zona Z1 lotada (93%)', 'Saiu da distribuição. Painéis P-ENT-01 e P-G1-L1 atualizados.', '11:38', 'Lotada'],
+    ['erro', 'wifi-off', '5 sensores em atenção na Z3', 'Saúde da zona em 93%. Vagas com erro saem do cálculo de disponibilidade.', '11:31', 'Erro de sensor'],
+    ['warning', 'alert', 'Painel P-G1-S1 sem resposta há 3 min', 'Em modo de falha seguro: exibe "Siga a sinalização fixa".', '11:39', 'Atenção'],
+    ['info', 'route', 'Distribuição recalculada', 'Entradas passaram a ser direcionadas para a Z2.', '11:36', 'Info'],
+    ['success', 'circle-check', 'Sensor restabelecido', 'Vaga Z4-M-05 voltou a responder.', '11:20', 'Resolvido'],
+  ];
+  const vars = (s) => (s === 'erro' ? 'sev-erro' : '');
+  const style = (s) => (s === 'erro' ? '' : `style="--a-bg:var(--pv-feedback-${s}-bg);--a-fg:var(--pv-feedback-${s}-fg)"`);
+  const badgeCls = { danger: 'badge-danger', erro: 'badge-erro', warning: 'badge-warning', info: 'badge-info', success: 'badge-success' };
+  $('#alerts').innerHTML = AL.map(([s, ic, t, p, h, b]) => `
+    <li class="al ${vars(s)}" ${style(s)}>
+      <span class="al-ic">${icon(ic)}</span>
+      <div><h3>${t} <span class="badge ${badgeCls[s]}">${b}</span></h3><p>${p}</p></div>
+      <time>${h}</time>
+    </li>`).join('');
+}
+
+/* =========================================================
+   TELA 2 — Mapa
+   ========================================================= */
+let zonaFiltro = 'todas';
+const spotHTML = (v, click = true) => {
+  const e = ESTADOS[v.estado];
+  const cls = ['spot', v.estado !== 'livre' ? 'st-' + v.estado : '', v.moto ? 'is-moto' : '', click ? 'is-click' : ''].filter(Boolean).join(' ');
+  const lbl = `Vaga ${v.id}, ${e.rotulo.toLowerCase()}, ${v.moto ? 'moto' : 'carro'}`;
+  return click
+    ? `<button type="button" class="${cls}" data-vaga="${v.id}" aria-label="${lbl}">${icon(e.icone)}<b>${e.codigo}</b></button>`
+    : `<span class="${cls}" role="img" aria-label="${lbl}">${icon(e.icone)}<b>${e.codigo}</b></span>`;
+};
+function zoneHTML(z, area = true) {
+  return `<div class="zone" ${area ? `style="grid-area:${z.area}"` : ''} aria-label="Zona ${z.id}">
+    <div class="zone-h"><span class="zid">${z.id}</span><span class="zinfo">${z.livres} livres de ${z.total}<br>${z.pct}% ocupada</span>${faixaBadge(z.pct)}</div>
+    ${z.setores.map((s) => `
+      <div class="setor"><span class="setor-label">Setor ${s.id}</span>
+        <div class="spots" style="grid-template-columns:repeat(${s.moto ? 16 : z.cols},${s.moto ? 'var(--pv-spot-width-moto)' : 'var(--pv-spot-width)'})">
+          ${s.vagas.map((v, i) => (!s.moto && i === z.cols ? '<span class="row-split" aria-hidden="true"></span>' : '') + spotHTML(v)).join('')}
+        </div>
+      </div>`).join('')}
+  </div>`;
+}
+function renderMapa() {
+  const c = countBy(ALL);
+  $('#zone-chips').innerHTML = [['todas', 'Piso inteiro', ALL.length]].concat(ZONAS.map((z) => [z.id, z.id, z.total]))
+    .map(([id, t, n]) => `<button type="button" class="chip" data-zona="${id}" aria-pressed="${zonaFiltro === id}">${icon('check', 'chip-check')}${t} <small>${n} vagas</small></button>`).join('');
+  $('#map-legend').innerHTML = Object.keys(ESTADOS).map((k) => {
+    const v = { id: 'legenda', estado: k };
+    return `<li>${spotHTML(v, false)}<span><b class="lg-label">${ESTADOS[k].rotulo}</b> <span class="lg-count">${k === 'carregamento' ? 'sem dado' : (c[k] || 0)}</span></span></li>`;
+  }).join('') + `<li class="lg-route">${ARROW.right}<span><b class="lg-label">Sentido de circulação</b> <span class="lg-count">ilustrativo</span></span></li>`;
+
+  const wrap = $('#floor-wrap');
+  if (zonaFiltro === 'todas') {
+    const lane = (area, dir, n, orient) => `<div class="lane ${orient}" style="grid-area:${area}" aria-hidden="true">${dir ? ARROW[dir].repeat(n) : ''}</div>`;
+    wrap.innerHTML = `<div class="floor" role="group" aria-label="Planta conceitual do Piso G1 (exemplo)">
+      ${lane('top', 'right', 4, 'h')}${lane('left', 'up', 3, 'v')}${lane('right', 'down', 3, 'v')}${lane('ctr', 'right', 4, 'h')}${lane('bot', 'right', 4, 'h')}
+      ${lane('mid1', null, 0, 'v')}${lane('mid2', null, 0, 'v')}
+      <div class="gate" style="grid-area:ent">${icon('login')}Entrada</div>
+      <div class="gate" style="grid-area:exit">${icon('logout')}Saída</div>
+      ${ZONAS.map((z) => zoneHTML(z)).join('')}
+    </div>`;
+  } else {
+    const z = ZONAS.find((x) => x.id === zonaFiltro);
+    const pos = { Z2: [8, 8], Z3: [52, 8], Z1: [8, 44], Z4: [52, 44] };
+    const loc = `<svg viewBox="0 0 96 80" role="img" aria-label="Localização da ${z.id} no piso (ilustrativo)">${Object.entries(pos).map(([id, [px, py]]) =>
+      `<rect x="${px}" y="${py}" width="36" height="28" rx="3" style="fill:${id === z.id ? 'var(--pv-brand-primary)' : 'var(--pv-bg-muted)'};stroke:var(--pv-border-strong)"/><text x="${px + 18}" y="${py + 18}" text-anchor="middle" style="font:700 11px var(--pv-font-family-display);fill:${id === z.id ? 'var(--pv-text-on-brand)' : 'var(--pv-text-secondary)'}">${id}</text>`).join('')}</svg>`;
+    const cz = countBy(z.vagas);
+    wrap.innerHTML = `<div class="zone-focus-head"><h2>Zona ${z.id}</h2>${faixaBadge(z.pct)}<span class="secondary">${z.cats} · ${z.transito} veículos a caminho · ${Object.entries(cz).map(([k, n]) => `${n} ${ESTADOS[k].rotulo.toLowerCase()}`).join(', ')}</span></div>
+      <div class="map-single"><div class="locator">${loc}<p class="hint">Posição ilustrativa</p></div>${zoneHTML(z, false)}</div>`;
+  }
+  // Tabela acessível por setor
+  const keys = ['livre', 'ocupada', 'reservada', 'indisponivel', 'manutencao', 'erro'];
+  const zs = zonaFiltro === 'todas' ? ZONAS : ZONAS.filter((z) => z.id === zonaFiltro);
+  $('#sector-table').innerHTML = `<caption class="sr-only">Contagem de vagas por estado em cada setor</caption>
+    <thead><tr><th scope="col">Setor</th><th scope="col" class="r">Total</th>${keys.map((k) => `<th scope="col" class="r">${ESTADOS[k].rotulo}</th>`).join('')}</tr></thead>
+    <tbody>${zs.flatMap((z) => z.setores.map((s) => { const cs = countBy(s.vagas); return `<tr><td><b>${z.id}-${s.id}</b>${s.moto ? ' <span class="muted">moto</span>' : ''}</td><td class="r">${s.n}</td>${keys.map((k) => `<td class="r">${cs[k] || 0}</td>`).join('')}</tr>`; })).join('')}</tbody>`;
+  fitMap();
+}
+function fitMap() {
+  const stage = $('#map-stage'), wrap = $('#floor-wrap'), floor = $('.floor', wrap);
+  if (!stage || stage.offsetParent === null) return;
+  if (!floor) { wrap.style.transform = ''; wrap.style.height = ''; return; }
+  wrap.style.transform = ''; wrap.style.height = '';
+  const avail = stage.clientWidth - 32, w = floor.offsetWidth;
+  const s = Math.min(1, Math.max(0.45, avail / w));
+  wrap.style.transform = `scale(${s})`;
+  wrap.style.height = floor.offsetHeight * s + 'px';
+}
+function initMapa() {
+  $('#zone-chips').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-zona]'); if (!b) return;
+    zonaFiltro = b.dataset.zona; renderMapa();
+  });
+  $('#map-stage').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-vaga]'); if (!b) return;
+    $$('.spot.is-selected').forEach((s) => s.classList.remove('is-selected'));
+    b.classList.add('is-selected');
+    const v = ALL.find((x) => x.id === b.dataset.vaga), e2 = ESTADOS[v.estado];
+    const seg = 3 + (v.id.charCodeAt(5) * 7 + Number(v.id.slice(-2)) * 13) % 55;
+    const leitura = v.estado === 'erro' ? 'sem heartbeat há 2 min (Last Will recebido)' : `última leitura há ${seg} s`;
+    $('#map-detail').innerHTML = `${icon(e2.icone)}<span><b>Vaga ${v.id}</b> · ${e2.rotulo} · ${v.moto ? 'Moto' : 'Carro pequeno/grande'} · sensor <span class="mono">S-${v.id}</span> · ${leitura}</span>`;
+  });
+  window.addEventListener('resize', fitMap);
+}
+
+/* =========================================================
+   TELA 4 — Veículos e tickets
+   ========================================================= */
+const ST = {
+  'Em andamento':        ['badge-info', 'clock'],
+  'Pagamento pendente':  ['badge-warning', 'alert'],
+  'Pago':                ['badge-success', 'check'],
+  'Saída registrada':    ['badge-neutral', 'logout'],
+};
+const CAT_IC = { 'Moto': 'bike', 'Carro pequeno': 'car', 'Carro grande': 'car' };
+const TICKETS = [
+  ['PV-1113-0527', '527 914', null, 'Carro grande', '11:42', 'Z2', 'B', 'Em andamento'],
+  ['PV-1113-0526', '526 031', null, 'Moto', '11:40', 'Z4', 'M', 'Em andamento'],
+  ['PV-1113-0524', '524 778', 'RIO4F22', 'Carro pequeno', '11:37', 'Z2', 'C', 'Em andamento'],
+  ['PV-1113-0519', '519 402', null, 'Carro pequeno', '11:21', 'Z3', 'A', 'Em andamento'],
+  ['PV-1113-0503', '503 166', 'QTB2H71', 'Carro grande', '10:58', 'Z1', 'D', 'Pago'],
+  ['PV-1113-0477', '477 590', null, 'Carro pequeno', '10:22', 'Z1', 'B', 'Em andamento'],
+  ['PV-1113-0451', '451 803', null, 'Moto', '09:55', 'Z4', 'M', 'Pago'],
+  ['PV-1113-0418', '418 273', 'BRA2E19', 'Carro grande', '09:31', 'Z2', 'B', 'Pagamento pendente'],
+  ['PV-1113-0409', '409 615', null, 'Carro pequeno', '09:12', 'Z3', 'C', 'Saída registrada'],
+  ['PV-1113-0388', '388 240', 'MCZ8J05', 'Carro pequeno', '08:47', 'Z1', 'A', 'Saída registrada'],
+  ['PV-1113-0352', '352 977', null, 'Carro grande', '08:20', 'Z2', 'A', 'Em andamento'],
+  ['PV-1113-0301', '301 458', null, 'Carro pequeno', '08:03', 'Z3', 'D', 'Pago'],
+].map(([id, curto, placa, cat, entrada, zona, setor, status]) => ({ id, curto, placa, cat, entrada, zona, setor, status }));
+const AGORA = 11 * 60 + 42;
+const perm = (hhmm) => { const [h, m] = hhmm.split(':').map(Number); const d = AGORA - (h * 60 + m); return d < 60 ? `${d} min` : `${Math.floor(d / 60)} h ${String(d % 60).padStart(2, '0')} min`; };
+const mask = (p) => (p ? `${p.slice(0, 3)}-${p[3]}•${p.slice(5)}` : null);
+const stBadge = (s) => `<span class="badge ${ST[s][0]}">${icon(ST[s][1])}${s}</span>`;
+function qrSVG(text, size = 96) {
+  let h = 0; for (const ch of text) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+  const N = 25, cell = size / N; let s = h || 7; const r = () => ((s = (s * 1103515245 + 12345) >>> 0) >>> 16) & 1;
+  let out = `<svg class="qr" viewBox="0 0 ${size} ${size}" width="${size}" height="${size}" role="img" aria-label="QR Code ilustrativo"><rect class="w" width="${size}" height="${size}"/>`;
+  const finder = (fx, fy) => { out += `<rect class="m" x="${fx * cell}" y="${fy * cell}" width="${7 * cell}" height="${7 * cell}"/><rect class="w" x="${(fx + 1) * cell}" y="${(fy + 1) * cell}" width="${5 * cell}" height="${5 * cell}"/><rect class="m" x="${(fx + 2) * cell}" y="${(fy + 2) * cell}" width="${3 * cell}" height="${3 * cell}"/>`; };
+  const inFinder = (x, y) => (x < 8 && y < 8) || (x > N - 9 && y < 8) || (x < 8 && y > N - 9);
+  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) if (!inFinder(x, y) && r()) out += `<rect class="m" x="${(x * cell).toFixed(2)}" y="${(y * cell).toFixed(2)}" width="${cell.toFixed(2)}" height="${cell.toFixed(2)}"/>`;
+  finder(0, 0); finder(N - 7, 0); finder(0, N - 7);
+  return out + '</svg>';
+}
+function ticketPrint(t) {
+  return `<div class="ticket-print" role="img" aria-label="Prévia do ticket térmico impresso ${t.id}">
+    <div class="tp-head"><b>PARKVISION</b>Shopping Exemplo · ticket de entrada</div>
+    <div class="tp-rows">
+      <div class="tp-row"><span>Ticket</span><span>${t.id}</span></div>
+      <div class="tp-row"><span>Entrada</span><span>13/11/2026 ${t.entrada}</span></div>
+      <div class="tp-row"><span>Categoria</span><span>${t.cat}</span></div>
+    </div>
+    <div class="tp-zone">SIGA PARA A<strong>${t.zona} · ${t.setor}</strong>ZONA ${t.zona} · SETOR ${t.setor}</div>
+    <div class="tp-dir">${icon('arrow-up')}<span>Siga as setas âmbar dos painéis até a ${t.zona}. Guarde este ticket para localizar seu veículo.</span></div>
+    <div class="tp-qr">${qrSVG(t.id)}<span>Aponte a câmera para pagar pelo celular. O QR não contém dados pessoais.</span></div>
+    <div class="tp-code">CÓDIGO PARA O CAIXA<b>${t.curto}</b></div>
+    <div class="tp-foot">Tolerância de 15 min após o pagamento (valor de exemplo)</div>
+  </div>`;
+}
+let lastFocus = null;
+function openDrawer(t) {
+  lastFocus = document.activeElement;
+  $('#drawer-title').textContent = t.id;
+  const pendente = t.status === 'Em andamento' || t.status === 'Pagamento pendente';
+  $('#drawer-body').innerHTML = `
+    <dl class="dl">
+      <dt>Status</dt><dd>${stBadge(t.status)}</dd>
+      <dt>Código curto</dt><dd class="mono">${t.curto}</dd>
+      <dt>Placa</dt><dd>${t.placa ? `<span class="plate">${mask(t.placa)}</span> <span class="hint">mascarada (LGPD)</span>` : '<span class="muted">— não informada</span>'}</dd>
+      <dt>Categoria</dt><dd><span class="cat">${icon(CAT_IC[t.cat])}${t.cat}</span></dd>
+      <dt>Entrada</dt><dd class="num">13/11/2026 ${t.entrada} · totem T-ENT-01</dd>
+      <dt>Direcionado para</dt><dd><b>Zona ${t.zona} · Setor ${t.setor}</b></dd>
+      <dt>Permanência</dt><dd class="num">${perm(t.entrada)}</dd>
+    </dl>
+    <div><h3 class="section-title">Linha do tempo</h3>
+      <ol class="timeline">
+        <li><time>${t.entrada}</time><span class="dot"></span><span>Entrada registrada e categoria ${t.cat.toLowerCase()} selecionada</span></li>
+        <li><time>${t.entrada}</time><span class="dot"></span><span>Recomendação: Zona ${t.zona}, setor ${t.setor} (score registrado)</span></li>
+        <li><time>${t.entrada}</time><span class="dot"></span><span>Ticket impresso com QR e código curto</span></li>
+        ${t.status === 'Pago' || t.status === 'Saída registrada' ? `<li><time>—</time><span class="dot"></span><span>Pagamento confirmado (simulado)</span></li>` : `<li class="pending"><time>—</time><span class="dot"></span><span>Aguardando pagamento</span></li>`}
+        ${t.status === 'Saída registrada' ? `<li><time>—</time><span class="dot"></span><span>Saída registrada na cancela</span></li>` : ''}
+      </ol></div>
+    <div><h3 class="section-title">Ticket impresso</h3>${ticketPrint(t)}</div>`;
+  $('#drawer-foot').innerHTML = pendente
+    ? `<button class="btn btn-primary" data-close-drawer>${icon('cash')}Registrar pagamento no caixa</button><button class="btn btn-secondary" data-close-drawer>${icon('receipt')}Reimprimir ticket</button>`
+    : `<button class="btn btn-secondary" data-close-drawer>${icon('receipt')}Reimprimir comprovante</button>`;
+  $('#tk-drawer').hidden = false;
+  $('.drawer').focus();
+}
+function closeDrawer() { $('#tk-drawer').hidden = true; lastFocus?.focus?.(); }
+function renderTickets() {
+  const q = $('#tk-search').value.trim().toLowerCase().replace(/\s/g, '');
+  const st = $('#tk-status').value, cat = $('#tk-cat').value;
+  const list = TICKETS.filter((t) => (!st || t.status === st) && (!cat || t.cat === cat) &&
+    (!q || t.id.toLowerCase().includes(q) || t.curto.replace(' ', '').includes(q) || (t.placa || '').toLowerCase().includes(q)));
+  $('#tk-table tbody').innerHTML = list.map((t) => `
+    <tr class="is-click" data-tk="${t.id}">
+      <td><button type="button" class="tk-link" data-tk="${t.id}">${t.id}</button></td>
+      <td>${t.placa ? `<span class="plate">${mask(t.placa)}</span>` : '<span class="muted">—</span>'}</td>
+      <td><span class="cat">${icon(CAT_IC[t.cat])}${t.cat}</span></td>
+      <td class="num">${t.entrada}</td>
+      <td><b>${t.zona}</b> · Setor ${t.setor}</td>
+      <td class="num">${t.status === 'Saída registrada' ? '<span class="muted">encerrado</span>' : perm(t.entrada)}</td>
+      <td>${stBadge(t.status)}</td>
+    </tr>`).join('');
+  $('#tk-count').textContent = `${list.length} de ${TICKETS.length} tickets`;
+  $('#tk-empty').hidden = list.length > 0;
+  $('#tk-table').hidden = list.length === 0;
+}
+function initTickets() {
+  // Rótulo do status FINALIZADO alinhado ao enum do banco
+  ['tk-search', 'tk-status', 'tk-cat'].forEach((id) => $('#' + id).addEventListener('input', renderTickets));
+  $('#tk-clear').addEventListener('click', () => { $('#tk-search').value = ''; $('#tk-status').value = ''; $('#tk-cat').value = ''; renderTickets(); });
+  $('#tk-table').addEventListener('click', (e) => { const r = e.target.closest('[data-tk]'); if (r) openDrawer(TICKETS.find((t) => t.id === r.dataset.tk)); });
+  $('#tk-drawer').addEventListener('click', (e) => { if (e.target.id === 'tk-drawer' || e.target.closest('[data-close-drawer]')) closeDrawer(); });
+}
+
+/* =========================================================
+   TELA 5 — Pagamento por QR Code
+   ========================================================= */
+let passo = 1, metodo = 'pix';
+const T5 = TICKETS.find((t) => t.id === 'PV-1113-0418');
+function renderPagamento() {
+  const prog = `<div class="m-progress" aria-hidden="true">${[1, 2, 3].map((i) => `<i class="${i <= passo ? 'on' : ''}"></i>`).join('')}</div><p class="m-step-label">Passo ${passo} de 3</p>`;
+  let html = '';
+  if (passo === 1) {
+    html = `${prog}<h2 class="m-title">Seu ticket</h2>
+      <div class="m-card m-amount"><span>Valor a pagar</span><b><small>R$</small>14,00</b><span>Permanência de ${perm(T5.entrada)} · valores de exemplo</span></div>
+      <div class="m-card"><dl class="m-rows">
+        <div><dt>Ticket</dt><dd class="mono">${T5.id}</dd></div>
+        <div><dt>Entrada</dt><dd>13/11/2026 ${T5.entrada}</dd></div>
+        <div><dt>Categoria</dt><dd>${T5.cat}</dd></div>
+        <div><dt>Seu veículo está em</dt><dd>Zona ${T5.zona} · Setor ${T5.setor}</dd></div>
+      </dl></div>
+      <button class="btn btn-primary btn-lg btn-block" data-go="2">Escolher forma de pagamento</button>
+      <p class="hint" style="text-align:center">Depois de pagar, você tem 15 min para sair (exemplo).</p>`;
+  } else if (passo === 2) {
+    html = `${prog}<h2 class="m-title">Como você quer pagar?</h2>
+      <div style="display:flex;flex-direction:column;gap:var(--pv-space-3)" role="radiogroup" aria-label="Forma de pagamento">
+        <label class="pay-opt"><input type="radio" name="pm" value="pix" ${metodo === 'pix' ? 'checked' : ''}><span><b>Pix</b><small>Aprovação em segundos</small></span>${icon('pix')}</label>
+        <label class="pay-opt"><input type="radio" name="pm" value="cartao" disabled><span><b>Cartão</b><small>Em breve</small></span>${icon('card')}</label>
+        <label class="pay-opt"><input type="radio" name="pm" value="caixa" ${metodo === 'caixa' ? 'checked' : ''}><span><b>Pagar no caixa</b><small>Informe o código ${T5.curto}</small></span>${icon('cash')}</label>
+      </div>
+      ${metodo === 'pix' ? `<div class="m-card pix-box">${qrSVG('pix-' + T5.id, 168)}
+        <p class="m-step-label">Abra o app do seu banco e leia o QR, ou copie o código:</p>
+        <div class="copy-row"><input class="input" id="pix-code" readonly value="00020126580014BR.GOV.BCB.PIX0136EXEMPLO-NAO-PAGAVEL5204000053039865406" aria-label="Código Pix copia e cola (exemplo, não pagável)"><button class="btn btn-secondary" id="pix-copy">${icon('copy')}Copiar</button></div>
+        <p class="hint" id="pix-msg" aria-live="polite">Aguardando confirmação do pagamento…</p></div>
+        <button class="btn btn-primary btn-lg btn-block" data-go="3">Simular pagamento confirmado</button>`
+      : `<div class="m-card"><p>Vá até um caixa ou terminal de autoatendimento e informe o código <b class="mono">${T5.curto}</b> ou entregue o ticket impresso.</p></div>`}
+      <button class="btn btn-ghost btn-lg btn-block" data-go="1">Voltar</button>`;
+  } else {
+    html = `${prog}<div class="m-success"><span class="ok">${icon('check')}</span><h2 class="m-title">Pagamento confirmado</h2><p class="secondary">Saia até as 12:00. A cancela lê o mesmo ticket.</p></div>
+      <div class="m-card receipt"><dl class="m-rows">
+        <div><dt>Comprovante</dt><dd class="mono">CP-0418-7731</dd></div>
+        <div><dt>Valor</dt><dd>R$ 14,00</dd></div>
+        <div><dt>Método</dt><dd>Pix (simulado)</dd></div>
+        <div><dt>Pago em</dt><dd>13/11/2026 11:45</dd></div>
+        <div><dt>Saída liberada até</dt><dd>12:00</dd></div>
+      </dl></div>
+      <button class="btn btn-secondary btn-lg btn-block" data-go="1">Ver resumo do ticket</button>`;
+  }
+  $('#m-body').innerHTML = html;
+  $$('#pay-stepper button').forEach((b) => (Number(b.dataset.step) === passo ? b.setAttribute('aria-current', 'step') : b.removeAttribute('aria-current')));
+}
+function initPagamento() {
+  $('#pay-stepper').addEventListener('click', (e) => { const b = e.target.closest('[data-step]'); if (b) { passo = Number(b.dataset.step); renderPagamento(); } });
+  $('#m-body').addEventListener('click', (e) => {
+    const g = e.target.closest('[data-go]'); if (g) { passo = Number(g.dataset.go); renderPagamento(); $('#m-body').scrollTop = 0; return; }
+    if (e.target.closest('#pix-copy')) {
+      const inp = $('#pix-code'), msg = $('#pix-msg');
+      const ok = () => { msg.textContent = 'Código copiado. Cole no app do banco (exemplo, não pagável).'; };
+      try { navigator.clipboard.writeText(inp.value).then(ok, () => { inp.select(); msg.textContent = 'Selecione e copie o código manualmente.'; }); }
+      catch (err) { inp.select(); msg.textContent = 'Selecione e copie o código manualmente.'; }
+    }
+  });
+  $('#m-body').addEventListener('change', (e) => { if (e.target.name === 'pm') { metodo = e.target.value; renderPagamento(); $(`input[value="${metodo}"]`)?.focus(); } });
+}
+
+/* =========================================================
+   TELA 6 — Configurações
+   ========================================================= */
+function renderConfig() {
+  const z2d = ZONAS[1].setores[3].vagas.slice(0, 8);
+  $('#cfg-vagas').innerHTML = `<thead><tr><th scope="col">Vaga</th><th scope="col">Estado</th><th scope="col">Compatível com</th><th scope="col">Sensor</th></tr></thead>
+    <tbody>${z2d.map((v) => `<tr><td class="mono">${v.id}</td><td><span class="cat">${spotHTML(v, false).replace('class="spot', 'style="transform:scale(.6);margin:-12px -6px" class="spot')}${ESTADOS[v.estado].rotulo}</span></td><td>Carro pequeno, Carro grande</td><td class="mono">S-${v.id}</td></tr>`).join('')}
+    <tr><td colspan="4" class="muted">… mais 16 vagas no setor D</td></tr></tbody>`;
+  const sens = ALL.filter((v) => v.estado === 'erro');
+  $('#cfg-sens').innerHTML = `<thead><tr><th scope="col">Sensor</th><th scope="col">Vaga</th><th scope="col">Problema</th><th scope="col">Último heartbeat</th></tr></thead>
+    <tbody>${sens.map((v, i) => `<tr><td class="mono">S-${v.id}</td><td class="mono">${v.id}</td><td>${i % 5 < 3 ? `<span class="badge badge-erro">${icon('wifi-off')}Offline (LWT)</span>` : `<span class="badge badge-warning">${icon('alert')}Leitura incoerente</span>`}</td><td class="num">${i % 5 < 3 ? `há ${2 + i} min` : 'há 12 s'}</td></tr>`).join('')}</tbody>`;
+}
+function initConfig() {
+  const tabs = $$('[role="tab"][aria-controls^="tp-"]');
+  const sel = (t) => {
+    tabs.forEach((x) => { const on = x === t; x.setAttribute('aria-selected', String(on)); x.tabIndex = on ? 0 : -1; $('#' + x.getAttribute('aria-controls')).hidden = !on; });
+    t.focus();
+  };
+  tabs.forEach((t, i) => {
+    t.addEventListener('click', () => sel(t));
+    t.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowRight') sel(tabs[(i + 1) % tabs.length]);
+      if (e.key === 'ArrowLeft') sel(tabs[(i - 1 + tabs.length) % tabs.length]);
+    });
+  });
+  document.addEventListener('click', (e) => {
+    const t = e.target.closest('.toggle[role="switch"]'); if (!t || t.disabled) return;
+    const on = t.getAttribute('aria-checked') !== 'true';
+    t.setAttribute('aria-checked', String(on));
+    const s = $('.state', t); if (s) { const pair = { Sim: 'Não', 'Não': 'Sim', Ativa: 'Inativa', Inativa: 'Ativa' }; s.textContent = pair[s.textContent] || s.textContent; }
+  });
+}
+
+/* =========================================================
+   DESIGN SYSTEM — vitrine viva
+   ========================================================= */
+const cssv = (n) => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+function renderColors() {
+  const fams = [['asfalto', [25, 50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 950], 'Neutros frios'], ['vision', [50, 100, 200, 300, 400, 500, 600, 700, 800, 900], 'Marca'],
+    ['faixa', [100, 300, 500, 700, 900], 'Só orientação e rotas'], ['verde', [100, 300, 500, 700, 900], 'Livre'], ['vermelho', [100, 300, 500, 700, 900], 'Ocupada'],
+    ['violeta', [100, 300, 500, 700, 900], 'Reservada'], ['laranja', [100, 300, 500, 700, 900], 'Manutenção'], ['magenta', [100, 300, 500, 700, 900], 'Erro']];
+  const sem = [['bg-canvas', 'Fundo da página'], ['bg-surface', 'Cards e painéis'], ['text-primary', 'Texto principal'], ['text-secondary', 'Texto de apoio'], ['border-default', 'Bordas'],
+    ['brand-primary', 'Ação primária'], ['wayfinding-route', 'Rotas e setas'], ['status-livre-solid', 'Livre'], ['status-ocupada-solid', 'Ocupada'], ['status-reservada-solid', 'Reservada'],
+    ['status-indisponivel-solid', 'Indisponível'], ['status-manutencao-solid', 'Manutenção'], ['status-erro-solid', 'Erro de sensor'], ['occupancy-alta', 'Ocupação alta']];
+  const el = $('#ds-colors'); if (!el) return;
+  el.innerHTML = fams.map(([f, steps, d]) => `<div><p class="ds-sub">${f[0].toUpperCase() + f.slice(1)} <span class="muted">· ${d}</span></p><div class="ramp">${steps.map((s) =>
+    `<div class="swatch"><i style="--c:var(--pv-color-${f}-${s})"></i><div><b>${f}-${s}</b><code>${cssv(`--pv-color-${f}-${s}`)}</code></div></div>`).join('')}</div></div>`).join('') +
+    `<div><p class="ds-sub">Semânticos <span class="muted">· mudam com o tema (${isDark() ? 'escuro' : 'claro'} agora)</span></p><div class="sem-grid">${sem.map(([t, d]) =>
+      `<div class="sem"><i style="--c:var(--pv-${t})"></i><div><code>--pv-${t}</code><span>${d}</span></div></div>`).join('')}</div></div>`;
+}
+function renderDS() {
+  renderColors();
+  $('#ds-space').innerHTML = [1, 2, 3, 4, 5, 6, 8, 10, 12, 16].map((n) => `<div class="space-row"><code>--pv-space-${n}</code><span>${n * 4}px</span><i style="width:var(--pv-space-${n})"></i></div>`).join('');
+  $('#ds-radius').innerHTML = [['xs', 2], ['sm', 4], ['md', 8], ['lg', 12], ['xl', 16], ['pill', 999]].map(([n, v]) => `<div class="box" style="border-radius:var(--pv-radius-${n})">radius-${n}<br>${v === 999 ? 'pílula' : v + 'px'}</div>`).join('');
+  $('#ds-shadow').innerHTML = ['sm', 'md', 'lg'].map((n) => `<div class="box" style="box-shadow:var(--pv-shadow-${n});border-radius:var(--pv-radius-lg)">shadow-${n}</div>`).join('');
+  const variants = [['primary', 'Salvar zona'], ['secondary', 'Exportar'], ['ghost', 'Descartar'], ['danger', 'Cancelar ticket']];
+  const states = [['Padrão', ''], ['Hover', 'is-hover'], ['Foco', 'is-focus'], ['Desabilitado', 'disabled'], ['Carregando', 'loading']];
+  $('#ds-btn-matrix').innerHTML = `<thead><tr><th scope="col">Variante</th>${states.map(([s]) => `<th scope="col">${s}</th>`).join('')}</tr></thead><tbody>${variants.map(([v, l]) =>
+    `<tr><th scope="row">${v}</th>${states.map(([, c]) => `<td>${c === 'disabled' ? `<button class="btn btn-${v}" disabled>${l}</button>`
+      : c === 'loading' ? `<button class="btn btn-${v} is-loading" aria-busy="true">${icon('loader', 'spin')}Processando…</button>`
+      : `<button class="btn btn-${v} ${c}">${l}</button>`}</td>`).join('')}</tr>`).join('')}</tbody>`;
+  $('#ds-meters').innerHTML = [[46, 'Zona Z2'], [72, 'Zona Z3'], [93, 'Zona Z1']].map(([p, n]) =>
+    `<div><div class="zm-top"><span><b>${n}</b></span><span>${p}% · ${FAIXA_TXT[faixa(p)]}</span></div>${meterHTML(p, n)}</div>`).join('');
+  const desc = { livre: 'Sensor confirma vaga vazia', ocupada: 'Sensor confirma veículo', reservada: 'Reserva com validade (evolução)', indisponivel: 'Bloqueada pela operação · hachura', manutencao: 'Em intervenção · listras', erro: 'Sensor offline · borda tracejada', carregamento: 'Dado ainda não recebido · shimmer' };
+  $('#ds-spots').innerHTML = Object.keys(ESTADOS).map((k) => `<div class="spot-state">${spotHTML({ id: 'exemplo', estado: k }, false)}<div><b>${ESTADOS[k].rotulo}</b><span>Código ${ESTADOS[k].codigo} · ${desc[k]}</span></div></div>`).join('');
+  $('#ds-spot-sizes').innerHTML = spotHTML({ id: 'Z2-B-17', estado: 'livre' }, false) + spotHTML({ id: 'Z4-M-05', estado: 'livre', moto: true }, false) + '<span class="hint">Carro · Moto</span>';
+  const sk = $('#ds-sk'), skHTML = sk.innerHTML;
+  const loaded = `<h3 class="section-title">Vagas disponíveis</h3><span class="kpi-value">82</span>${meterHTML(67, 'Ocupação total')}<span class="kpi-note">Atualizado agora</span>`;
+  sk.innerHTML = loaded; sk.removeAttribute('aria-label'); sk.setAttribute('aria-busy', 'false');
+  $('#ds-sk-btn').addEventListener('click', (e) => {
+    const b = e.currentTarget; if (b.classList.contains('is-loading')) return;
+    sk.innerHTML = skHTML; sk.setAttribute('aria-busy', 'true'); sk.setAttribute('aria-label', 'Atualizando…');
+    b.classList.add('is-loading'); b.innerHTML = icon('loader', 'spin') + 'Carregando…';
+    setTimeout(() => { sk.innerHTML = loaded; sk.setAttribute('aria-busy', 'false'); sk.removeAttribute('aria-label'); b.classList.remove('is-loading'); b.innerHTML = icon('refresh') + 'Simular carregamento de 2 s'; }, 2000);
+  });
+}
+
+/* ---------- Modal ---------- */
+function initModal() {
+  let origin = null;
+  const modal = $('#modal');
+  const close = () => { modal.hidden = true; origin?.focus?.(); };
+  document.addEventListener('click', (e) => {
+    if (e.target.closest('[data-open-modal]')) { origin = e.target.closest('[data-open-modal]'); modal.hidden = false; $('[data-close-modal]', modal).focus(); return; }
+    if (e.target === modal || e.target.closest('[data-close-modal]')) close();
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape') return;
+    if (!modal.hidden) close();
+    else if (!$('#tk-drawer').hidden) closeDrawer();
+    else closeMenu();
+  });
+  // Foco preso dentro de diálogos abertos
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Tab') return;
+    const dlg = !modal.hidden ? $('.modal', modal) : (!$('#tk-drawer').hidden ? $('.drawer') : null);
+    if (!dlg) return;
+    const f = $$('button,[href],input,select,textarea,[tabindex]:not([tabindex="-1"])', dlg).filter((x) => !x.disabled);
+    if (!f.length) return;
+    if (e.shiftKey && document.activeElement === f[0]) { e.preventDefault(); f[f.length - 1].focus(); }
+    else if (!e.shiftKey && document.activeElement === f[f.length - 1]) { e.preventDefault(); f[0].focus(); }
+  });
+}
+
+/* ---------- Inicialização ---------- */
+hydrateIcons();
+initTheme(); initMenu(); initModal();
+renderDashboard(); renderMapa(); initMapa();
+renderTickets(); initTickets();
+renderPagamento(); initPagamento();
+renderConfig(); initConfig();
+renderDS();
+tick(); setInterval(tick, 1000);
+window.addEventListener('hashchange', route);
+route();
+})();
+
+</script>
+</body>
+</html>

@@ -1,0 +1,28 @@
+# Dependências
+node_modules/
+
+# Builds
+dist/
+build/
+!design-system/tokens/build/
+storybook-static/
+coverage/
+
+# Ambiente
+.env
+.env.*
+!.env.example
+
+# Prisma
+backend/prisma/migrations/dev.db*
+
+# Firmware (PlatformIO)
+firmware/**/.pio/
+
+# Sistema / editores
+.DS_Store
+Thumbs.db
+.vscode/*
+!.vscode/extensions.json
+.idea/
+*.log

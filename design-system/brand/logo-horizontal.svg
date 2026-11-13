@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 260 64" role="img" aria-labelledby="t">
+  <title id="t">ParkVision</title>
+  <rect width="64" height="64" rx="14" fill="#2148E8"/>
+  <rect x="17" y="13" width="8" height="38" rx="2" fill="#FFFFFF"/>
+  <path fill="#FFFFFF" fill-rule="evenodd" d="M21 13h14a14 14 0 0 1 0 28H21zM35 20.5a6.5 6.5 0 1 0 0 13 6.5 6.5 0 0 0 0-13z"/>
+  <circle cx="35" cy="27" r="3" fill="#F5A800"/>
+  <text x="78" y="42" font-family="Barlow, 'Barlow Semi Condensed', system-ui, sans-serif" font-size="30" letter-spacing="-0.3">
+    <tspan font-weight="600" fill="#161C29">Park</tspan><tspan font-weight="700" fill="#2148E8">Vision</tspan>
+  </text>
+</svg>
