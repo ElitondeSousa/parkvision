@@ -94,6 +94,8 @@ describe('fluxo do veículo', () => {
     await app.inject({ method: 'POST', url: `/api/tickets/${ticket.codigo}/estacionar` });
     const r = (await app.inject(`/api/localizador/${token}`)).json();
     expect(r.ticket.codigo).toBe(ticket.codigo);
+    expect(r.ticket.estacionadoEm).toMatch(/^\d{4}-/);
+    expect(r.ticket.saidaEm).toBeNull();
     expect(r.regiao.id).toBe(ticket.regiaoRecomendadaId);
     expect(r.orientacao[0]).toContain(r.regiao.id);
     expect((await app.inject('/api/localizador/token-que-nao-existe')).statusCode).toBe(404);

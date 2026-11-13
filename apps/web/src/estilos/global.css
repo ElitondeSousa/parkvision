@@ -1,0 +1,98 @@
+/*
+ * Estilos globais do ParkVision Web.
+ * Fonte das cores, espaços e fontes: design-system/tokens (tokens.css gerado de tokens.json).
+ * O Tailwind só usa nomes que apontam para os tokens --pv-* (@theme abaixo) — nada de hex solto nas telas.
+ */
+@import 'tailwindcss';
+@import '../../../../design-system/tokens/build/tokens.css';
+
+@theme {
+  --font-display: var(--pv-font-family-display);
+  --font-sans: var(--pv-font-family-sans);
+  --font-mono: var(--pv-font-family-mono);
+
+  --color-canvas: var(--pv-bg-canvas);
+  --color-surface: var(--pv-bg-surface);
+  --color-subtle: var(--pv-bg-subtle);
+  --color-muted: var(--pv-bg-muted);
+  --color-nav: var(--pv-bg-nav);
+  --color-ink: var(--pv-text-primary);
+  --color-ink-2: var(--pv-text-secondary);
+  --color-ink-3: var(--pv-text-muted);
+  --color-line: var(--pv-border-default);
+  --color-line-subtle: var(--pv-border-subtle);
+  --color-line-strong: var(--pv-border-strong);
+  --color-brand: var(--pv-brand-primary);
+  --color-brand-subtle: var(--pv-brand-subtle);
+  --color-route: var(--pv-wayfinding-route);
+  --color-ok: var(--pv-feedback-success-solid);
+  --color-warn: var(--pv-feedback-warning-solid);
+  --color-danger: var(--pv-feedback-danger-solid);
+
+  --radius-sm: var(--pv-radius-sm);
+  --radius-md: var(--pv-radius-md);
+  --radius-lg: var(--pv-radius-lg);
+  --radius-xl: var(--pv-radius-xl);
+}
+
+/* Faixas de ocupação da região (extensão do Design System na Etapa 3):
+   livre < 70% · alta 70–89% · crítica ≥ 90% com vagas · lotada = sem vagas. Cor + rótulo + padrão no mapa. */
+/* declarado também em [data-theme] para recalcular dentro de subárvores com outro tema (ex.: totem escuro) */
+:root, [data-theme] {
+  --pv-faixa-livre: var(--pv-occupancy-normal);
+  --pv-faixa-alta: var(--pv-occupancy-alta);
+  --pv-faixa-critica: var(--pv-occupancy-lotada);
+  --pv-faixa-lotada: var(--pv-color-vermelho-700);
+  --pv-faixa-indisponivel: var(--pv-status-indisponivel-solid);
+  --pv-faixa-sem-dados: var(--pv-status-erro-solid);
+  /* mapa: tokens semânticos, então acompanham o tema claro/escuro sozinhos */
+  --pv-mapa-papel: var(--pv-bg-surface);
+  --pv-mapa-tinta: var(--pv-border-strong);
+  --pv-mapa-via: var(--pv-bg-muted);
+}
+
+html, body, #raiz { height: 100%; }
+body {
+  margin: 0;
+  font-family: var(--pv-font-family-sans);
+  font-size: var(--pv-font-size-md);
+  line-height: var(--pv-line-height-normal);
+  color: var(--pv-text-primary);
+  background: var(--pv-bg-canvas);
+  -webkit-font-smoothing: antialiased;
+}
+h1, h2, h3 { font-family: var(--pv-font-family-display); line-height: var(--pv-line-height-tight); margin: 0; }
+.num { font-variant-numeric: tabular-nums; }
+
+:focus-visible {
+  outline: var(--pv-focus-ring-width) solid var(--pv-focus-ring-color);
+  outline-offset: var(--pv-focus-ring-offset);
+}
+
+.pular-conteudo {
+  position: absolute; left: -9999px; top: 8px; z-index: 600;
+  background: var(--pv-bg-surface); color: var(--pv-text-primary); padding: 8px 12px; border-radius: var(--pv-radius-md);
+}
+.pular-conteudo:focus { left: 8px; }
+
+.sr-only-texto { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+
+/* Skeleton (respeita movimento reduzido) */
+@keyframes pv-brilho { to { background-position: -200% 0; } }
+.esqueleto {
+  background: linear-gradient(90deg, var(--pv-status-carregamento-bg) 0%, var(--pv-status-carregamento-shine) 50%, var(--pv-status-carregamento-bg) 100%);
+  background-size: 200% 100%;
+  animation: pv-brilho 1.4s linear infinite;
+  border-radius: var(--pv-radius-sm);
+}
+@keyframes pv-gira { to { transform: rotate(360deg); } }
+.gira { animation: pv-gira 0.9s linear infinite; }
+
+/* Destaque da região de destino no mapa (um único movimento, só quando há destino) */
+@keyframes pv-pulso { 0% { stroke-opacity: 0.9; stroke-width: var(--pv-pulso-de); } 100% { stroke-opacity: 0; stroke-width: var(--pv-pulso-ate); } }
+.mapa-pulso { animation: pv-pulso 1.8s var(--pv-easing-standard) infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  .esqueleto, .gira, .mapa-pulso { animation: none; }
+  * { transition-duration: 0ms !important; }
+}

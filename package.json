@@ -12,8 +12,10 @@
     "db:push": "pnpm --filter @parkvision/api db:push",
     "db:seed": "pnpm --filter @parkvision/api db:seed",
     "dev:api": "pnpm --filter @parkvision/api dev",
+    "dev:web": "pnpm --filter @parkvision/web dev",
     "test": "pnpm -r --workspace-concurrency=1 test",
-    "typecheck": "pnpm -r typecheck"
+    "typecheck": "pnpm -r typecheck",
+    "e2e": "pnpm --filter @parkvision/web e2e"
   },
   "devDependencies": {
     "@types/node": "^26.6.6",

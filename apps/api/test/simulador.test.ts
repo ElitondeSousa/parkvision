@@ -324,6 +324,7 @@ describe('14. reinicialização segura', () => {
     await manual({ acao: 'fluxo', regiaoId: 'N1', veiculosEmCirculacao: 30, duracaoMin: 30 });
     await manual({ acao: 'avancar', segundos: 5 * 60 });
     expect(await db.ticket.count({ where: { simulado: true } })).toBeGreaterThan(300);
+    expect((await app.inject('/api/simulacao')).json().veiculosSimuladosAtivos).toBeGreaterThan(300);
 
     const r = (await sim('reiniciar')).json();
     expect(r.removidos.tickets).toBeGreaterThan(300);
@@ -389,6 +390,12 @@ describe('15. eventos em tempo real (Socket.IO)', () => {
 });
 
 describe('16. cenários predefinidos', () => {
+  it('lista os cenários disponíveis para o painel', async () => {
+    const lista = (await app.inject('/api/simulacao/cenarios')).json();
+    expect(lista.map((c: { id: string }) => c.id)).toEqual(['A', 'B', 'C', 'D', 'E']);
+    expect(lista[0]).toMatchObject({ nome: 'Movimento tranquilo', ocupacaoInicial: 0.3 });
+  });
+
   const ocupacaoDe = (rs: Regiao[], id: string) => rs.find((r) => r.id === id)!;
 
   it('A — tranquilo: 30% de ocupação inicial e distribuição consistente', async () => {
@@ -396,6 +403,9 @@ describe('16. cenários predefinidos', () => {
     expect(e).toMatchObject({ status: 'rodando', cenario: 'A' });
     const rs = await regioes();
     for (const r of rs) expect(r.ocupadas).toBe(Math.round(r.capacidade * 0.3));
+    // painéis abertos recebem a ocupação inicial do cenário em tempo real
+    const ultimaN3 = coletor.eventos.filter((ev) => ev.tipo === 'regiao:ocupacao' && ev.entidadeId === 'N3').at(-1)!;
+    expect((ultimaN3.dados as Regiao).ocupadas).toBe(Math.round(203 * 0.3));
     await manual({ acao: 'avancar', segundos: 10 * 60 });
     await conferirConsistencia();
   });

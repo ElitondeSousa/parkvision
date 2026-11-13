@@ -97,10 +97,11 @@ Igual ao rascunho [`mapa/capim-dourado.rascunho.json`](mapa/capim-dourado.rascun
 | `POST` | `/tickets/:codigo/cancelar` | — | `{ ticket }` — desistência antes de estacionar | painel, simulador |
 | `GET` | `/tickets` | `?status=&limite=` | `Ticket[]` | painel |
 | `GET` | `/recomendacoes` | `?limite=20` | `Recomendacao[]` | painel |
-| `GET` | `/localizador/:token` | — | `{ ticket: Pick<Ticket,'codigo'\|'entradaEm'\|'status'\|'categoria'>, regiao: Regiao \| null, recomendada: Regiao, orientacao: string[] }` | localizador |
+| `GET` | `/localizador/:token` | — | `{ ticket: Pick<Ticket,'codigo'\|'entradaEm'\|'status'\|'categoria'\|'estacionadoEm'\|'saidaEm'>, regiao: Regiao \| null, recomendada: Regiao, orientacao: string[] }`. `regiao` é a região **registrada** na confirmação; `estacionadoEm` e `saidaEm` foram adicionados na Etapa 3 | localizador |
 | `GET` | `/indicadores` | — | `{ capacidadeTotal, ocupadas, livres, taxaOcupacao, veiculosAguardando, recomendacoesUltimaHora, regioesAltaOcupacao: string[] }` | painel |
 | `POST` | `/sensores/eventos` | `EventoSensor` (token) | `{ eventoId, resultado, mensagem?, resultadoOriginal? }` | sensores virtuais (e reais, no futuro) |
-| `GET` | `/simulacao` | — | estado do simulador | painel |
+| `GET` | `/simulacao` | — | estado do simulador + `veiculosSimuladosAtivos` (Etapa 3) | painel |
+| `GET` | `/simulacao/cenarios` | — | `{ id, nome, descricao, ocupacaoInicial, entradasPorMinuto }[]` (Etapa 3) | painel |
 | `POST` | `/simulacao/iniciar` · `pausar` · `retomar` · `encerrar` · `reiniciar` | (token) | estado | painel |
 | `PATCH` | `/simulacao/config` | `ConfigSimulacao` parcial (token) | estado | painel |
 | `POST` | `/simulacao/cenario` | `{ cenario: 'A'..'E', config? }` (token) | estado | painel |

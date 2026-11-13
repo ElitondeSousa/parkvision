@@ -87,7 +87,7 @@ node design-system/scripts/build-tokens.mjs
 node design-system/scripts/check-contrast.mjs
 ```
 
-## Como rodar o MVP (Etapas 1 e 2 — back-end, algoritmo e simulador)
+## Como rodar o MVP (Etapas 1 a 3 — back-end, algoritmo, simulador e interfaces)
 
 Pré-requisitos: Node.js 22+, pnpm 10 e Docker Desktop.
 
@@ -132,6 +132,27 @@ curl -X POST localhost:3333/api/simulacao/cenario -H "x-simulador-token: troque-
 ```
 
 Arquitetura, endpoints, eventos, configurações e limitações: [docs/mvp/08-simulador.md](docs/mvp/08-simulador.md). Relatório: [docs/mvp/09-relatorio-etapa-2.md](docs/mvp/09-relatorio-etapa-2.md).
+
+### Interfaces (Etapa 3)
+
+Com a API no ar, suba a web, que usa o proxy do Vite para falar com a API em `localhost:3333`:
+
+```bash
+pnpm dev:web
+```
+
+São três interfaces:
+- painel: `http://localhost:5173/painel`;
+- totem: `http://localhost:5173/totem?acesso=A_NE`;
+- localizador: `/t/<token>`, aberto pelo QR Code do ticket.
+
+Testes de componente rodam com `pnpm test`, e os ponta a ponta (Playwright com o Edge instalado, no banco de teste) com:
+
+```bash
+pnpm e2e
+```
+
+Design System aplicado, construção do mapa e comparação com a planta: [docs/mvp/10-interfaces.md](docs/mvp/10-interfaces.md). Relatório: [docs/mvp/11-relatorio-etapa-3.md](docs/mvp/11-relatorio-etapa-3.md).
 
 ## Estrutura de pastas
 

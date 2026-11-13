@@ -266,6 +266,7 @@ export class MotorSimulacao {
     if (def) {
       await this.limparDadosSimulados();
       await this.preencher(def);
+      await this.emitirOcupacaoDeTodas(); // o preenchimento grava direto no banco: avisa os painéis abertos
       this.cenario = def.id;
       for (const { aposMin, evento } of def.eventos) {
         this.agenda.push({ em: this.inicio + aposMin * 60_000, rotulo: `${evento.tipo} ${evento.regiaoId}`, executar: () => this.enviarSensor(evento) });
@@ -521,6 +522,12 @@ export class MotorSimulacao {
     for (const r of await listarRegioes(this.deps.db, agora)) this.deps.emissor.emitir('regiao:ocupacao', r.id, r, true);
     this.deps.emissor.emitir('indicadores:atualizados', 'indicadores', await calcularIndicadores(this.deps.db, agora), true);
     return resumo;
+  }
+
+  private async emitirOcupacaoDeTodas() {
+    const agora = this.agora();
+    for (const r of await listarRegioes(this.deps.db, agora)) this.deps.emissor.emitir('regiao:ocupacao', r.id, r, true);
+    this.deps.emissor.emitir('indicadores:atualizados', 'indicadores', await calcularIndicadores(this.deps.db, agora), true);
   }
 
   private async ticketSimulado(codigo: string) {

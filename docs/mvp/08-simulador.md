@@ -126,7 +126,8 @@ As rotas de controle e de sensores exigem o cabeçalho `x-simulador-token: <SIMU
 
 | Método | Rota | Corpo | Resposta |
 |---|---|---|---|
-| `GET` | `/api/simulacao` | — | estado (status, modo, cenário, relógio, config, estatísticas, veículos, agendados, últimos alertas) |
+| `GET` | `/api/simulacao` | — | estado (status, modo, cenário, relógio, config, estatísticas, veículos, agendados, últimos alertas) + `veiculosSimuladosAtivos` (veículos simulados ainda no banco) |
+| `GET` | `/api/simulacao/cenarios` | — | lista dos cenários (id, nome, descrição, ocupação inicial, chegadas por minuto), usada pelo painel |
 | `POST` | `/api/simulacao/iniciar` | `{ cenario?, config? }` | estado (`409 SIMULACAO_ESTADO_INVALIDO` se já estiver rodando) |
 | `POST` | `/api/simulacao/pausar` | — | estado |
 | `POST` | `/api/simulacao/retomar` | — | estado |

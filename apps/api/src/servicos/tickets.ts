@@ -209,7 +209,10 @@ export async function localizar(db: PrismaClient, token: string) {
     ? [`Seu carro está na região ${regiao.id} (${regiao.nome}).`, referencia(regiao.id)]
     : [`O estacionamento ainda não foi confirmado. A região recomendada foi ${recomendada.id} (${recomendada.nome}).`, referencia(recomendada.id)];
   return {
-    ticket: { codigo: t.codigo, entradaEm: t.entradaEm.toISOString(), status: t.status, categoria: t.categoria },
+    ticket: {
+      codigo: t.codigo, entradaEm: t.entradaEm.toISOString(), status: t.status, categoria: t.categoria,
+      estacionadoEm: t.estacionadoEm?.toISOString() ?? null, saidaEm: t.saidaEm?.toISOString() ?? null,
+    },
     regiao, recomendada, orientacao: orientacao.filter(Boolean),
   };
 }

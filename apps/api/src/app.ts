@@ -13,6 +13,7 @@ import { ErroApi, registrarTratamentoDeErros } from './erros.ts';
 import { atualizarRegiao, calcularIndicadores, listarRegioes } from './servicos/regioes.ts';
 import { processarEventoSensor } from './servicos/sensores.ts';
 import { cancelar, estacionar, listarRecomendacoes, listarTickets, localizar, novaRecomendacao, registrarEntrada, registrarSaida } from './servicos/tickets.ts';
+import { CENARIOS_DEF } from './simulador/cenarios.ts';
 import { MotorSimulacao } from './simulador/motor.ts';
 import type { Emissor } from './tempo-real.ts';
 
@@ -82,7 +83,13 @@ export function criarApp({ db, emissor, config, log = false, motor: motorInforma
   });
 
   // ── controle do simulador (Etapa 2) ──
-  app.get('/api/simulacao', async () => motor.estadoAtual());
+  app.get('/api/simulacao', async () => ({
+    ...motor.estadoAtual(),
+    /** Veículos simulados ainda ativos no banco (o painel usa para sinalizar o ambiente de demonstração mesmo com o motor parado). */
+    veiculosSimuladosAtivos: await db.ticket.count({ where: { simulado: true, status: { in: ['AGUARDANDO', 'ESTACIONADO'] } } }),
+  }));
+  app.get('/api/simulacao/cenarios', async () =>
+    Object.values(CENARIOS_DEF).map(({ id, nome, descricao, ocupacaoInicial, config }) => ({ id, nome, descricao, ocupacaoInicial, entradasPorMinuto: config.entradasPorMinuto ?? null })));
   app.post('/api/simulacao/iniciar', async (req) => { exigirToken(req); return motor.iniciar(esquemaIniciarSimulacao.parse(req.body ?? {})); });
   app.post('/api/simulacao/pausar', async (req) => { exigirToken(req); return motor.pausar(); });
   app.post('/api/simulacao/retomar', async (req) => { exigirToken(req); return motor.retomar(); });

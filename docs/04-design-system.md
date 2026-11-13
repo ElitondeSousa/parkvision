@@ -239,6 +239,16 @@ O mesmo Design System governa os pontos de contato físicos — por isso existe 
 | **Totem** | Botões de categoria com ícone + texto grandes (`font-size-sign`), alto contraste |
 | **Indicador por vaga** | LED verde (livre) / vermelho (ocupada) / azul (PcD livre) — reforçado pela placa física |
 
+## 8.1 Aplicação no MVP (Etapa 3)
+
+As três interfaces do MVP (`apps/web`) usam estes tokens pelo Tailwind 4 (`@theme` → `var(--pv-*)`). Na Etapa 3, entraram três extensões:
+
+- **Placa da região:** o código da região numa placa azul com filete branco, que é o elemento de identidade presente no totem, no ticket, no painel e no localizador.
+- **Faixas de ocupação por região:** com vagas (< 70%), ocupação alta (70–89%), quase lotada (≥ 90% com vagas), lotada (0 vagas, padrão xadrez), indisponível (hachura) e falha de sensor (pontos).
+- **Tokens do mapa:** papel, tinta da planta e vias, ligados aos tokens semânticos para acompanhar o tema.
+
+Detalhes: [docs/mvp/10-interfaces.md](mvp/10-interfaces.md).
+
 ## 9. Organização, aplicação e manutenção
 
 ### 9.1 Estrutura no repositório

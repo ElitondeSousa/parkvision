@@ -29,3 +29,7 @@ Thumbs.db
 
 # Estado local de plugins do Claude Code
 .omc/
+
+# Playwright
+test-results/
+playwright-report/
