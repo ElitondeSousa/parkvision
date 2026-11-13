@@ -1,11 +1,33 @@
-import type { Categoria, FonteCapacidade, Indicadores, Nivel, Regiao } from '@parkvision/shared';
+import { nivelFluxo, type Categoria, type FonteCapacidade, type Indicadores, type Nivel, type Regiao, type StatusSensores } from '@parkvision/shared';
 import type { Prisma, PrismaClient } from '@prisma/client';
+import { vazaoReferencia } from '../config.ts';
 import { ErroApi } from '../erros.ts';
 import type { Emissor } from '../tempo-real.ts';
 
+type Db = PrismaClient | Prisma.TransactionClient;
 type RegiaoDb = Prisma.RegiaoGetPayload<{ include: { categorias: true } }>;
 
-export function regiaoDto(r: RegiaoDb): Regiao {
+/** Janela padrão do critério de fluxo. */
+export const JANELA_FLUXO_MS = 5 * 60 * 1000;
+
+/**
+ * Fluxo recente por região = recomendações na janela + veículos em circulação medidos pelos sensores de fluxo (se vigentes).
+ * É este número que entra no critério "fluxo" do algoritmo (os pesos não mudam).
+ */
+export async function fluxoPorRegiao(db: Db, agora: Date, janelaMs = JANELA_FLUXO_MS): Promise<Record<string, number>> {
+  const [recs, sensores] = await Promise.all([
+    db.recomendacao.groupBy({ by: ['regiaoId'], where: { criadaEm: { gt: new Date(agora.getTime() - janelaMs), lte: agora } }, _count: true }),
+    db.regiao.findMany({ where: { fluxoSensor: { gt: 0 }, fluxoSensorAte: { gt: agora } }, select: { id: true, fluxoSensor: true } }),
+  ]);
+  const fluxo: Record<string, number> = {};
+  for (const r of recs) fluxo[r.regiaoId] = r._count;
+  for (const s of sensores) fluxo[s.id] = (fluxo[s.id] ?? 0) + s.fluxoSensor;
+  return fluxo;
+}
+
+export function regiaoDto(r: RegiaoDb, fluxo?: Record<string, number>): Regiao {
+  const recente = fluxo?.[r.id] ?? 0;
+  const vazao = vazaoReferencia(r.capacidade);
   return {
     id: r.id,
     nome: r.nome,
@@ -14,27 +36,29 @@ export function regiaoDto(r: RegiaoDb): Regiao {
     capacidade: r.capacidade,
     ocupadas: r.ocupadas,
     livres: Math.max(0, r.capacidade - r.ocupadas),
-    operacional: r.operacional,
+    operacional: r.operacional && !r.bloqueioSimulado,
     fonteCapacidade: r.fonteCapacidade as FonteCapacidade,
     atualizadoEm: r.atualizadoEm.toISOString(),
+    statusSensores: r.statusSensores as StatusSensores,
+    fluxo: { recente, vazaoReferencia: vazao, nivel: nivelFluxo(recente, vazao) },
   };
 }
 
 const ORDEM = ['N1', 'N2', 'N3', 'S1', 'S2', 'SS1', 'SS1M', 'SS2O', 'SS2C', 'SS2L'];
 const ordenar = (lista: Regiao[]) => lista.sort((a, b) => (ORDEM.indexOf(a.id) + 1 || 99) - (ORDEM.indexOf(b.id) + 1 || 99));
 
-export async function listarRegioes(db: PrismaClient | Prisma.TransactionClient): Promise<Regiao[]> {
-  const regs = await db.regiao.findMany({ include: { categorias: true } });
-  return ordenar(regs.map(regiaoDto));
+export async function listarRegioes(db: Db, agora = new Date()): Promise<Regiao[]> {
+  const [regs, fluxo] = await Promise.all([db.regiao.findMany({ include: { categorias: true } }), fluxoPorRegiao(db, agora)]);
+  return ordenar(regs.map((r) => regiaoDto(r, fluxo)));
 }
 
-export async function buscarRegiao(db: PrismaClient | Prisma.TransactionClient, id: string): Promise<Regiao> {
+export async function buscarRegiao(db: Db, id: string, agora = new Date()): Promise<Regiao> {
   const r = await db.regiao.findUnique({ where: { id }, include: { categorias: true } });
   if (!r) throw new ErroApi('REGIAO_NAO_ENCONTRADA', `Região ${id} não existe`);
-  return regiaoDto(r);
+  return regiaoDto(r, await fluxoPorRegiao(db, agora));
 }
 
-/** Ajuste feito pelo operador ou pelo simulador (operação, capacidade ou ocupação). */
+/** Ajuste feito pelo operador (operação, capacidade ou ocupação). */
 export async function atualizarRegiao(
   db: PrismaClient,
   emissor: Emissor,
@@ -53,16 +77,16 @@ export async function atualizarRegiao(
       : []),
   ]);
   const regiao = await buscarRegiao(db, id);
-  emissor.emitir('regiao:atualizada', regiao);
-  emissor.emitir('indicadores:atualizados', await calcularIndicadores(db));
+  emissor.emitir(dados.ocupadas !== undefined ? 'regiao:ocupacao' : 'regiao:status', id, regiao);
+  emissor.emitir('indicadores:atualizados', 'indicadores', await calcularIndicadores(db));
   return regiao;
 }
 
-export async function calcularIndicadores(db: PrismaClient | Prisma.TransactionClient): Promise<Indicadores> {
+export async function calcularIndicadores(db: Db, agora = new Date()): Promise<Indicadores> {
   const [regioes, aguardando, recHora] = await Promise.all([
-    listarRegioes(db),
+    listarRegioes(db, agora),
     db.ticket.count({ where: { status: 'AGUARDANDO' } }),
-    db.recomendacao.count({ where: { criadaEm: { gte: new Date(Date.now() - 3600_000) } } }),
+    db.recomendacao.count({ where: { criadaEm: { gt: new Date(agora.getTime() - 3600_000), lte: agora } } }),
   ]);
   const capacidadeTotal = regioes.reduce((s, r) => s + r.capacidade, 0);
   const ocupadas = regioes.reduce((s, r) => s + r.ocupadas, 0);

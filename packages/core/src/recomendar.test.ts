@@ -297,7 +297,7 @@ describe('recomendar — sem região elegível', () => {
         }),
       }),
       'Nenhuma região disponível para carro pequeno agora: N1 fora de operação; ' +
-      'N2, N3, S1, SS1, SS2O, SS2C e SS2L sem vagas; S2 com dados inválidos ou desatualizados.',
+      'N2, N3, S1, SS1, SS2O, SS2C e SS2L sem vagas; S2 com dados inválidos, desatualizados ou com falha de sensor.',
     ],
     [
       'lista de regiões vazia',

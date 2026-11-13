@@ -19,19 +19,27 @@ description: Regras de negócio e de projeto do ParkVision (MVP de distribuiçã
 `CARRO_PEQUENO`, `CARRO_GRANDE` (carro grande, SUV ou caminhonete) e `MOTO`. Motos vão para a região de motos (`SS1M`); carros para as demais, salvo restrição validada pela equipe.
 
 ## Algoritmo
-1. Filtros: categoria compatível · região operacional · `livres > 0` · dados válidos (0 ≤ ocupadas ≤ capacidade; e, se `VALIDADE_DADOS_MS` estiver definido, atualizados dentro desse prazo — desligado até o simulador enviar sinais periódicos) · rota existente no grafo.
+1. Filtros: categoria compatível · região operacional · `livres > 0` · dados válidos (0 ≤ ocupadas ≤ capacidade; `statusSensores = ok`; e, se `VALIDADE_DADOS_MS` estiver definido, atualizados dentro desse prazo — desligado até o simulador enviar sinais periódicos) · rota existente no grafo.
 2. `Score = 0,50·Disp + 0,30·(1 − DistNorm) + 0,20·(1 − FluxoNorm)`
    - `Disp = livres / capacidade`
    - `DistNorm = custoRota / maior custoRota entre as elegíveis` (menor caminho no grafo do mapa)
-   - `FluxoNorm = mín(1, recomendações + entradas dos últimos 5 min / vazão de referência)`
+   - `FluxoNorm = mín(1, (recomendações dos últimos 5 min + veículos em circulação medidos pelos sensores de fluxo) / vazão de referência)`
+   - Congestionamento entra pelo critério de fluxo; **os pesos não mudam** sem validação da equipe.
 3. Desempate (diferença < 0,01): menor distância → mais vagas livres → código da região.
 4. Justificativa em português, comparando a vencedora com a segunda colocada; sem região elegível, explicar os motivos.
 5. Função pura e determinística em `packages/core`.
 
 ## Ocupação
-- Confirmação de estacionamento: `ocupadas + 1` na região confirmada (padrão: a recomendada).
-- Saída: `ocupadas − 1` na região onde o veículo estava.
-- Toda mudança gera `evento_ocupacao` e o evento `regiao:atualizada` no Socket.IO.
+- Confirmação de estacionamento: `ocupadas + 1` na região confirmada (padrão: a recomendada), revalidando categoria, operação e capacidade no momento da confirmação (incremento atômico `WHERE ocupadas < capacidade`).
+- Região cheia na confirmação ⇒ rejeita (`REGIAO_LOTADA`) e o veículo pede nova recomendação (`POST /tickets/:codigo/recomendacao`).
+- Saída: `ocupadas − 1` na região onde o veículo estava; só para ticket `ESTACIONADO` (saída duplicada ou de quem não estacionou é recusada); nunca abaixo de zero. Desistência antes de estacionar = `cancelar`.
+- Toda mudança gera `evento_ocupacao` e o evento `regiao:ocupacao` no Socket.IO (envelope com `id`, `tipo`, `ocorridoEm`, `entidadeId`, `simulado`, `dados`).
+
+## Simulador e sensores (Etapa 2)
+- O simulador usa os mesmos serviços da API; tudo o que ele grava leva `simulado = true` e o reinício só apaga isso (nunca dados reais nem ajustes do operador).
+- Eventos de sensor são idempotentes pelo `eventoId`. Leitura de vaga sem ticket não altera a ocupação (a região é a fonte da verdade; não há modelo de vaga individual).
+- Indisponibilidade simulada usa `bloqueioSimulado` — nunca sobrescreve o `operacional` do operador.
+- Detalhes: `docs/mvp/08-simulador.md`.
 
 ## Mapa digital
 - Fonte única: arquivo `MapaDigital` (rascunho em `docs/mvp/mapa/capim-dourado.rascunho.json`), em coordenadas da planta `docs/planta/2026_11_CDS_MIX.pdf`.

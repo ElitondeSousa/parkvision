@@ -92,14 +92,21 @@ Igual ao rascunho [`mapa/capim-dourado.rascunho.json`](mapa/capim-dourado.rascun
 | `GET` | `/mapa` | — | `MapaDigital` | web |
 | `POST` | `/entradas` | `{ acessoId, categoria, placa? }` | `{ ticket: Ticket, recomendacao: Recomendacao, qrUrl: string }` | totem, simulador |
 | `POST` | `/tickets/:codigo/estacionar` | `{ regiaoId? }` (padrão: recomendada) | `{ ticket, regiao }` | painel, simulador |
-| `POST` | `/tickets/:codigo/saida` | — | `{ ticket, regiao? }` | painel, simulador |
+| `POST` | `/tickets/:codigo/saida` | — | `{ ticket, regiao }` — **Etapa 2: só ticket `ESTACIONADO`** (senão 409 `TRANSICAO_INVALIDA`) | painel, simulador |
+| `POST` | `/tickets/:codigo/recomendacao` | — | `{ ticket, recomendacao, motivo }` — nova recomendação (ticket `AGUARDANDO`) | totem, simulador |
+| `POST` | `/tickets/:codigo/cancelar` | — | `{ ticket }` — desistência antes de estacionar | painel, simulador |
 | `GET` | `/tickets` | `?status=&limite=` | `Ticket[]` | painel |
 | `GET` | `/recomendacoes` | `?limite=20` | `Recomendacao[]` | painel |
 | `GET` | `/localizador/:token` | — | `{ ticket: Pick<Ticket,'codigo'\|'entradaEm'\|'status'\|'categoria'>, regiao: Regiao \| null, recomendada: Regiao, orientacao: string[] }` | localizador |
-| `GET` | `/indicadores` | — | `{ capacidadeTotal, ocupadas, livres, taxaOcupacao, veiculosAguardando, recomendacoesHora, regioesAltaOcupacao: string[] }` | painel |
-| `GET` | `/simulacao` | — | `EstadoSimulacao` | painel |
-| `POST` | `/simulacao/comando` | `{ acao: 'iniciar'\|'pausar'\|'reiniciar', cenario?, velocidade? }` | `EstadoSimulacao` | painel |
-| `GET` | `/metricas/comparacao` | — | métricas ParkVision × tradicional, **marcadas `simulado: true`** | painel |
+| `GET` | `/indicadores` | — | `{ capacidadeTotal, ocupadas, livres, taxaOcupacao, veiculosAguardando, recomendacoesUltimaHora, regioesAltaOcupacao: string[] }` | painel |
+| `POST` | `/sensores/eventos` | `EventoSensor` (token) | `{ eventoId, resultado, mensagem?, resultadoOriginal? }` | sensores virtuais (e reais, no futuro) |
+| `GET` | `/simulacao` | — | estado do simulador | painel |
+| `POST` | `/simulacao/iniciar` · `pausar` · `retomar` · `encerrar` · `reiniciar` | (token) | estado | painel |
+| `PATCH` | `/simulacao/config` | `ConfigSimulacao` parcial (token) | estado | painel |
+| `POST` | `/simulacao/cenario` | `{ cenario: 'A'..'E', config? }` (token) | estado | painel |
+| `POST` | `/simulacao/eventos` | evento manual (token) | resultado | painel, apresentações |
+
+Detalhes do simulador, dos sensores e das mudanças da Etapa 2: [08-simulador.md](08-simulador.md). A comparação ParkVision × tradicional (`/metricas/comparacao`) fica para a Etapa 5.
 
 **Erros** (sempre `{ erro: { codigo, mensagem, detalhes? } }`):
 
@@ -110,36 +117,49 @@ Igual ao rascunho [`mapa/capim-dourado.rascunho.json`](mapa/capim-dourado.rascun
 | `TICKET_NAO_ENCONTRADO` | 404 | Código ou token inexistente |
 | `TRANSICAO_INVALIDA` | 409 | Ex.: estacionar um ticket que já saiu |
 | `REGIAO_LOTADA` | 409 | Confirmação em região sem vaga livre |
+| `REGIAO_INDISPONIVEL` | 409 | Confirmação em região fora de operação (Etapa 2) |
+| `CATEGORIA_INCOMPATIVEL` | 409 | Região não aceita a categoria do veículo |
+| `NAO_AUTORIZADO` | 401 | Rota do simulador/sensores sem `x-simulador-token` válido |
+| `SIMULACAO_ESTADO_INVALIDO` | 409 | Ex.: pausar uma simulação parada |
 
 ## 5. Tempo real (Socket.IO)
 
-**Namespace `/painel`** (servidor → clientes web):
+Desde a Etapa 2, todo evento sai num envelope padronizado (`EventoTempoReal`):
 
-| Evento | Payload | Disparado quando |
+```ts
+{ id: string /* uuid */; tipo: TipoEvento; ocorridoEm: string /* ISO */; entidadeId: string; simulado: boolean; dados: ... }
+```
+
+**Namespace `/painel`**: cada evento é emitido no canal com o nome do `tipo` e no canal agregado `evento`.
+
+| Evento | `dados` | Disparado quando |
 |---|---|---|
-| `regiao:atualizada` | `Regiao` | Ocupação, capacidade ou operação muda |
-| `ticket:criado` | `{ ticket, recomendacao }` | Nova entrada no totem ou no simulador |
-| `ticket:estacionado` | `{ ticket, regiao }` | Confirmação |
-| `ticket:saida` | `{ ticket, regiao }` | Saída |
-| `indicadores:atualizados` | `Indicadores` | Após qualquer mudança acima (no máx. 1 por segundo) |
-| `simulacao:estado` | `EstadoSimulacao` | Início, pausa, troca de cenário |
+| `veiculo:entrou` | `{ ticket, recomendacao }` | Nova entrada (totem ou simulador) |
+| `veiculo:recomendado` | `{ ticket, recomendacao, motivo }` | Nova recomendação (ex.: região lotou antes da confirmação) |
+| `veiculo:estacionou` | `{ ticket, regiao }` | Confirmação |
+| `veiculo:saiu` | `{ ticket, regiao \| null }` | Saída (ou cancelamento, com `regiao: null`) |
+| `regiao:ocupacao` | `Regiao` | A ocupação muda |
+| `regiao:fluxo` | `Regiao` | Leitura de fluxo dos sensores |
+| `regiao:status` | `Regiao` | Operação ou estado dos sensores muda |
+| `indicadores:atualizados` | `Indicadores` | Após qualquer mudança acima |
+| `simulador:estado` · `simulador:cenario` · `simulador:sensor` · `simulador:alerta` | ver [08-simulador.md](08-simulador.md) §7 | Controle e eventos do simulador |
 
-**Namespace `/simulador`** (servidor → simulador): `simulacao:comando` `{ acao, cenario?, velocidade? }`. O simulador autentica com `SIMULADOR_TOKEN` (variável de ambiente) e envia os eventos pelos **mesmos endpoints REST** do totem e do painel.
+Na Etapa 1, os nomes eram `ticket:criado`, `ticket:estacionado`, `ticket:saida` e `regiao:atualizada`. Eles foram substituídos pelos acima.
+
+**Namespace `/simulador`**: recebe os eventos `simulador:*` e exige `auth: { token: SIMULADOR_TOKEN }`.
 
 ## 6. Simulador
 
-```ts
-export interface EstadoSimulacao {
-  status: 'PARADA' | 'RODANDO' | 'PAUSADA';
-  cenario: 'normal' | 'pico' | 'regiao-lotada' | 'regiao-indisponivel';
-  velocidade: 1 | 5 | 20;
-  relogioSimulado: string;
-  regiaoAlvo?: string;           // para os cenários lotada/indisponível
-  estrategia: 'parkvision' | 'tradicional';
-}
-```
+O simulador roda dentro da API (`apps/api/src/simulador/`) e usa os mesmos serviços das rotas REST. Os detalhes estão em [08-simulador.md](08-simulador.md): estado, configuração, cenários A–E, sensores virtuais e reinício seguro.
 
-Ciclo por veículo simulado: `POST /entradas` → espera (tempo de manobra) → `POST /tickets/:codigo/estacionar` (com chance configurável de parar em outra região) → permanência → `POST /tickets/:codigo/saida`.
+Cada veículo simulado faz este ciclo:
+
+1. Entrada.
+2. Tempo de manobra.
+3. Confirmação, via evento de sensor `VAGA_OCUPADA` com ticket e chance de ir para outra região.
+4. Se a confirmação for rejeitada, nova recomendação.
+5. Permanência.
+6. Saída (`VAGA_LIBERADA`).
 
 ## 7. Rotas da web
 

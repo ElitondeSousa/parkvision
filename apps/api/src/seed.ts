@@ -1,13 +1,19 @@
 /**
  * Carga inicial: regiões, categorias e acessos a partir do mapa digital oficial.
  * Ocupação inicial = 0 (o simulador da Etapa 2 é quem movimenta o estacionamento).
- * Uso: pnpm db:seed   (opção --limpar apaga tickets, recomendações e eventos)
+ * Uso: pnpm db:seed   (opção --limpar apaga tickets, recomendações, eventos e o estado dos sensores — base de desenvolvimento/teste)
  */
 import { mapaCapimDourado as M } from '@parkvision/shared';
 import { PrismaClient } from '@prisma/client';
 
+const ESTADO_LIMPO = {
+  ocupadas: 0, operacional: true, bloqueioSimulado: false, statusSensores: 'ok', statusSensoresSimulado: false,
+  fluxoSensor: 0, fluxoSensorAte: null, fluxoSimulado: false,
+};
+
 export async function semear(db: PrismaClient, { limpar = false } = {}) {
   if (limpar) {
+    await db.eventoSensor.deleteMany();
     await db.eventoOcupacao.deleteMany();
     await db.recomendacao.deleteMany();
     await db.ticket.deleteMany();
@@ -19,7 +25,7 @@ export async function semear(db: PrismaClient, { limpar = false } = {}) {
     await db.regiao.upsert({
       where: { id: r.id },
       create: { id: r.id, nome: r.nome, nivel: r.nivel, capacidade, fonteCapacidade: fonte },
-      update: { nome: r.nome, nivel: r.nivel, capacidade, fonteCapacidade: fonte, ...(limpar ? { ocupadas: 0, operacional: true } : {}) },
+      update: { nome: r.nome, nivel: r.nivel, capacidade, fonteCapacidade: fonte, ...(limpar ? ESTADO_LIMPO : {}) },
     });
     await db.regiaoCategoria.deleteMany({ where: { regiaoId: r.id } });
     await db.regiaoCategoria.createMany({ data: r.categorias.map((categoria) => ({ regiaoId: r.id, categoria })) });

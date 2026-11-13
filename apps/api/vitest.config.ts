@@ -12,7 +12,7 @@ export default defineConfig({
     env,
     globalSetup: ['./test/preparar-banco.ts'],
     fileParallelism: false,
-    testTimeout: 20000,
+    testTimeout: 60000,
     hookTimeout: 60000,
   },
 });

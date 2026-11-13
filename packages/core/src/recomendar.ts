@@ -60,6 +60,8 @@ function dadosInvalidos(regiao: Regiao, agora: Date, validadeDadosMs: number | n
   const { capacidade, ocupadas } = regiao;
   if (!Number.isFinite(capacidade) || !Number.isFinite(ocupadas)) return true;
   if (capacidade <= 0 || ocupadas < 0 || ocupadas > capacidade) return true;
+  // Sensores sem comunicação ou com leitura inconsistente: a ocupação informada não é confiável.
+  if (regiao.statusSensores !== undefined && regiao.statusSensores !== 'ok') return true;
   if (validadeDadosMs !== undefined && validadeDadosMs !== null) {
     const atualizado = Date.parse(regiao.atualizadoEm);
     if (Number.isNaN(atualizado)) return true;
@@ -127,7 +129,7 @@ function juntar(itens: string[]): string {
 const TEXTO_MOTIVO: Record<Exclude<MotivoInelegivel, 'CATEGORIA_INCOMPATIVEL'>, string> = {
   SEM_VAGAS: 'sem vagas',
   FORA_DE_OPERACAO: 'fora de operação',
-  DADOS_INVALIDOS: 'com dados inválidos ou desatualizados',
+  DADOS_INVALIDOS: 'com dados inválidos, desatualizados ou com falha de sensor',
   SEM_ROTA: 'sem rota a partir desta entrada',
 };
 

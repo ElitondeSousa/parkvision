@@ -11,6 +11,12 @@ export type Nivel = 'terreo' | 'ss1' | 'ss2';
 /** De onde vem a capacidade da região: escrita na planta, contada no desenho ou simulada. */
 export type FonteCapacidade = 'planta' | 'desenho' | 'simulada';
 
+/** Estado dos sensores de uma região. Diferente de 'ok' => dados inválidos para o algoritmo. */
+export type StatusSensores = 'ok' | 'sem-comunicacao' | 'inconsistente';
+
+/** Nível de fluxo de uma região: fluxo recente ÷ vazão de referência (<0,4 baixo; <0,8 moderado; ≥0,8 elevado). */
+export type NivelFluxo = 'baixo' | 'moderado' | 'elevado';
+
 export interface Regiao {
   id: string;
   nome: string;
@@ -19,9 +25,18 @@ export interface Regiao {
   capacidade: number;
   ocupadas: number;
   livres: number;
+  /** Operacional efetivo (operador E simulação). */
   operacional: boolean;
   fonteCapacidade: FonteCapacidade;
   atualizadoEm: string;
+  statusSensores?: StatusSensores;
+  /** Fluxo recente (recomendações + leitura dos sensores de fluxo) e nível. */
+  fluxo?: { recente: number; vazaoReferencia: number; nivel: NivelFluxo };
+}
+
+export function nivelFluxo(recente: number, vazaoReferencia: number): NivelFluxo {
+  const r = recente / Math.max(1, vazaoReferencia);
+  return r >= 0.8 ? 'elevado' : r >= 0.4 ? 'moderado' : 'baixo';
 }
 
 export const STATUS_TICKET = ['AGUARDANDO', 'ESTACIONADO', 'SAIU', 'CANCELADO'] as const;

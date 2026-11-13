@@ -1,14 +1,17 @@
-/** Sobe a API (Fastify) com o Socket.IO no mesmo servidor HTTP. */
+/** Sobe a API (Fastify) com o Socket.IO no mesmo servidor HTTP e o motor do simulador em modo automático. */
 import { PrismaClient } from '@prisma/client';
 import { criarApp } from './app.ts';
 import { lerConfig } from './config.ts';
+import { MotorSimulacao } from './simulador/motor.ts';
 import { iniciarSocket, type Emissor } from './tempo-real.ts';
 
 const config = lerConfig();
 const db = new PrismaClient();
 // O emissor real só existe depois que o servidor HTTP é criado; até lá, um repasse.
 let destino: Emissor = { emitir() {} };
-const app = criarApp({ db, config, log: true, emissor: { emitir: (e, ...d) => destino.emitir(e, ...d) } });
+const emissor: Emissor = { emitir: (...args) => destino.emitir(...args) };
+const motor = new MotorSimulacao({ db, emissor, config }, { automatico: true });
+const app = criarApp({ db, config, log: true, emissor, motor });
 
 await app.ready();
 destino = iniciarSocket(app.server, { simuladorToken: config.simuladorToken, origemWeb: config.webUrl }).emissor;

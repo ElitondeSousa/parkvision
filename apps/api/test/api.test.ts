@@ -46,7 +46,8 @@ describe('fluxo do veículo', () => {
     expect(recomendacao.avaliacoes).toHaveLength(10);
     expect(qrUrl).toMatch(/^http:\/\/web\.teste\/t\/[\w-]{20,}$/);
     expect((await regioes()).reduce((s, x) => s + x.ocupadas, 0)).toBe(0);   // sem reserva
-    expect(coletor.eventos.map((e) => e.evento)).toContain('ticket:criado');
+    expect(coletor.eventos.map((e) => e.tipo)).toContain('veiculo:entrou');
+    expect(coletor.eventos.every((e) => e.simulado === false)).toBe(true);
   });
 
   it('confirmação ocupa a vaga e a saída libera', async () => {
@@ -55,7 +56,7 @@ describe('fluxo do veículo', () => {
     expect(est.statusCode).toBe(200);
     expect(est.json().ticket).toMatchObject({ status: 'ESTACIONADO', regiaoEstacionadaId: recomendacao.regiaoId });
     expect(await ocupadas(recomendacao.regiaoId)).toBe(1);
-    expect(coletor.eventos.map((e) => e.evento)).toEqual(expect.arrayContaining(['ticket:estacionado', 'regiao:atualizada', 'indicadores:atualizados']));
+    expect(coletor.eventos.map((e) => e.tipo)).toEqual(expect.arrayContaining(['veiculo:estacionou', 'regiao:ocupacao', 'indicadores:atualizados']));
 
     const repetir = await app.inject({ method: 'POST', url: `/api/tickets/${ticket.codigo}/estacionar` });
     expect(repetir.statusCode).toBe(409);
@@ -63,6 +64,10 @@ describe('fluxo do veículo', () => {
 
     const saida = await app.inject({ method: 'POST', url: `/api/tickets/${ticket.codigo}/saida` });
     expect(saida.json().ticket.status).toBe('SAIU');
+    expect(await ocupadas(recomendacao.regiaoId)).toBe(0);
+
+    const saidaDuplicada = await app.inject({ method: 'POST', url: `/api/tickets/${ticket.codigo}/saida` });
+    expect(saidaDuplicada.statusCode).toBe(409);
     expect(await ocupadas(recomendacao.regiaoId)).toBe(0);
   });
 
@@ -72,10 +77,14 @@ describe('fluxo do veículo', () => {
     expect(r.json().regiao).toMatchObject({ id: 'S2', ocupadas: 1 });
   });
 
-  it('saída sem ter estacionado não mexe na ocupação', async () => {
+  // Etapa 2: saída só para veículo estacionado; quem desistiu antes de estacionar é cancelado.
+  it('saída sem ter estacionado é recusada; desistência usa cancelar (ocupação intacta)', async () => {
     const { ticket } = (await entrar()).json();
     const r = await app.inject({ method: 'POST', url: `/api/tickets/${ticket.codigo}/saida` });
-    expect(r.json()).toMatchObject({ ticket: { status: 'SAIU' }, regiao: null });
+    expect(r.statusCode).toBe(409);
+    expect(r.json().erro.codigo).toBe('TRANSICAO_INVALIDA');
+    const c = await app.inject({ method: 'POST', url: `/api/tickets/${ticket.codigo}/cancelar` });
+    expect(c.json()).toMatchObject({ ticket: { status: 'CANCELADO' } });
     expect((await regioes()).reduce((s, x) => s + x.ocupadas, 0)).toBe(0);
   });
 

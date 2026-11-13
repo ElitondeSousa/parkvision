@@ -38,6 +38,13 @@ model Regiao {
   ocupadas        Int               @default(0)
   operacional     Boolean           @default(true)
   fonteCapacidade String // planta | desenho | simulada
+  // Estado vindo dos sensores (reais ou simulados). A marca *Simulado diz o que o reinício da simulação pode desfazer.
+  bloqueioSimulado       Boolean   @default(false) // indisponibilidade temporária gerada pela simulação
+  statusSensores         String    @default("ok") // ok | sem-comunicacao | inconsistente
+  statusSensoresSimulado Boolean   @default(false)
+  fluxoSensor            Int       @default(0) // veículos em circulação medidos pelos sensores de fluxo
+  fluxoSensorAte         DateTime?
+  fluxoSimulado          Boolean   @default(false)
   atualizadoEm    DateTime          @default(now()) @updatedAt
   categorias      RegiaoCategoria[]
   eventos         EventoOcupacao[]
@@ -83,16 +90,18 @@ model Ticket {
   estacionadoEm       DateTime?
   saidaEm             DateTime?
   status              StatusTicket  @default(AGUARDANDO)
-  recomendacao        Recomendacao?
+  simulado            Boolean       @default(false) // gerado pelo simulador (pode ser apagado no reinício)
+  recomendacoes       Recomendacao[]
   eventos             EventoOcupacao[]
 
   @@index([status, entradaEm])
+  @@index([simulado])
   @@map("ticket")
 }
 
 model Recomendacao {
   id            String   @id @default(uuid())
-  ticketNumero  Int      @unique
+  ticketNumero  Int
   ticket        Ticket   @relation(fields: [ticketNumero], references: [numero], onDelete: Cascade)
   regiaoId      String
   regiao        Regiao   @relation(fields: [regiaoId], references: [id])
@@ -103,6 +112,7 @@ model Recomendacao {
   rota          Json
   criadaEm      DateTime @default(now())
 
+  @@index([ticketNumero])
   @@index([regiaoId, criadaEm])
   @@map("recomendacao")
 }
@@ -114,9 +124,28 @@ model EventoOcupacao {
   tipo         TipoEvento
   origem       String // totem | simulador | operador | sistema
   ticketNumero Int?
-  ticket       Ticket?    @relation(fields: [ticketNumero], references: [numero])
+  ticket       Ticket?    @relation(fields: [ticketNumero], references: [numero], onDelete: Cascade)
+  simulado     Boolean    @default(false)
   ocorridoEm   DateTime   @default(now())
 
   @@index([regiaoId, ocorridoEm])
   @@map("evento_ocupacao")
+}
+
+/// Eventos de sensor recebidos (reais ou simulados). O id externo garante idempotência:
+/// o mesmo evento processado duas vezes não altera a ocupação de novo.
+model EventoSensor {
+  eventoId     String   @id
+  sensorId     String
+  regiaoId     String
+  tipo         String // VAGA_OCUPADA | VAGA_LIBERADA | SEM_COMUNICACAO | LEITURA_INCONSISTENTE | SENSOR_NORMALIZADO | FLUXO | DISPONIBILIDADE
+  ticketCodigo String?
+  payload      Json
+  resultado    String // APLICADO | IGNORADO_SEM_TICKET | REJEITADO_* ...
+  simulado     Boolean  @default(false)
+  recebidoEm   DateTime @default(now())
+
+  @@index([regiaoId, recebidoEm])
+  @@index([simulado])
+  @@map("evento_sensor")
 }

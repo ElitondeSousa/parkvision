@@ -87,7 +87,7 @@ node design-system/scripts/build-tokens.mjs
 node design-system/scripts/check-contrast.mjs
 ```
 
-## Como rodar o MVP (Etapa 1 — back-end e algoritmo)
+## Como rodar o MVP (Etapas 1 e 2 — back-end, algoritmo e simulador)
 
 Pré-requisitos: Node.js 22+, pnpm 10 e Docker Desktop.
 
@@ -122,6 +122,16 @@ pnpm test
 ```
 
 Contratos da API e dos eventos em tempo real: [docs/mvp/02-contratos.md](docs/mvp/02-contratos.md). Relatório da etapa: [docs/mvp/07-relatorio-etapa-1.md](docs/mvp/07-relatorio-etapa-1.md).
+
+### Simulador (Etapa 2)
+
+O simulador roda dentro da API e é controlado por `/api/simulacao/*`, com o cabeçalho `x-simulador-token`. Ele gera entradas, confirmações, saídas, falhas de sensor e congestionamento, sempre marcados como `simulado: true`, e tem cinco cenários reproduzíveis (A–E). Por exemplo, para iniciar o cenário de pico:
+
+```bash
+curl -X POST localhost:3333/api/simulacao/cenario -H "x-simulador-token: troque-este-token" -H "content-type: application/json" -d '{"cenario":"B"}'
+```
+
+Arquitetura, endpoints, eventos, configurações e limitações: [docs/mvp/08-simulador.md](docs/mvp/08-simulador.md). Relatório: [docs/mvp/09-relatorio-etapa-2.md](docs/mvp/09-relatorio-etapa-2.md).
 
 ## Estrutura de pastas
 
