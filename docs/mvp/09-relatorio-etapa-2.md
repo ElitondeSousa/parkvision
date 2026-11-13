@@ -1,6 +1,6 @@
 # MVP 09 — Relatório da Etapa 2: simulador do estacionamento
 
-> Status: **concluída localmente, aguardando a validação do grupo.** Nada foi commitado. A Etapa 3 não foi iniciada.
+> Status: **concluída e commitada (`98f3a36`), aguardando a validação do grupo.** A Etapa 3 não foi iniciada.
 
 ## 1. Funcionalidades implementadas
 
@@ -209,7 +209,3 @@ Qualquer introdução fica sujeita à aprovação do grupo.
 - Credencial própria para sensores reais.
 - Cache do fluxo ou escrita em lote, se a demonstração precisar de velocidades maiores no pico.
 - Estratégia "tradicional" para a comparação da Etapa 5.
-
-**Arquivos pendentes da etapa anterior (não commitados)**
-- Ajuste no status do `07-relatorio-etapa-1.md`.
-- `docs/mvp/relatorio-etapa-1.pdf`.

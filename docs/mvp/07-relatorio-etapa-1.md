@@ -1,6 +1,6 @@
 # Relatório — Etapa 1 do MVP (back-end e algoritmo)
 
-> **Status:** concluída, aguardando validação da equipe. **Não commitada.** A Etapa 2 (simulador) só começa depois da aprovação.
+> **Status:** concluída, commitada (`c13d58e`) e enviada ao GitHub. A Etapa 2 (simulador) começa após a validação da equipe.
 
 ## 1. O que foi entregue
 
