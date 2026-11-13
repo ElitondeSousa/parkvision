@@ -6,6 +6,10 @@
 
 Sistema que **organiza e distribui automaticamente os veículos** em estacionamentos de shopping centers: monitora as vagas em tempo real, recomenda a melhor zona na entrada, imprime um ticket com a orientação, guia o motorista por sinalização luminosa (sem exigir aplicativo) e permite pagar pelo QR Code do ticket.
 
+### ▶ [Abrir o protótipo das telas](https://elitondesousa.github.io/parkvision/prototype/)
+
+As 6 telas (Visão geral, Mapa de vagas, Distribuição inteligente, Veículos e tickets, Pagamento por QR Code, Configurações) e a vitrine do Design System, direto no navegador.
+
 > **Status atual: planejamento técnico inicial** (1ª entrega — 13/11/2026). Ainda não há MVP funcional; esta etapa entrega documentação, arquitetura, Design System e protótipo visual das telas.
 >
 > 🗺️ **Planta recebida em 13/11/2026** (Capim Dourado Shopping): análise e proposta inicial de zonas em [docs/10-analise-planta.md](docs/10-analise-planta.md). Subsolo 1 com 140 vagas, Subsolo 2 com 216 vagas, pátios descobertos norte e sul (quantidade a contar). O mapa interativo do protótipo ainda usa uma simulação rotulada como exemplo.
