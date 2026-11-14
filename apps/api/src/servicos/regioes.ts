@@ -1,4 +1,4 @@
-import { nivelFluxo, type Categoria, type FonteCapacidade, type Indicadores, type Nivel, type Regiao, type StatusSensores } from '@parkvision/shared';
+import { nivelFluxo, NOME_TIPO_VAGA, TIPOS_VAGA, type Categoria, type FonteCapacidade, type FonteVagasReservadas, type Indicadores, type Nivel, type Regiao, type StatusSensores, type TipoVaga, type VagasDoTipo } from '@parkvision/shared';
 import type { Prisma, PrismaClient } from '@prisma/client';
 import { vazaoReferencia } from '../config.ts';
 import { ErroApi } from '../erros.ts';
@@ -25,6 +25,16 @@ export async function fluxoPorRegiao(db: Db, agora: Date, janelaMs = JANELA_FLUX
   return fluxo;
 }
 
+/** Vagas por tipo a partir das colunas da região (comuns = total − reservadas). */
+export function vagasDto(r: Pick<RegiaoDb, 'capacidade' | 'ocupadas' | 'capacidadePcd' | 'capacidadeIdoso' | 'ocupadasPcd' | 'ocupadasIdoso'>): Record<TipoVaga, VagasDoTipo> {
+  const tipo = (capacidade: number, ocupadas: number): VagasDoTipo => ({ capacidade, ocupadas, livres: Math.max(0, capacidade - ocupadas) });
+  return {
+    COMUM: tipo(r.capacidade - r.capacidadePcd - r.capacidadeIdoso, r.ocupadas - r.ocupadasPcd - r.ocupadasIdoso),
+    PCD: tipo(r.capacidadePcd, r.ocupadasPcd),
+    IDOSO: tipo(r.capacidadeIdoso, r.ocupadasIdoso),
+  };
+}
+
 export function regiaoDto(r: RegiaoDb, fluxo?: Record<string, number>): Regiao {
   const recente = fluxo?.[r.id] ?? 0;
   const vazao = vazaoReferencia(r.capacidade);
@@ -41,6 +51,8 @@ export function regiaoDto(r: RegiaoDb, fluxo?: Record<string, number>): Regiao {
     atualizadoEm: r.atualizadoEm.toISOString(),
     statusSensores: r.statusSensores as StatusSensores,
     fluxo: { recente, vazaoReferencia: vazao, nivel: nivelFluxo(recente, vazao) },
+    vagas: vagasDto(r),
+    fonteVagasReservadas: r.fonteVagasReservadas as FonteVagasReservadas,
     versao: r.versao,
   };
 }
@@ -71,8 +83,20 @@ export async function atualizarRegiao(
   const capacidade = dados.capacidade ?? atual.capacidade;
   const ocupadas = dados.ocupadas ?? atual.ocupadas;
   if (ocupadas > capacidade) throw new ErroApi('DADOS_INVALIDOS', `Ocupação (${ocupadas}) maior que a capacidade (${capacidade})`);
+  // vagas reservadas: capacidade e ocupação totais mexem só nas COMUNS, que não podem ficar negativas nem acima do limite
+  const { PCD, IDOSO } = atual.vagas!;
+  const capacidadeComum = capacidade - PCD.capacidade - IDOSO.capacidade;
+  const ocupadasComum = ocupadas - PCD.ocupadas - IDOSO.ocupadas;
+  if (capacidadeComum < 0) throw new ErroApi('TIPO_VAGA_INCOMPATIVEL', `A capacidade (${capacidade}) não comporta as ${PCD.capacidade + IDOSO.capacidade} vagas reservadas da região ${id}. Ajuste as vagas reservadas antes.`);
+  if (ocupadasComum < 0) throw new ErroApi('DADOS_INVALIDOS', `A ocupação (${ocupadas}) é menor que as vagas reservadas ocupadas (${PCD.ocupadas + IDOSO.ocupadas}) na região ${id}`);
+  if (ocupadasComum > capacidadeComum) throw new ErroApi('DADOS_INVALIDOS', `Ocupação das vagas comuns (${ocupadasComum}) maior que a capacidade comum (${capacidadeComum}) na região ${id}`);
+  // condicionado ao estado lido: se uma confirmação/saída mexeu nas reservadas no meio do caminho, o ajuste não passa
+  const mudou = await db.regiao.updateMany({
+    where: { id, ocupadasPcd: PCD.ocupadas, ocupadasIdoso: IDOSO.ocupadas, capacidadePcd: PCD.capacidade, capacidadeIdoso: IDOSO.capacidade, ...(dados.ocupadas === undefined ? {} : { ocupadas: atual.ocupadas }) },
+    data: { ...dados, versao: { increment: 1 } },
+  });
+  if (mudou.count === 0) throw new ErroApi('TRANSICAO_INVALIDA', `A região ${id} mudou enquanto o ajuste era feito; confira os números e tente de novo`);
   await db.$transaction([
-    db.regiao.update({ where: { id }, data: { ...dados, versao: { increment: 1 } } }),
     ...(dados.ocupadas !== undefined && dados.ocupadas !== atual.ocupadas
       ? [db.eventoOcupacao.create({ data: { regiaoId: id, tipo: 'AJUSTE', origem } })]
       : []),
@@ -82,6 +106,37 @@ export async function atualizarRegiao(
   emissor.emitir('indicadores:atualizados', 'indicadores', await calcularIndicadores(db));
   return regiao;
 }
+
+/**
+ * Ajuste administrativo das vagas reservadas de uma região (as comuns são o restante).
+ * Recusa o que deixaria a região inconsistente com a ocupação ATUAL — o UPDATE é condicionado no próprio banco,
+ * então uma confirmação simultânea não consegue "furar" a validação.
+ */
+export async function configurarVagasReservadas(db: PrismaClient, emissor: Emissor, id: string, dados: { capacidadePcd: number; capacidadeIdoso: number }): Promise<Regiao> {
+  const atual = await buscarRegiao(db, id);
+  if (!atual.categorias.some((c) => c !== 'MOTO')) throw new ErroApi('TIPO_VAGA_INCOMPATIVEL', `A região ${id} é só de motos e não recebe vagas PcD ou para pessoa idosa`);
+  const { capacidadePcd: pcd, capacidadeIdoso: idoso } = dados;
+  const v = atual.vagas!;
+  const motivo =
+    pcd + idoso > atual.capacidade ? `As vagas reservadas (${pcd + idoso}) passam da capacidade da região (${atual.capacidade})`
+    : pcd < v.PCD.ocupadas ? `Há ${v.PCD.ocupadas} ${v.PCD.ocupadas === 1 ? 'vaga PcD ocupada' : 'vagas PcD ocupadas'} agora; não dá para reduzir para ${pcd}`
+    : idoso < v.IDOSO.ocupadas ? `Há ${v.IDOSO.ocupadas} vagas para pessoa idosa ocupadas agora; não dá para reduzir para ${idoso}`
+    : atual.capacidade - pcd - idoso < v.COMUM.ocupadas ? `Sobrariam ${atual.capacidade - pcd - idoso} vagas comuns, mas ${v.COMUM.ocupadas} estão ocupadas agora`
+    : null;
+  if (motivo) throw new ErroApi('TIPO_VAGA_INCOMPATIVEL', motivo, { regiaoId: id });
+  const linhas = await db.$executeRaw`UPDATE regiao SET "capacidadePcd" = ${pcd}::int, "capacidadeIdoso" = ${idoso}::int, "fonteVagasReservadas" = 'operador', versao = versao + 1, "atualizadoEm" = clock_timestamp()
+    WHERE id = ${id} AND ${pcd}::int + ${idoso}::int <= capacidade AND ${pcd}::int >= "ocupadasPcd" AND ${idoso}::int >= "ocupadasIdoso"
+      AND capacidade - ${pcd}::int - ${idoso}::int >= ocupadas - "ocupadasPcd" - "ocupadasIdoso"`;
+  if (linhas === 0) throw new ErroApi('TIPO_VAGA_INCOMPATIVEL', `A ocupação da região ${id} mudou e o ajuste ficaria inconsistente; confira e tente de novo`, { regiaoId: id });
+  const regiao = await buscarRegiao(db, id);
+  emissor.emitir('regiao:status', id, regiao);
+  emissor.emitir('indicadores:atualizados', 'indicadores', await calcularIndicadores(db));
+  return regiao;
+}
+
+/** Texto curto do tipo de vaga para mensagens ("vagas PcD", "vagas para pessoa idosa", "vagas comuns"). */
+export const vagasDoTipoTexto = (t: TipoVaga) => ({ COMUM: 'vagas comuns', PCD: 'vagas PcD', IDOSO: 'vagas para pessoa idosa' })[t];
+export { NOME_TIPO_VAGA };
 
 export async function calcularIndicadores(db: Db, agora = new Date()): Promise<Indicadores> {
   const [regioes, aguardando, recHora] = await Promise.all([
@@ -99,5 +154,9 @@ export async function calcularIndicadores(db: Db, agora = new Date()): Promise<I
     veiculosAguardando: aguardando,
     recomendacoesUltimaHora: recHora,
     regioesAltaOcupacao: regioes.filter((r) => r.capacidade && r.ocupadas / r.capacidade >= 0.9).map((r) => r.id),
+    porTipoVaga: Object.fromEntries(TIPOS_VAGA.map((t) => {
+      const capacidade = regioes.reduce((s, r) => s + r.vagas![t].capacidade, 0), ocupadasT = regioes.reduce((s, r) => s + r.vagas![t].ocupadas, 0);
+      return [t, { capacidade, ocupadas: ocupadasT, livres: capacidade - ocupadasT }];
+    })) as Record<TipoVaga, VagasDoTipo>,
   };
 }

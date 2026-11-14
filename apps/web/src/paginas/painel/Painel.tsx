@@ -21,7 +21,7 @@ import { api, mensagemDeErro, tokenOperador, type CenarioResumo, type EstadoSimu
 import { useTempoReal, type EstadoConexao } from '../../servicos/tempo-real.ts';
 import { BrandLogo } from '../../tema/BrandLogo.tsx';
 import { ControlesTema } from '../../tema/ControlesTema.tsx';
-import { AcessoOperador, ControleSimulador, DetalheRegiao, FaixaIndicadores, ListaMovimentacoes, OperacaoTicket, RecomendacaoAtual, TabelaRegioes } from './componentes.tsx';
+import { AcessoOperador, ControleSimulador, DetalheRegiao, FaixaIndicadores, ListaMovimentacoes, OperacaoTicket, RecomendacaoAtual, TabelaRegioes, VagasReservadas } from './componentes.tsx';
 import { itemDoEvento, itemDoHistorico, juntarMovimentacoes, TIPOS_DO_HISTORICO, type ItemMovimentacao } from './eventos.ts';
 
 const MAX_MOVIMENTACOES = 60;
@@ -139,7 +139,7 @@ export function Painel() {
           <ControlesTema />
         </header>
 
-        <main id="conteudo" className="flex-1 p-4 sm:p-6 grid gap-5 content-start">
+        <main id="conteudo" className="flex-1 p-4 sm:p-6 grid gap-5 content-start [&>*]:min-w-0">
           {erro && (
             <Aviso tom="erro" titulo="Não foi possível carregar o painel" acao={<Botao variante="secundario" tamanho="sm" icone={RefreshCw} onClick={carregar}>Tentar de novo</Botao>}>
               {erro}
@@ -183,6 +183,7 @@ export function Painel() {
               <AcessoOperador pedindo={pedindoToken} aoSalvar={(t) => { tokenOperador.gravar(t); setPedindoToken(false); }} aoTrocar={pedirToken} />
               <OperacaoTicket regioes={regioes} aoSelecionar={setSelecionada} aoNaoAutorizado={pedirToken} />
               <ControleSimulador estado={simulacao} cenarios={cenarios} aoAtualizar={atualizarSimulacao} aoNaoAutorizado={pedirToken} />
+              <VagasReservadas regioes={regioes} aoNaoAutorizado={pedirToken} />
               <ListaMovimentacoes itens={movimentacoes} conexao={conexao} aoSelecionar={setSelecionada} />
             </div>
           </div>

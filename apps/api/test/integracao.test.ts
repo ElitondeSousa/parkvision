@@ -84,7 +84,7 @@ describe('concorrência no mesmo ticket', () => {
   it('confirmação rejeitada por lotação não deixa o ticket marcado como estacionado', async () => {
     const { ticket } = await entrar();
     const s1 = await regiao('S1');
-    await app.inject({ method: 'PATCH', url: '/api/regioes/S1', headers: OP, payload: { ocupadas: s1.capacidade } });
+    await app.inject({ method: 'PATCH', url: '/api/regioes/S1', headers: OP, payload: { ocupadas: s1.vagas!.COMUM.capacidade } }); // vagas comuns lotadas
     expect((await post(`/api/tickets/${ticket.codigo}/estacionar`, { regiaoId: 'S1' })).json().erro.codigo).toBe('REGIAO_LOTADA');
     expect((await db.ticket.findUnique({ where: { codigo: ticket.codigo } }))!.status).toBe('AGUARDANDO');
     expect((await post(`/api/tickets/${ticket.codigo}/estacionar`)).statusCode).toBe(200); // segue podendo confirmar em outra região

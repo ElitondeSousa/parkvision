@@ -49,6 +49,7 @@ describe('totem', () => {
     expect(await screen.findByTestId('totem-demonstracao')).toHaveTextContent('Ambiente de demonstração');
     fireEvent.click(screen.getByRole('button', { name: 'Começar' }));
     fireEvent.click(screen.getByRole('button', { name: 'Carro pequeno' }));
+    fireEvent.click(screen.getByRole('button', { name: /^Vaga comum/ }));
     fireEvent.click(await screen.findByRole('button', { name: 'Emitir ticket' }, { timeout: 4000 }));
     expect(screen.getByText('Demonstração: ticket sem validade')).toBeInTheDocument();
   });
@@ -59,6 +60,7 @@ describe('totem', () => {
     renderizarEm('/totem?acesso=A_NE', '/totem', <Totem />);
     fireEvent.click(screen.getByRole('button', { name: 'Começar' }));
     fireEvent.click(screen.getByRole('button', { name: 'Carro pequeno' }));
+    fireEvent.click(screen.getByRole('button', { name: /^Vaga comum/ }));
     fireEvent.click(await screen.findByRole('button', { name: 'Emitir ticket' }, { timeout: 4000 }));
     expect(await screen.findByTestId('qr-falha')).toHaveTextContent('QR Code indisponível');
     expect(screen.getByText(/informe o código PV-0042 no atendimento/)).toBeInTheDocument();

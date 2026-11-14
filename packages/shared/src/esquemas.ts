@@ -2,14 +2,17 @@
  * Esquemas de validação (Zod) das entradas da API e dos comandos do simulador.
  */
 import { z } from 'zod';
-import { CATEGORIAS, STATUS_TICKET } from './tipos.ts';
+import { CATEGORIAS, STATUS_TICKET, TIPOS_VAGA } from './tipos.ts';
 
 export const esquemaCategoria = z.enum(CATEGORIAS);
+export const esquemaTipoVaga = z.enum(TIPOS_VAGA);
 
 export const esquemaNovaEntrada = z.object({
   acessoId: z.string().min(1),
   categoria: esquemaCategoria,
   placa: z.string().trim().min(3).max(10).optional(),
+  /** Declaração do motorista (sem dado médico): COMUM, PCD ou IDOSO. */
+  tipoVaga: esquemaTipoVaga.optional(),
 });
 export type NovaEntrada = z.infer<typeof esquemaNovaEntrada>;
 
@@ -25,6 +28,12 @@ export const esquemaAtualizarRegiao = z
   })
   .refine((v) => Object.keys(v).length > 0, { message: 'Informe ao menos um campo' });
 
+/** Ajuste administrativo das vagas reservadas de uma região (as comuns são o restante da capacidade). */
+export const esquemaVagasReservadas = z.object({
+  capacidadePcd: z.number().int().min(0),
+  capacidadeIdoso: z.number().int().min(0),
+});
+
 export const esquemaListarTickets = z.object({
   status: z.enum(STATUS_TICKET).optional(),
   limite: z.coerce.number().int().min(1).max(500).default(50),
@@ -36,7 +45,7 @@ export const esquemaListarRecomendacoes = z.object({
 
 /* ---------- Simulador (Etapa 2) ---------- */
 
-export const CENARIOS = ["A", "B", "C", "D", "E"] as const;
+export const CENARIOS = ["A", "B", "C", "D", "E", "F"] as const;
 export type CenarioId = (typeof CENARIOS)[number];
 
 const proporcao = z.number().min(0).max(1);
@@ -53,6 +62,8 @@ export const esquemaConfigSimulacao = z.object({
   maxVeiculos: z.number().int().min(0).max(100000).optional(),
   /** Proporção de categorias (normalizada para somar 1). */
   proporcaoCategorias: z.object({ CARRO_PEQUENO: proporcao, CARRO_GRANDE: proporcao, MOTO: proporcao }).optional(),
+  /** Proporção de veículos de carro que pedem vaga comum, PcD ou para pessoa idosa (normalizada). Motos pedem sempre comum. */
+  proporcaoTipoVaga: z.object({ COMUM: proporcao, PCD: proporcao, IDOSO: proporcao }).optional(),
   /** Chance de o motorista estacionar em outra região compatível em vez da recomendada. */
   chanceIgnorarRecomendacao: proporcao.optional(),
   /** Tempo entre a recomendação e a confirmação (segundos simulados). */
@@ -75,7 +86,7 @@ export const esquemaAtivarCenario = z.object({ cenario: z.enum(CENARIOS) });
 
 /** Eventos manuais (testes e apresentações). */
 export const esquemaEventoManual = z.discriminatedUnion("acao", [
-  z.object({ acao: z.literal("entrada"), categoria: z.enum(CATEGORIAS).optional(), acessoId: z.string().optional() }),
+  z.object({ acao: z.literal("entrada"), categoria: z.enum(CATEGORIAS).optional(), acessoId: z.string().optional(), tipoVaga: esquemaTipoVaga.optional() }),
   z.object({ acao: z.literal("confirmar"), codigo: z.string(), regiaoId: z.string().optional() }),
   z.object({ acao: z.literal("saida"), codigo: z.string().optional() }),
   z.object({ acao: z.literal("fluxo"), regiaoId: z.string(), veiculosEmCirculacao: z.number().int().min(0).max(1000), duracaoMin: z.number().min(1).max(240).default(10) }),
@@ -110,6 +121,8 @@ export const CODIGOS_ERRO = {
   TRANSICAO_INVALIDA: 409,
   REGIAO_LOTADA: 409,
   CATEGORIA_INCOMPATIVEL: 409,
+  /** A região não tem vaga do tipo do ticket (PcD / pessoa idosa) ou a alteração deixaria as vagas inconsistentes. */
+  TIPO_VAGA_INCOMPATIVEL: 409,
   REGIAO_INDISPONIVEL: 409,
   NAO_AUTORIZADO: 401,
   SIMULACAO_ESTADO_INVALIDO: 409,

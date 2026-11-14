@@ -17,6 +17,13 @@ enum Categoria {
   MOTO
 }
 
+/// Tipo de vaga declarado na entrada (orientação; o sistema não verifica credencial).
+enum TipoVaga {
+  COMUM
+  PCD
+  IDOSO
+}
+
 enum StatusTicket {
   AGUARDANDO
   ESTACIONADO
@@ -38,6 +45,14 @@ model Regiao {
   ocupadas        Int               @default(0)
   operacional     Boolean           @default(true)
   fonteCapacidade String // planta | desenho | simulada
+  // Vagas reservadas (PcD e pessoa idosa) dentro da capacidade total; as comuns são o restante.
+  // Invariantes (garantidas pelos UPDATEs condicionados): 0 <= ocupadasX <= capacidadeX; capacidadePcd + capacidadeIdoso <= capacidade;
+  // ocupadas - ocupadasPcd - ocupadasIdoso <= capacidade - capacidadePcd - capacidadeIdoso.
+  capacidadePcd        Int     @default(0)
+  capacidadeIdoso      Int     @default(0)
+  ocupadasPcd          Int     @default(0)
+  ocupadasIdoso        Int     @default(0)
+  fonteVagasReservadas String  @default("sem-reserva") // planta | proposta | operador | sem-reserva
   // Estado vindo dos sensores (reais ou simulados). A marca *Simulado diz o que o reinício da simulação pode desfazer.
   bloqueioSimulado       Boolean   @default(false) // indisponibilidade temporária gerada pela simulação
   statusSensores         String    @default("ok") // ok | sem-comunicacao | inconsistente
@@ -80,6 +95,7 @@ model Ticket {
   codigo              String        @unique // PV-0001 (impresso)
   tokenHash           String        @unique // SHA-256 do token do QR Code (o token em claro não é guardado)
   categoria           Categoria
+  tipoVaga            TipoVaga      @default(COMUM)
   acessoId            String
   acesso              Acesso        @relation(fields: [acessoId], references: [id])
   placa               String?

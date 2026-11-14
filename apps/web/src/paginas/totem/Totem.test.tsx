@@ -13,11 +13,17 @@ const espera = { timeout: 4000 };
 
 afterEach(() => vi.unstubAllGlobals());
 
-async function chegarNaRecomendacao(categoria = /Carro pequeno/) {
+async function chegarNaRecomendacao(categoria = /Carro pequeno/, tipo = /^Vaga comum/) {
   fireEvent.click(screen.getByRole('button', { name: 'Começar' }));
   fireEvent.click(screen.getByRole('button', { name: categoria }));
+  fireEvent.click(screen.getByRole('button', { name: tipo }));
   await screen.findByTestId('justificativa', {}, espera);
 }
+/** N3 com 8 vagas PcD (3 ocupadas) e 20 para pessoa idosa, como no resto da API. */
+const regioesComReservadas = () => regioesDeTeste().map((r) => (r.id !== 'N3' ? r : {
+  ...r, ocupadas: 3, livres: r.capacidade - 3,
+  vagas: { COMUM: { capacidade: r.capacidade - 28, ocupadas: 0, livres: r.capacidade - 28 }, PCD: { capacidade: 8, ocupadas: 3, livres: 5 }, IDOSO: { capacidade: 20, ocupadas: 0, livres: 20 } },
+}));
 
 describe('totem de entrada', () => {
   it('mostra as três categorias com ilustração e nome', () => {
@@ -79,9 +85,60 @@ describe('totem de entrada', () => {
     abrir();
     fireEvent.click(screen.getByRole('button', { name: 'Começar' }));
     fireEvent.click(screen.getByRole('button', { name: 'Carro pequeno' }));
+    fireEvent.click(screen.getByRole('button', { name: /^Vaga comum/ }));
     expect(await screen.findByText('Não foi possível gerar sua recomendação', {}, espera)).toBeInTheDocument();
     expect(screen.getByText(/perdeu a conexão/)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Tentar de novo' })).toBeInTheDocument();
+  });
+
+  it('tipo de vaga: três opções para carros, aviso de credencial e nenhuma pergunta médica', () => {
+    abrir();
+    fireEvent.click(screen.getByRole('button', { name: 'Começar' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Carro grande, SUV ou picape' }));
+    expect(screen.getByText('Que tipo de vaga você precisa?')).toBeInTheDocument();
+    for (const nome of [/^Vaga comum/, /^Vaga PcD/, /^Vaga para pessoa idosa/]) expect(screen.getByRole('button', { name: nome })).toBeInTheDocument();
+    expect(screen.getByText(/credencial válida/)).toBeInTheDocument();
+    expect(screen.getByText(/não verifica a credencial/)).toBeInTheDocument();
+    expect(screen.queryByText(/diagn[óo]stico|defici[êe]ncia você tem|laudo|CID/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
+  });
+
+  it('motocicleta não passa pela escolha de vaga reservada', async () => {
+    const { chamadas } = simularApi({ 'POST /entradas': entradaOk(), '/regioes': { corpo: regioesDeTeste() } });
+    abrir();
+    fireEvent.click(screen.getByRole('button', { name: 'Começar' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Motocicleta' }));
+    expect(screen.queryByText('Que tipo de vaga você precisa?')).not.toBeInTheDocument();
+    await screen.findByTestId('justificativa', {}, espera);
+    expect(chamadas.find((c) => c.metodo === 'POST')!.corpo).not.toHaveProperty('tipoVaga');
+  });
+
+  it('vaga PcD: pede ao backend com o tipo, mostra o selo, as vagas PcD livres e o aviso de credencial; o ticket leva o tipo', async () => {
+    const pcd = { ...ticket, tipoVaga: 'PCD' };
+    const { chamadas } = simularApi({ 'POST /entradas': entradaOk({ ticket: pcd }), '/regioes': { corpo: regioesComReservadas() } });
+    abrir();
+    await chegarNaRecomendacao(/Carro pequeno/, /^Vaga PcD/);
+    expect(chamadas.find((c) => c.metodo === 'POST')!.corpo).toEqual({ acessoId: 'A_NE', categoria: 'CARRO_PEQUENO', tipoVaga: 'PCD' });
+    expect(screen.getByTestId('selo-tipo-vaga')).toHaveAttribute('data-tipo', 'PCD');
+    expect(screen.getByTestId('disponibilidade')).toHaveTextContent('5 vagas PcD livres');
+    expect(screen.getByTestId('disponibilidade')).toHaveTextContent('de 8');
+    expect(screen.getByTestId('aviso-credencial')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Emitir ticket' }));
+    expect(screen.getByTestId('ticket-tipo-vaga')).toHaveTextContent('Vaga PcD');
+  });
+
+  it('sem vaga PcD: mostra a indisponibilidade e NÃO pede outro tipo automaticamente', async () => {
+    const { chamadas } = simularApi({ 'POST /entradas': { status: 409, corpo: { erro: { codigo: 'SEM_REGIAO_ELEGIVEL', mensagem: 'Nenhuma vaga PcD disponível agora para carro pequeno: N2 e N3 sem vagas. O sistema não indica vaga de outro tipo automaticamente.' } } } });
+    abrir();
+    fireEvent.click(screen.getByRole('button', { name: 'Começar' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Carro pequeno' }));
+    fireEvent.click(screen.getByRole('button', { name: /^Vaga PcD/ }));
+    expect(await screen.findByText('Sem vaga PcD disponível agora', {}, espera)).toBeInTheDocument();
+    expect(screen.getByText(/não indica vaga de outro tipo/)).toBeInTheDocument();
+    expect(screen.getByText(/Nenhuma vaga foi indicada para você/)).toBeInTheDocument();
+    expect(chamadas.filter((c) => c.metodo === 'POST')).toHaveLength(1); // nenhuma segunda tentativa com outro tipo
+    fireEvent.click(screen.getByRole('button', { name: 'Voltar às opções de vaga' }));
+    expect(screen.getByText('Que tipo de vaga você precisa?')).toBeInTheDocument();
   });
 
   it('acesso inexistente na URL não abre o atendimento', () => {

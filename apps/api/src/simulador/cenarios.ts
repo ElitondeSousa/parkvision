@@ -5,7 +5,7 @@
  * Preenchimento inicial: a ocupação alvo considera o que já está ocupado (inclusive dados reais);
  * o simulador só cria veículos simulados para completar a diferença e nunca remove ocupação real.
  */
-import type { CenarioId, ConfigSimulacao } from '@parkvision/shared';
+import type { CenarioId, ConfigSimulacao, TipoVaga } from '@parkvision/shared';
 
 /** Evento de sensor agendado (o motor gera eventoId e sensorId). */
 export type EventoCenario =
@@ -20,8 +20,10 @@ export interface DefinicaoCenario {
   config: ConfigSimulacao;
   /** Fração da capacidade ocupada no início (todas as regiões). */
   ocupacaoInicial: number;
-  /** Ajustes por região: fração ocupada ou número de vagas livres. */
+  /** Ajustes por região: fração ocupada ou número de vagas livres (livres = vagas comuns). */
   ocupacaoPorRegiao?: Record<string, { fracao?: number; livres?: number }>;
+  /** Fração ocupada por tipo de vaga em todas as regiões (sobrepõe a ocupação inicial daquele tipo). */
+  ocupacaoPorTipo?: Partial<Record<TipoVaga, number>>;
   /** Eventos de sensor no tempo simulado (minutos após o início). */
   eventos: { aposMin: number; evento: EventoCenario }[];
 }
@@ -72,5 +74,14 @@ export const CENARIOS_DEF: Record<CenarioId, DefinicaoCenario> = {
       { aposMin: 15, evento: { tipo: 'DISPONIBILIDADE', regiaoId: 'N3', disponivel: true } },
       { aposMin: 20, evento: { tipo: 'SENSOR_NORMALIZADO', regiaoId: 'S1' } },
     ],
+  },
+  F: {
+    id: 'F',
+    nome: 'Vagas reservadas',
+    descricao: 'Todas as vagas PcD começam ocupadas e as de pessoa idosa pela metade; parte dos veículos pede vaga reservada. Quem pede PcD recebe a indisponibilidade (sem ser mandado para outro tipo) até alguém sair; quem pede vaga de idoso recebe vaga de idoso.',
+    config: { entradasPorMinuto: 6, permanenciaMediaMin: 60, chanceIgnorarRecomendacao: 0, semente: 606, proporcaoTipoVaga: { COMUM: 0.6, PCD: 0.2, IDOSO: 0.2 } },
+    ocupacaoInicial: 0.4,
+    ocupacaoPorTipo: { PCD: 1, IDOSO: 0.5 },
+    eventos: [],
   },
 };

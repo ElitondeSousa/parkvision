@@ -1,5 +1,5 @@
 /** Blocos do dashboard administrativo (usam só componentes base do Design System). */
-import type { Indicadores, Recomendacao, Regiao, Ticket } from '@parkvision/shared';
+import { NOME_TIPO_VAGA, resumoVagasReservadas, vagasDaRegiao, type Indicadores, type Recomendacao, type Regiao, type Ticket, type TipoVaga } from '@parkvision/shared';
 import {
   Activity, Ban, CarFront, CircleCheck, CircleParking, KeyRound, LogIn, LogOut, Pause, Play, Plus, RotateCcw, Route, Square, Sun, TriangleAlert, Waves, WifiOff, X, Zap, type LucideIcon,
 } from 'lucide-react';
@@ -9,6 +9,7 @@ import { nomeDoNivel, regiaoDoMapa } from '../../mapa/dados.ts';
 import { NOME_CATEGORIA, ROTULO_FAIXA, ROTULO_FLUXO, ROTULO_FONTE, faixaDaRegiao, hora, percentual, type FaixaRegiao } from '../../mapa/estado.ts';
 import { api, mensagemDeErro, type CenarioResumo, type ConsultaTicket, type EstadoSimulacao } from '../../servicos/api.ts';
 import type { EstadoConexao } from '../../servicos/tempo-real.ts';
+import { IconeTipoVaga } from '../../componentes/IconeTipoVaga.tsx';
 import type { ItemMovimentacao, TipoItem } from './eventos.ts';
 
 export const TOM_FAIXA: Record<FaixaRegiao, TomSelo> = { livre: 'sucesso', alta: 'atencao', critica: 'perigo', lotada: 'perigo', indisponivel: 'neutro', 'sem-dados': 'erro' };
@@ -98,13 +99,107 @@ export function DetalheRegiao({ regiao, aoFechar }: { regiao: Regiao | null; aoF
           {linha('Capacidade', regiao.capacidade)}
           {linha('Ocupadas', regiao.ocupadas)}
           {linha('Livres', regiao.livres)}
+          {(['COMUM', 'PCD', 'IDOSO'] as const).filter((t) => t === 'COMUM' || vagasDaRegiao(regiao)[t].capacidade > 0).map((t) => {
+            const v = vagasDaRegiao(regiao)[t];
+            return <span key={t} className="contents" data-testid={`detalhe-vagas-${t}`}>{linha(ROTULO_LIVRES[t], `${v.livres} / ${v.capacidade}`)}</span>;
+          })}
           {linha('Veículos permitidos', regiao.categorias.map((c) => NOME_CATEGORIA[c]).join(', '))}
           {linha('Estado operacional', regiao.operacional ? 'Operando' : 'Indisponível')}
           {linha('Sensores', regiao.statusSensores === 'ok' || !regiao.statusSensores ? 'Normais' : regiao.statusSensores === 'sem-comunicacao' ? 'Sem comunicação' : 'Leitura inconsistente')}
           {regiao.fluxo && linha('Fluxo (últimos 5 min)', `${regiao.fluxo.recente} de referência ${regiao.fluxo.vazaoReferencia}`)}
         </dl>
         {doMapa && <p className="m-0 text-sm text-ink-2">{doMapa.referencia}.</p>}
-        <p className="m-0 text-xs text-ink-3">{ROTULO_FONTE[regiao.fonteCapacidade] ?? regiao.fonteCapacidade}.</p>
+        <p className="m-0 text-xs text-ink-3">{ROTULO_FONTE[regiao.fonteCapacidade] ?? regiao.fonteCapacidade}.{regiao.fonteVagasReservadas && regiao.fonteVagasReservadas !== 'sem-reserva' ? ` ${FONTE_RESERVADAS[regiao.fonteVagasReservadas]}.` : ''}</p>
+      </div>
+    </Cartao>
+  );
+}
+
+const ROTULO_LIVRES: Record<TipoVaga, string> = { COMUM: 'Vagas comuns livres', PCD: 'Vagas PcD livres', IDOSO: 'Vagas pessoa idosa livres' };
+const FONTE_RESERVADAS: Record<string, string> = {
+  planta: 'Vagas reservadas lidas na planta',
+  proposta: 'Vagas reservadas: proposta simulada (localização física a confirmar)',
+  operador: 'Vagas reservadas ajustadas pelo operador',
+};
+
+// ── Vagas reservadas: disponibilidade por tipo, mínimos legais, alertas e ajuste administrativo ──
+export function VagasReservadas({ regioes, aoNaoAutorizado }: { regioes: Regiao[] | null; aoNaoAutorizado: () => void }) {
+  const carros = (regioes ?? []).filter((r) => r.categorias.some((c) => c !== 'MOTO'));
+  const [regiaoId, setRegiaoId] = useState<string>('');
+  const atual = carros.find((r) => r.id === regiaoId) ?? null;
+  const [pcd, setPcd] = useState('');
+  const [idoso, setIdoso] = useState('');
+  const [ocupado, setOcupado] = useState(false);
+  const [retorno, setRetorno] = useState<{ tom: 'sucesso' | 'erro'; texto: string } | null>(null);
+  const selecionar = (id: string) => {
+    setRegiaoId(id); setRetorno(null);
+    const r = carros.find((x) => x.id === id);
+    setPcd(r ? String(vagasDaRegiao(r).PCD.capacidade) : ''); setIdoso(r ? String(vagasDaRegiao(r).IDOSO.capacidade) : '');
+  };
+  const salvar = async () => {
+    if (!atual) return;
+    setOcupado(true); setRetorno(null);
+    try {
+      await api.configurarVagasReservadas(atual.id, Number(pcd), Number(idoso));
+      setRetorno({ tom: 'sucesso', texto: `Vagas reservadas da região ${atual.id} atualizadas.` });
+    } catch (e) {
+      setRetorno({ tom: 'erro', texto: mensagemDeErro(e) });
+      if ((e as { codigo?: string }).codigo === 'NAO_AUTORIZADO') aoNaoAutorizado();
+    } finally { setOcupado(false); }
+  };
+  if (!regioes) return <Cartao titulo="Vagas reservadas"><Esqueleto className="h-32" /></Cartao>;
+  const resumo = resumoVagasReservadas(regioes);
+  const invalido = !atual || !/^\d+$/.test(pcd) || !/^\d+$/.test(idoso);
+  return (
+    <Cartao titulo="Vagas reservadas" acao={<Selo tom="atencao">Proposta simulada</Selo>}>
+      <div className="grid gap-3 text-sm" data-testid="vagas-reservadas">
+        <ul className="list-none m-0 p-0 grid gap-2">
+          {(['PCD', 'IDOSO'] as const).map((t) => {
+            const tot = resumo.totais[t], abaixo = tot.capacidade < resumo.minimos[t];
+            return (
+              <li key={t} className="flex items-center gap-3" data-testid={`total-${t}`}>
+                <IconeTipoVaga tipo={t} tamanho={22} className="text-[var(--pv-vaga-reservada)] shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="m-0 font-medium">{NOME_TIPO_VAGA[t]}</p>
+                  <p className="m-0 text-ink-2 num">{tot.livres} livres de {tot.capacidade} · mínimo legal {resumo.minimos[t]}</p>
+                </div>
+                <Selo tom={abaixo ? 'erro' : 'sucesso'}>{abaixo ? 'Abaixo do mínimo' : 'Mínimo atendido'}</Selo>
+              </li>
+            );
+          })}
+        </ul>
+        {resumo.alertas.map((a) => <Aviso key={a.tipo} tom="atencao" titulo="Distribuição abaixo do mínimo">{a.mensagem}</Aviso>)}
+        <p className="m-0 text-xs text-ink-3">
+          Mínimos sobre o total de {resumo.base} vagas (Lei 13.146/2015, art. 47: 2%, mínimo 1; Lei 10.741/2003, art. 41: 5%), arredondados para cima.
+          A planta informa as vagas do SS1 e do Subsolo 2; as do térreo são uma proposta simulada até a localização física ser confirmada com a operação.
+        </p>
+        <details className="border-t border-line-subtle pt-3">
+          <summary className="cursor-pointer font-medium text-ink-2 select-none">Ajustar vagas de uma região</summary>
+          <div className="grid gap-2 mt-3">
+            <label htmlFor="regiao-reservadas" className="font-medium">Região</label>
+            <select id="regiao-reservadas" value={regiaoId} onChange={(e) => selecionar(e.target.value)} className="h-10 px-2 rounded-md border border-line-strong bg-surface">
+              <option value="">Escolha a região</option>
+              {carros.map((r) => <option key={r.id} value={r.id}>{r.id} — {r.nome}</option>)}
+            </select>
+            {atual && (
+              <>
+                <div className="grid grid-cols-2 gap-2">
+                  <label className="grid gap-1"><span className="font-medium">Vagas PcD</span>
+                    <input inputMode="numeric" value={pcd} onChange={(e) => setPcd(e.target.value.trim())} className="h-10 px-2 rounded-md border border-line-strong bg-surface num" /></label>
+                  <label className="grid gap-1"><span className="font-medium">Vagas pessoa idosa</span>
+                    <input inputMode="numeric" value={idoso} onChange={(e) => setIdoso(e.target.value.trim())} className="h-10 px-2 rounded-md border border-line-strong bg-surface num" /></label>
+                </div>
+                <p className="m-0 text-xs text-ink-2 num">
+                  Capacidade {atual.capacidade}: ficariam {Math.max(0, atual.capacidade - (Number(pcd) || 0) - (Number(idoso) || 0))} vagas comuns.
+                  Ocupadas agora: {vagasDaRegiao(atual).COMUM.ocupadas} comuns, {vagasDaRegiao(atual).PCD.ocupadas} PcD, {vagasDaRegiao(atual).IDOSO.ocupadas} pessoa idosa.
+                </p>
+                <Botao variante="secundario" carregando={ocupado} disabled={invalido} onClick={salvar}>Salvar vagas reservadas</Botao>
+              </>
+            )}
+            {retorno && <Aviso tom={retorno.tom === 'sucesso' ? 'sucesso' : 'erro'} titulo={retorno.tom === 'sucesso' ? 'Ajuste salvo' : 'Ajuste recusado'}>{retorno.texto}</Aviso>}
+            <p className="m-0 text-xs text-ink-3">O sistema recusa valores que deixariam a ocupação atual inconsistente (ex.: menos vagas PcD do que as ocupadas agora).</p>
+          </div>
+        </details>
       </div>
     </Cartao>
   );
@@ -246,11 +341,14 @@ export function OperacaoTicket({ regioes, aoSelecionar, aoNaoAutorizado }: { reg
  * Ritmos prontos da simulação (tudo marcado como dado simulado). O relógio é acelerado, mas o tempo de manobra é escolhido
  * para o carrinho animado chegar à região mais ou menos quando a confirmação acontece no backend.
  */
+/** Nas demonstrações, parte dos carros pede vaga reservada (só para mostrar o fluxo; não é estatística real). */
+const TIPOS_DEMONSTRACAO = { COMUM: 0.9, PCD: 0.04, IDOSO: 0.06 };
+
 export const RITMOS = {
-  livre: { velocidade: 10, entradasPorMinuto: 3, tempoManobraSeg: 60 },     // Iniciar
+  livre: { velocidade: 10, entradasPorMinuto: 3, tempoManobraSeg: 60, proporcaoTipoVaga: TIPOS_DEMONSTRACAO },     // Iniciar
   vazio: { velocidade: 10, entradasPorMinuto: 0, tempoManobraSeg: 60 },     // Adicionar veículo com a simulação parada
-  tranquilo: { cenario: 'A' as const, config: { velocidade: 10, tempoManobraSeg: 60 } },
-  pico: { cenario: 'B' as const, config: { velocidade: 3, tempoManobraSeg: 30 } },
+  tranquilo: { cenario: 'A' as const, config: { velocidade: 10, tempoManobraSeg: 60, proporcaoTipoVaga: TIPOS_DEMONSTRACAO } },
+  pico: { cenario: 'B' as const, config: { velocidade: 3, tempoManobraSeg: 30, proporcaoTipoVaga: TIPOS_DEMONSTRACAO } },
 };
 
 export function ControleSimulador({ estado, cenarios, aoAtualizar, aoNaoAutorizado }: { estado: EstadoSimulacao | null; cenarios: CenarioResumo[]; aoAtualizar: () => Promise<unknown>; aoNaoAutorizado: () => void }) {
@@ -258,6 +356,7 @@ export function ControleSimulador({ estado, cenarios, aoAtualizar, aoNaoAutoriza
   const [ocupado, setOcupado] = useState<string | null>(null);
   const [erro, setErro] = useState<string | null>(null);
   const [confirmarReinicio, setConfirmarReinicio] = useState(false);
+  const [tipoNovo, setTipoNovo] = useState<TipoVaga>('COMUM');
 
   const executar = async (rotulo: string, acao: () => Promise<unknown>) => {
     setOcupado(rotulo); setErro(null);
@@ -277,7 +376,8 @@ export function ControleSimulador({ estado, cenarios, aoAtualizar, aoNaoAutoriza
   const iniciar = () => executar('iniciar', () => (status === 'pausado' ? api.simulacao.acao('retomar') : api.simulacao.iniciar(RITMOS.livre)));
   const adicionar = () => executar('adicionar', async () => {
     if (status === 'parado') await api.simulacao.iniciar(RITMOS.vazio); // sem chegadas automáticas: só o veículo pedido
-    await api.simulacao.evento({ acao: 'entrada' });
+    // vaga reservada só faz sentido para carro; o veículo comum continua sorteando a categoria
+    await api.simulacao.evento(tipoNovo === 'COMUM' ? { acao: 'entrada' } : { acao: 'entrada', categoria: 'CARRO_PEQUENO', tipoVaga: tipoNovo });
   });
 
   return (
@@ -294,7 +394,14 @@ export function ControleSimulador({ estado, cenarios, aoAtualizar, aoNaoAutoriza
               {status === 'rodando'
                 ? <Botao variante="secundario" icone={Pause} carregando={ocupado === 'pausar'} onClick={() => executar('pausar', () => api.simulacao.acao('pausar'))}>Pausar</Botao>
                 : <Botao icone={Play} carregando={ocupado === 'iniciar'} onClick={iniciar}>{status === 'pausado' ? 'Retomar' : 'Iniciar'}</Botao>}
-              <Botao variante="secundario" icone={Plus} carregando={ocupado === 'adicionar'} onClick={adicionar}>Adicionar veículo</Botao>
+              <div className="grid grid-cols-[1fr_auto] gap-2 items-stretch">
+                <Botao variante="secundario" icone={Plus} carregando={ocupado === 'adicionar'} onClick={adicionar}>Adicionar veículo</Botao>
+                <select aria-label="Tipo de vaga do veículo adicionado" value={tipoNovo} onChange={(e) => setTipoNovo(e.target.value as TipoVaga)} className="h-10 px-2 rounded-md border border-line-strong bg-surface text-sm">
+                  <option value="COMUM">Vaga comum</option>
+                  <option value="PCD">Vaga PcD</option>
+                  <option value="IDOSO">Pessoa idosa</option>
+                </select>
+              </div>
               <Botao variante="secundario" icone={Zap} carregando={ocupado === 'pico'} onClick={() => executar('pico', () => api.simulacao.cenario(RITMOS.pico.cenario, RITMOS.pico.config))}>Simular horário de pico</Botao>
               <Botao variante="secundario" icone={Sun} carregando={ocupado === 'tranquilo'} onClick={() => executar('tranquilo', () => api.simulacao.cenario(RITMOS.tranquilo.cenario, RITMOS.tranquilo.config))}>Simular estacionamento tranquilo</Botao>
             </div>
@@ -378,15 +485,25 @@ export function ListaMovimentacoes({ itens, conexao, aoSelecionar }: { itens: It
 }
 
 // ── Tabela de regiões (alternativa acessível ao mapa) ──
+function CelulaReservada({ tipo, regiao }: { tipo: TipoVaga; regiao: Regiao }) {
+  const v = vagasDaRegiao(regiao)[tipo];
+  if (!v.capacidade) return <td className="px-4 py-2 text-ink-3" data-tipo={tipo}>—</td>;
+  return (
+    <td className="px-4 py-2 num" data-tipo={tipo}>
+      <span className="inline-flex items-center gap-1.5"><IconeTipoVaga tipo={tipo} tamanho={14} className="text-[var(--pv-vaga-reservada)]" />{v.livres} <span className="text-ink-3">/ {v.capacidade}</span>{v.livres === 0 && <span className="sr-only-texto"> (esgotadas)</span>}</span>
+    </td>
+  );
+}
+
 export function TabelaRegioes({ regioes, selecionada, aoSelecionar }: { regioes: Regiao[] | null; selecionada: string | null; aoSelecionar: (id: string) => void }) {
   return (
     <Cartao titulo="Regiões">
       {!regioes ? <Esqueleto className="h-40" /> : (
         <div className="overflow-x-auto -mx-4">
-          <table className="w-full text-sm border-collapse min-w-[640px]">
+          <table className="w-full text-sm border-collapse min-w-[820px]">
             <thead>
               <tr className="text-left text-ink-2" style={{ background: 'var(--pv-table-header-bg)' }}>
-                {['Região', 'Nível', 'Ocupação', 'Livres', 'Estado', 'Fluxo'].map((h) => <th key={h} scope="col" className="font-medium px-4 py-2">{h}</th>)}
+                {['Região', 'Nível', 'Ocupação', 'Livres', 'PcD livres', 'Pessoa idosa livres', 'Estado', 'Fluxo'].map((h) => <th key={h} scope="col" className="font-medium px-4 py-2">{h}</th>)}
               </tr>
             </thead>
             <tbody>
@@ -398,6 +515,7 @@ export function TabelaRegioes({ regioes, selecionada, aoSelecionar }: { regioes:
                     <td className="px-4 py-2 text-ink-2">{nomeDoNivel(r.nivel).replace(/\s*\(.*\)/, '')}</td>
                     <td className="px-4 py-2 w-48"><div className="flex items-center gap-2"><div className="flex-1"><Medidor valor={r.ocupadas} total={r.capacidade} cor={COR_FAIXA_CSS[f]} rotulo={`Ocupação de ${r.id}`} /></div><span className="num w-10 text-right">{percentual(r)}%</span></div></td>
                     <td className="px-4 py-2 num">{r.livres} <span className="text-ink-3">/ {r.capacidade}</span></td>
+                    {(['PCD', 'IDOSO'] as const).map((t) => <CelulaReservada key={t} tipo={t} regiao={r} />)}
                     <td className="px-4 py-2"><SeloFaixa regiao={r} /></td>
                     <td className="px-4 py-2 text-ink-2">{r.fluxo ? ROTULO_FLUXO[r.fluxo.nivel] : '—'}</td>
                   </tr>

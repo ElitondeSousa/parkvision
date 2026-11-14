@@ -1,0 +1,42 @@
+{
+  "$descricao": "Golden Park — vagas reservadas (PcD e pessoa idosa) e acessos de pedestres. PROPOSTA SIMULADA: os mínimos vêm da lei, as vagas da planta vêm do texto da planta e o restante é distribuído por critério documentado, até a equipe validar a localização física com a operação. Coordenadas em pontos do PDF (mesmo sistema do mapa digital).",
+  "versao": "0.1.0",
+  "status": "proposta-simulada",
+  "referenciasLegais": [
+    { "tipo": "PCD", "percentual": 0.02, "minimoAbsoluto": 1, "norma": "Lei 13.146/2015 (Estatuto da Pessoa com Deficiência), art. 47", "observacao": "2% do total, com no mínimo uma vaga. Credencial obrigatória." },
+    { "tipo": "IDOSO", "percentual": 0.05, "minimoAbsoluto": 0, "norma": "Lei 10.741/2003 (Estatuto da Pessoa Idosa), art. 41", "observacao": "5% das vagas. Credencial obrigatória. Verificar legislação municipal de Palmas." }
+  ],
+  "baseDeCalculo": {
+    "regra": "total",
+    "observacao": "Percentuais aplicados ao total do estacionamento (todas as regiões, inclusive motos), como pedido pela equipe. As vagas reservadas ficam só em regiões de carro. Confirmar com a equipe/jurídico se as vagas de moto entram na base."
+  },
+  "normasAVerificar": [
+    "ABNT NBR 9050 (dimensões, sinalização e rota acessível até a entrada)",
+    "Resoluções CONTRAN 965/2022 (credenciais e sinalização)",
+    "Legislação municipal de Palmas (percentuais adicionais ou outras categorias)"
+  ],
+  "vagasNaPlanta": [
+    { "regiaoId": "SS1", "pcd": 3, "idoso": 11, "fonte": "Texto da planta do Subsolo 1: 140 vagas (3 PNE, 11 idoso, 2 neurodiverso, 4 gestante e criança)." },
+    { "regiaoId": "SS2C", "pcd": 5, "idoso": 8, "fonte": "Texto da planta do Subsolo 2: 216 vagas (5 PNE, 8 idoso, 1 neurodiverso, 4 gestante e criança). Atribuídas ao bloco central, que segundo a planta concentra as vagas especiais." }
+  ],
+  "outrasVagasEspeciais": "Neurodiverso e gestante/criança aparecem na planta, mas ficam fora desta etapa e continuam contadas como vagas comuns.",
+  "entradasPedestres": [
+    { "id": "P_CA", "nome": "Entrada da C&A (lado norte)", "nivel": "terreo", "xy": [1075, 478], "confianca": "media" },
+    { "id": "P_BIG", "nome": "Acesso de pedestres ao lado do Big (pátio norte)", "nivel": "terreo", "xy": [1403, 392], "confianca": "media" },
+    { "id": "P_SUL", "nome": "Entrada principal (Alameda das Cores, lado sul)", "nivel": "terreo", "xy": [1085, 1040], "confianca": "media" },
+    { "id": "P_RENNER", "nome": "Entrada da Renner (lado oeste)", "nivel": "terreo", "xy": [505, 935], "confianca": "media" }
+  ],
+  "acessoSubsolos": {
+    "nome": "Acesso à galeria subterrânea (perto do Cinemark)",
+    "situacao": "nao-identificado",
+    "observacao": "A planta mostra o acesso à galeria, mas não identifica elevador nem rampa de pedestres entre os subsolos e o shopping. Sem isso, nenhum caminho a pé a partir dos subsolos pode ser chamado de acessível."
+  },
+  "criteriosDistribuicao": [
+    "Mínimos legais calculados sobre o total e arredondados para cima.",
+    "As vagas lidas na planta (SS1 e Subsolo 2) são mantidas como estão.",
+    "O que falta para o mínimo vai para as regiões de carro do térreo, onde a caminhada até a porta do shopping é no mesmo nível (sem escada identificada na planta — ainda não validado em campo).",
+    "Peso de cada região = capacidade × proximidade da entrada de pedestres mais próxima (1 ÷ (1 + distância ÷ 200)).",
+    "Divisão pelo método dos maiores restos, com no máximo 25% da região reservada.",
+    "Ajustes administrativos pelo painel substituem a proposta da região (fonte = operador)."
+  ]
+}

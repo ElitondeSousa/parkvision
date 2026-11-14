@@ -28,7 +28,7 @@ export function itemDoEvento(e: EventoTempoReal, anterior?: Regiao): ItemMovimen
   const base = { id: e.id, quando: e.ocorridoEm, simulado: e.simulado };
   let d;
   if ((d = ev(e, 'veiculo:entrou'))) {
-    return { ...base, id: `entrada-${d.ticket.codigo}`, quando: d.ticket.entradaEm ?? e.ocorridoEm, tipo: 'entrada', regiaoId: d.recomendacao.regiaoId, texto: `${d.ticket.codigo} entrou (${NOME_CATEGORIA[d.ticket.categoria].toLowerCase()}) e foi orientado para ${d.recomendacao.regiaoId}` };
+    return { ...base, id: `entrada-${d.ticket.codigo}`, quando: d.ticket.entradaEm ?? e.ocorridoEm, tipo: 'entrada', regiaoId: d.recomendacao.regiaoId, texto: `${d.ticket.codigo} entrou (${NOME_CATEGORIA[d.ticket.categoria].toLowerCase()}${d.ticket.tipoVaga === 'PCD' ? ', vaga PcD' : d.ticket.tipoVaga === 'IDOSO' ? ', vaga para pessoa idosa' : ''}) e foi orientado para ${d.recomendacao.regiaoId}` };
   }
   if ((d = ev(e, 'veiculo:recomendado'))) {
     return { ...base, tipo: 'recomendacao', regiaoId: d.recomendacao.regiaoId, texto: `Nova recomendação para ${d.ticket.codigo}: ${d.recomendacao.regiaoId}. ${d.motivo}.` };
@@ -47,6 +47,10 @@ export function itemDoEvento(e: EventoTempoReal, anterior?: Regiao): ItemMovimen
     return null;
   }
   if ((d = ev(e, 'regiao:status'))) {
+    const pcdAntes = anterior?.vagas?.PCD.capacidade, idosoAntes = anterior?.vagas?.IDOSO.capacidade;
+    if (anterior && d.vagas && (pcdAntes !== d.vagas.PCD.capacidade || idosoAntes !== d.vagas.IDOSO.capacidade)) {
+      return { ...base, tipo: 'alerta', regiaoId: d.id, texto: `Vagas reservadas da região ${d.id} ajustadas: ${d.vagas.PCD.capacidade} PcD e ${d.vagas.IDOSO.capacidade} para pessoa idosa` };
+    }
     if (anterior && anterior.operacional !== d.operacional) {
       return { ...base, tipo: 'disponibilidade', regiaoId: d.id, texto: d.operacional ? `Região ${d.id} voltou a operar` : `Região ${d.id} ficou indisponível` };
     }

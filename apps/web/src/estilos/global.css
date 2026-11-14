@@ -49,7 +49,10 @@
   --pv-mapa-papel: var(--pv-bg-surface);
   --pv-mapa-tinta: var(--pv-border-strong);
   --pv-mapa-via: var(--pv-bg-muted);
+  /* vagas reservadas (PcD / pessoa idosa): azul do Símbolo de Acesso, mais claro no tema escuro para manter contraste */
+  --pv-vaga-reservada: var(--pv-color-vision-600);
 }
+[data-theme="dark"] { --pv-vaga-reservada: var(--pv-color-vision-300); }
 
 html, body, #raiz { height: 100%; }
 body {

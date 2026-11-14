@@ -2,7 +2,7 @@
  * Camada de serviços: única porta de entrada da web para a API (docs/mvp/02-contratos.md e 08-simulador.md).
  * Componentes não chamam fetch direto — usam estas funções, que padronizam erros (ErroServico).
  */
-import type { Categoria, CenarioId, ConfigSimulacao, EventoManual, Indicadores, Recomendacao, Regiao, StatusTicket, Ticket } from '@parkvision/shared';
+import type { CaminhoPedestre, Categoria, CenarioId, ConfigSimulacao, EventoManual, Indicadores, Recomendacao, Regiao, ResumoVagasReservadas, StatusTicket, Ticket, TipoVaga } from '@parkvision/shared';
 
 /** Cabeçalho do token do operador (operações restritas desde a Etapa 4). */
 export const CABECALHO_OPERADOR = 'x-operador-token';
@@ -46,7 +46,9 @@ const json = (corpo: unknown) => JSON.stringify(corpo);
 // ── tipos de resposta ──
 export interface RespostaEntrada { ticket: Ticket; recomendacao: Recomendacao; qrUrl: string }
 export interface RespostaLocalizador {
-  ticket: { codigo: string; entradaEm: string; status: StatusTicket; categoria: Categoria; estacionadoEm: string | null; saidaEm: string | null; simulado: boolean };
+  ticket: { codigo: string; entradaEm: string; status: StatusTicket; categoria: Categoria; estacionadoEm: string | null; saidaEm: string | null; simulado: boolean; tipoVaga?: TipoVaga };
+  /** Vagas reservadas: o que a planta diz do caminho a pé (nunca afirma acessibilidade não validada). */
+  caminhoPedestre?: CaminhoPedestre | null;
   regiao: Regiao | null;
   recomendada: Regiao;
   orientacao: string[];
@@ -90,8 +92,11 @@ export const api = {
   indicadores: () => pedir<Indicadores>('/indicadores'),
   recomendacoes: (limite = 20) => pedir<Recomendacao[]>(`/recomendacoes?limite=${limite}`),
   /** Totem: registra a entrada e recebe a recomendação + ticket (não ocupa vaga). */
-  registrarEntrada: (acessoId: string, categoria: Categoria) =>
-    pedir<RespostaEntrada>('/entradas', { method: 'POST', body: json({ acessoId, categoria }) }),
+  registrarEntrada: (acessoId: string, categoria: Categoria, tipoVaga: TipoVaga = 'COMUM') =>
+    pedir<RespostaEntrada>('/entradas', { method: 'POST', body: json(tipoVaga === 'COMUM' ? { acessoId, categoria } : { acessoId, categoria, tipoVaga }) }),
+  vagasReservadas: () => pedir<ResumoVagasReservadas & { criterios: string[]; normasAVerificar: string[]; baseDeCalculo: { observacao: string } }>('/vagas-reservadas'),
+  configurarVagasReservadas: (regiaoId: string, capacidadePcd: number, capacidadeIdoso: number) =>
+    pedir<Regiao>(`/regioes/${encodeURIComponent(regiaoId)}/vagas-reservadas`, { method: 'PATCH', operador: true, body: json({ capacidadePcd, capacidadeIdoso }) }),
   localizar: (token: string) => pedir<RespostaLocalizador>(`/localizador/${encodeURIComponent(token)}`),
 
   /** Operação do estacionamento (painel, com o token do operador). Equivale à leitura do ticket na região ou na cancela. */

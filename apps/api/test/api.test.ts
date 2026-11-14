@@ -17,8 +17,9 @@ const CARROS = ['N1', 'N2', 'N3', 'S1', 'S2', 'SS1', 'SS2O', 'SS2C', 'SS2L'];
 const regioes = async () => (await app.inject('/api/regioes')).json() as Regiao[];
 const ocupadas = async (id: string) => (await regioes()).find((r) => r.id === id)!.ocupadas;
 const entrar = (categoria = 'CARRO_PEQUENO', acessoId = 'A_NE') => app.inject({ method: 'POST', url: '/api/entradas', payload: { acessoId, categoria } });
-const lotar = (id: string, capacidade?: number) =>
-  regioes().then((rs) => app.inject({ method: 'PATCH', headers: OP, url: `/api/regioes/${id}`, payload: { ocupadas: capacidade ?? rs.find((r) => r.id === id)!.capacidade } }));
+/** Lota as vagas COMUNS da região (deixando `livres` comuns); as reservadas (PcD/idoso) não entram no ajuste do total. */
+const lotar = (id: string, livres = 0) =>
+  regioes().then((rs) => app.inject({ method: 'PATCH', headers: OP, url: `/api/regioes/${id}`, payload: { ocupadas: rs.find((r) => r.id === id)!.vagas!.COMUM.capacidade - livres } }));
 
 beforeAll(async () => { await app.ready(); });
 beforeEach(async () => { await semear(db, { limpar: true }); coletor.eventos.length = 0; });
@@ -145,8 +146,8 @@ describe('regras da distribuição', () => {
   });
 
   it('confirmações simultâneas nunca passam da capacidade', async () => {
-    const cap = (await regioes()).find((r) => r.id === 'N2')!.capacidade;
-    await lotar('N2', cap - 5);                                  // sobram 5 vagas
+    const cap = (await regioes()).find((r) => r.id === 'N2')!.vagas!.COMUM.capacidade;
+    await lotar('N2', 5);                                        // sobram 5 vagas comuns
     const tickets = await Promise.all(Array.from({ length: 12 }, () => entrar().then((r) => r.json().ticket.codigo as string)));
     const res = await Promise.all(tickets.map((c) => app.inject({ method: 'POST', headers: OP, url: `/api/tickets/${c}/estacionar`, payload: { regiaoId: 'N2' } })));
     expect(res.filter((r) => r.statusCode === 200)).toHaveLength(5);

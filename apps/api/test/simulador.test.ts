@@ -34,22 +34,32 @@ const sensor = (payload: object) => app.inject({ method: 'POST', url: '/api/sens
 const entradaSimulada = async (categoria = 'CARRO_PEQUENO', acessoId = 'A_NE') => (await manual({ acao: 'entrada', categoria, acessoId })).json();
 const lotar = async (id: string, livres = 0) => {
   const r = await regiao(id);
-  return app.inject({ method: 'PATCH', headers: OP, url: `/api/regioes/${id}`, payload: { ocupadas: r.capacidade - livres } });
+  return app.inject({ method: 'PATCH', headers: OP, url: `/api/regioes/${id}`, payload: { ocupadas: r.vagas!.COMUM.capacidade - livres } }); // vagas comuns
 };
 /** Inicia em modo manual (sem chegadas automáticas) — o relógio só anda com `avancar`. */
 const iniciarManual = () => sim('iniciar', { config: { modo: 'manual', entradasPorMinuto: 0 } });
 
 /** Invariante: ocupação de cada região = veículos ESTACIONADOS nela, sempre entre 0 e a capacidade. */
 async function conferirConsistencia() {
-  const grupos = await db.ticket.groupBy({ by: ['regiaoEstacionadaId'], where: { status: 'ESTACIONADO' }, _count: true });
-  const porRegiao = Object.fromEntries(grupos.map((g) => [g.regiaoEstacionadaId, g._count]));
+  const grupos = await db.ticket.groupBy({ by: ['regiaoEstacionadaId', 'tipoVaga'], where: { status: 'ESTACIONADO' }, _count: true });
+  const contar = (id: string, tipo?: string) => grupos.filter((g) => g.regiaoEstacionadaId === id && (!tipo || g.tipoVaga === tipo)).reduce((s, g) => s + g._count, 0);
   for (const r of await regioes()) {
-    expect(r.ocupadas, `ocupação de ${r.id}`).toBe(porRegiao[r.id] ?? 0);
+    expect(r.ocupadas, `ocupação de ${r.id}`).toBe(contar(r.id));
     expect(r.ocupadas).toBeGreaterThanOrEqual(0);
     expect(r.ocupadas).toBeLessThanOrEqual(r.capacidade);
     expect(r.livres).toBe(r.capacidade - r.ocupadas);
+    // vagas por tipo: cada tipo bate com os tickets daquele tipo, sem passar da capacidade, e as somas fecham
+    for (const t of ['COMUM', 'PCD', 'IDOSO'] as const) {
+      const v = r.vagas![t];
+      expect(v.ocupadas, `${t} em ${r.id}`).toBe(contar(r.id, t));
+      expect(v.ocupadas).toBeGreaterThanOrEqual(0);
+      expect(v.ocupadas).toBeLessThanOrEqual(v.capacidade);
+    }
+    expect(r.vagas!.COMUM.capacidade + r.vagas!.PCD.capacidade + r.vagas!.IDOSO.capacidade).toBe(r.capacidade);
   }
 }
+/** Ocupação esperada do preenchimento: cada tipo de vaga é preenchido (e arredondado) separadamente. */
+const preenchido = (r: Regiao, fracao: number) => (['COMUM', 'PCD', 'IDOSO'] as const).reduce((s, t) => s + Math.round(r.vagas![t].capacidade * fracao), 0);
 
 beforeAll(async () => { await app.ready(); });
 beforeEach(async () => {
@@ -141,7 +151,7 @@ describe('5. rejeição de estacionamento em região cheia', () => {
     const r = (await manual({ acao: 'confirmar', codigo: ticket.codigo })).json();
     expect(r.resultado).toBe('REJEITADO_REGIAO_LOTADA');
     expect(r.novaRecomendacao.regiaoId).not.toBe(recomendacao.regiaoId);
-    expect((await regiao(recomendacao.regiaoId)).ocupadas).toBe(cheia.capacidade);
+    expect((await regiao(recomendacao.regiaoId)).vagas!.COMUM.ocupadas).toBe(cheia.vagas!.COMUM.capacidade);
     expect(coletor.eventos.map((e) => e.tipo)).toEqual(expect.arrayContaining(['simulador:alerta', 'veiculo:recomendado']));
     // o ticket continua aguardando e agora confirma na nova região
     const ok = (await manual({ acao: 'confirmar', codigo: ticket.codigo })).json();
@@ -211,7 +221,7 @@ describe('9. capacidade nunca é ultrapassada', () => {
     expect(res.filter((x) => x === 'APLICADO')).toHaveLength(3);
     expect(res.filter((x) => x === 'REJEITADO_REGIAO_LOTADA')).toHaveLength(7);
     const s2 = await regiao('S2');
-    expect(s2.ocupadas).toBe(s2.capacidade);
+    expect(s2.vagas!.COMUM.ocupadas).toBe(s2.vagas!.COMUM.capacidade);
   });
 });
 
@@ -394,7 +404,7 @@ describe('15. eventos em tempo real (Socket.IO)', () => {
 describe('16. cenários predefinidos', () => {
   it('lista os cenários disponíveis para o painel', async () => {
     const lista = (await app.inject('/api/simulacao/cenarios')).json();
-    expect(lista.map((c: { id: string }) => c.id)).toEqual(['A', 'B', 'C', 'D', 'E']);
+    expect(lista.map((c: { id: string }) => c.id)).toEqual(['A', 'B', 'C', 'D', 'E', 'F']);
     expect(lista[0]).toMatchObject({ nome: 'Movimento tranquilo', ocupacaoInicial: 0.3 });
   });
 
@@ -404,17 +414,17 @@ describe('16. cenários predefinidos', () => {
     const e = (await sim('cenario', { cenario: 'A' })).json();
     expect(e).toMatchObject({ status: 'rodando', cenario: 'A' });
     const rs = await regioes();
-    for (const r of rs) expect(r.ocupadas).toBe(Math.round(r.capacidade * 0.3));
+    for (const r of rs) expect(r.ocupadas).toBe(preenchido(r, 0.3));
     // painéis abertos recebem a ocupação inicial do cenário em tempo real
     const ultimaN3 = coletor.eventos.filter((ev) => ev.tipo === 'regiao:ocupacao' && ev.entidadeId === 'N3').at(-1)!;
-    expect((ultimaN3.dados as Regiao).ocupadas).toBe(Math.round(203 * 0.3));
+    expect((ultimaN3.dados as Regiao).ocupadas).toBe(preenchido(rs.find((r) => r.id === 'N3')!, 0.3));
     await manual({ acao: 'avancar', segundos: 10 * 60 });
     await conferirConsistencia();
   });
 
   it('B — pico: 55% de ocupação inicial e muitas chegadas', async () => {
     await sim('cenario', { cenario: 'B' });
-    for (const r of await regioes()) expect(r.ocupadas).toBe(Math.round(r.capacidade * 0.55));
+    for (const r of await regioes()) expect(r.ocupadas).toBe(preenchido(r, 0.55));
     const e = (await manual({ acao: 'avancar', segundos: 3 * 60 })).json();
     expect(e.estatisticas.entradas).toBeGreaterThan(50);
     await conferirConsistencia();

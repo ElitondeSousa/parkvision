@@ -40,6 +40,7 @@ test('capturas das três interfaces e do mapa', async ({ browser }) => {
   await totem.getByRole('button', { name: 'Começar' }).click();
   await totem.screenshot({ path: `${DESTINO}/etapa3-totem-categoria.png` });
   await totem.getByRole('button', { name: /Carro pequeno/ }).click();
+  await totem.getByRole('button', { name: /^Vaga comum/ }).click();
   await expect(totem.getByTestId('justificativa')).toBeVisible({ timeout: 10_000 });
   await totem.waitForTimeout(400);
   await totem.screenshot({ path: `${DESTINO}/etapa3-totem-recomendacao.png`, fullPage: true });
@@ -128,6 +129,7 @@ test('capturas golden park: temas claro e escuro e chuva de abóboras', async ({
     await totem.screenshot({ path: `${DESTINO}/golden-totem-inicio-${tema}.png` });
     await totem.getByRole('button', { name: 'Começar' }).click();
     await totem.getByRole('button', { name: /Carro grande/ }).click();
+    await totem.getByRole('button', { name: /^Vaga comum/ }).click();
     await expect(totem.getByTestId('justificativa')).toBeVisible({ timeout: 10_000 });
     await totem.waitForTimeout(300);
     await totem.screenshot({ path: `${DESTINO}/golden-totem-recomendacao-${tema}.png` });
@@ -183,5 +185,41 @@ test('capturas da evolução do mapa: navegação mobile e simulação visual', 
   await painel.getByTestId('mapa-estacionamento').screenshot({ path: `${DESTINO}/mapa-sim-veiculos.png` });
   await painel.getByText('Simulação', { exact: true }).locator('xpath=ancestor::section[1]').screenshot({ path: `${DESTINO}/mapa-sim-controles.png` }).catch(() => {});
   await api.post('/api/simulacao/reiniciar');
+  await painel.close();
+});
+
+test('capturas das vagas reservadas: totem, QR Code e painel', async ({ browser }) => {
+  test.setTimeout(120_000);
+  const api = await apiTeste();
+  await api.post('/api/simulacao/reiniciar');
+  const totem = await browser.newPage({ viewport: { width: 1280, height: 860 } });
+  await totem.addInitScript(() => localStorage.setItem('gp-tema', 'claro'));
+  await totem.goto('/totem?acesso=A_ROT');
+  await totem.getByRole('button', { name: 'Começar' }).click();
+  await totem.getByRole('button', { name: /Carro pequeno/ }).click();
+  await totem.screenshot({ path: `${DESTINO}/vagas-totem-tipo.png` });
+  await totem.getByRole('button', { name: /^Vaga PcD/ }).click();
+  await expect(totem.getByTestId('justificativa')).toBeVisible({ timeout: 10_000 });
+  await totem.waitForTimeout(1300);
+  await totem.screenshot({ path: `${DESTINO}/vagas-totem-pcd.png` });
+  await totem.getByRole('button', { name: 'Emitir ticket' }).click();
+  const token = (await totem.getByTestId('qr-code').getAttribute('data-conteudo'))!.split('/t/')[1]!;
+  await totem.close();
+  for (const tema of ['claro', 'escuro'] as const) {
+    const cel = await browser.newPage({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, deviceScaleFactor: 2 });
+    await cel.addInitScript((t) => localStorage.setItem('gp-tema', t), tema);
+    await cel.goto(`/t/${token}`);
+    await expect(cel.getByTestId('selo-tipo-vaga')).toBeVisible();
+    await cel.waitForTimeout(1400);
+    await cel.screenshot({ path: `${DESTINO}/vagas-qr-${tema}.png` });
+    await cel.close();
+  }
+  const painel = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+  await painel.addInitScript(() => localStorage.setItem('gp-tema', 'claro'));
+  await painel.goto('/painel');
+  await expect(painel.getByTestId('vagas-reservadas')).toBeVisible();
+  await painel.getByTestId('mapa-estacionamento').screenshot({ path: `${DESTINO}/vagas-mapa.png` });
+  await painel.getByTestId('vagas-reservadas').screenshot({ path: `${DESTINO}/vagas-painel-resumo.png` });
+  await painel.locator('tr[data-regiao="N1"]').locator('xpath=ancestor::table[1]').screenshot({ path: `${DESTINO}/vagas-painel-tabela.png` });
   await painel.close();
 });

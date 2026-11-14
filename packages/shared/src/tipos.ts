@@ -8,6 +8,20 @@ export type Categoria = (typeof CATEGORIAS)[number];
 
 export type Nivel = 'terreo' | 'ss1' | 'ss2';
 
+/**
+ * Tipo de vaga pedido na entrada (declaração do motorista, só para orientação — o sistema não verifica credencial).
+ * COMUM nunca recebe vaga reservada; PCD e IDOSO só recebem vaga do próprio tipo.
+ */
+export const TIPOS_VAGA = ['COMUM', 'PCD', 'IDOSO'] as const;
+export type TipoVaga = (typeof TIPOS_VAGA)[number];
+export const NOME_TIPO_VAGA: Record<TipoVaga, string> = { COMUM: 'Vaga comum', PCD: 'Vaga PcD', IDOSO: 'Vaga para pessoa idosa' };
+
+/** Capacidade, ocupação e vagas livres de um tipo de vaga numa região. */
+export interface VagasDoTipo { capacidade: number; ocupadas: number; livres: number }
+
+/** De onde vem a quantidade de vagas reservadas da região. */
+export type FonteVagasReservadas = 'planta' | 'proposta' | 'operador' | 'sem-reserva';
+
 /** De onde vem a capacidade da região: escrita na planta, contada no desenho ou simulada. */
 export type FonteCapacidade = 'planta' | 'desenho' | 'simulada';
 
@@ -33,10 +47,26 @@ export interface Regiao {
   /** Fluxo recente (recomendações + leitura dos sensores de fluxo) e nível. */
   fluxo?: { recente: number; vazaoReferencia: number; nivel: NivelFluxo };
   /**
+   * Vagas por tipo (comum, PcD, pessoa idosa). A soma das capacidades é `capacidade` e a soma das ocupadas é `ocupadas`.
+   * Ausente = região sem vagas reservadas (tudo comum).
+   */
+  vagas?: Record<TipoVaga, VagasDoTipo>;
+  fonteVagasReservadas?: FonteVagasReservadas;
+  /**
    * Versão do registro (Etapa 4): sobe a cada mudança gravada na região, sob a trava da linha no banco.
    * Clientes de tempo real ignoram eventos com versão menor que a já aplicada (eventos fora de ordem).
    */
   versao?: number;
+}
+
+/** Vagas por tipo da região (deriva tudo como comum quando a região não informa `vagas`). */
+export function vagasDaRegiao(r: Pick<Regiao, 'capacidade' | 'ocupadas' | 'vagas'>): Record<TipoVaga, VagasDoTipo> {
+  if (r.vagas) return r.vagas;
+  return {
+    COMUM: { capacidade: r.capacidade, ocupadas: r.ocupadas, livres: Math.max(0, r.capacidade - r.ocupadas) },
+    PCD: { capacidade: 0, ocupadas: 0, livres: 0 },
+    IDOSO: { capacidade: 0, ocupadas: 0, livres: 0 },
+  };
 }
 
 export function nivelFluxo(recente: number, vazaoReferencia: number): NivelFluxo {
@@ -58,6 +88,8 @@ export interface Ticket {
   estacionadoEm: string | null;
   saidaEm: string | null;
   status: StatusTicket;
+  /** Tipo de vaga declarado na entrada (padrão: COMUM). */
+  tipoVaga?: TipoVaga;
 }
 
 export interface Pesos {
@@ -73,7 +105,9 @@ export type MotivoInelegivel =
   | 'SEM_VAGAS'
   | 'FORA_DE_OPERACAO'
   | 'DADOS_INVALIDOS'
-  | 'SEM_ROTA';
+  | 'SEM_ROTA'
+  /** A região não tem vagas do tipo pedido (PcD ou pessoa idosa). */
+  | 'SEM_VAGA_DO_TIPO';
 
 export interface AvaliacaoRegiao {
   regiaoId: string;
@@ -110,6 +144,8 @@ export interface Indicadores {
   veiculosAguardando: number;
   recomendacoesUltimaHora: number;
   regioesAltaOcupacao: string[];
+  /** Totais por tipo de vaga (comum, PcD, pessoa idosa). */
+  porTipoVaga?: Record<TipoVaga, VagasDoTipo>;
 }
 
 /* ---------- Mapa digital ---------- */

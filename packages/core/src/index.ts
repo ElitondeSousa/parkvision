@@ -2,7 +2,7 @@
  * @parkvision/core — algoritmo de distribuição e rotas (funções puras).
  * Contrato: docs/mvp/02-contratos.md §2. Implementação: agent algorithm-engineer.
  */
-import type { AvaliacaoRegiao, Categoria, MapaDigital, Pesos, Regiao, Rota } from '@parkvision/shared';
+import type { AvaliacaoRegiao, CaminhoPedestre, Categoria, MapaDigital, Pesos, Regiao, Rota, TipoVaga } from '@parkvision/shared';
 
 export interface EntradaRecomendacao {
   categoria: Categoria;
@@ -18,6 +18,10 @@ export interface EntradaRecomendacao {
   pesos?: Partial<Pesos>;
   /** Se definido, regiões com atualizadoEm mais antigo que isso (ms) ficam com DADOS_INVALIDOS. */
   validadeDadosMs?: number | null;
+  /** Tipo de vaga pedido (padrão COMUM). */
+  tipoVaga?: TipoVaga;
+  /** Caminho a pé de cada região até o shopping (usado só para vagas reservadas). */
+  caminhosPedestres?: Record<string, CaminhoPedestre>;
 }
 
 export type ResultadoRecomendacao =
@@ -26,3 +30,4 @@ export type ResultadoRecomendacao =
 
 export { recomendar } from './recomendar.ts';
 export { menorCaminho } from './rotas.ts';
+export { distribuirVagasReservadas, dividirProporcional, FRACAO_MAXIMA_RESERVADA, type RegiaoParaDistribuir, type VagasReservadasRegiao } from './vagas-reservadas.ts';

@@ -9,7 +9,8 @@
  *  5. rota (âmbar = orientação), sempre sobre as vias do grafo — nunca em linha reta;
  *  6. acessos.
  */
-import type { Categoria, Nivel, Regiao } from '@parkvision/shared';
+import { vagasDaRegiao, type Categoria, type Nivel, type Regiao, type VagasDoTipo } from '@parkvision/shared';
+import { Accessibility } from 'lucide-react';
 import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent as EventoPonteiro } from 'react';
 import { caminhoSuave, janelasPorNivel, pontoNaRota, setasDaRota, zoomEm, type Camera, type Ponto } from './navegacao.ts';
 import {
@@ -213,8 +214,12 @@ export function MapaEstacionamento(props: MapaEstacionamentoProps) {
             const padrao = faixa && PADRAO_FAIXA[faixa];
             const cong = vivo && congestionada(vivo);
             const interativa = Boolean(aoSelecionar);
+            const reservadas = vivo ? vagasDaRegiao(vivo) : null;
+            const textoReservadas = reservadas
+              ? [reservadas.PCD.capacidade ? `${reservadas.PCD.livres} de ${reservadas.PCD.capacidade} vagas PcD livres` : '', reservadas.IDOSO.capacidade ? `${reservadas.IDOSO.livres} de ${reservadas.IDOSO.capacidade} vagas para pessoa idosa livres` : ''].filter(Boolean).join(', ')
+              : '';
             const descricao = vivo
-              ? `Região ${r.id}, ${r.nome}: ${vivo.livres} de ${vivo.capacidade} vagas livres, ${ROTULO_FAIXA[faixa!].toLowerCase()}${cong ? ', fluxo elevado' : ''}`
+              ? `Região ${r.id}, ${r.nome}: ${vivo.livres} de ${vivo.capacidade} vagas livres, ${ROTULO_FAIXA[faixa!].toLowerCase()}${cong ? ', fluxo elevado' : ''}${textoReservadas ? `; ${textoReservadas}` : ''}`
               : `Região ${r.id}, ${r.nome}`;
             const selecionar = () => { if (!arrastou.current) aoSelecionar?.(r.id); }; // arrastar o mapa não seleciona
             const teclado = (e: KeyboardEvent) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selecionar(); } };
@@ -224,6 +229,8 @@ export function MapaEstacionamento(props: MapaEstacionamentoProps) {
                 data-regiao={r.id}
                 data-faixa={faixa ?? 'sem-informacao'}
                 data-destino={ehDestino || undefined}
+                data-vagas-pcd={reservadas?.PCD.capacidade ? `${reservadas.PCD.livres}/${reservadas.PCD.capacidade}` : undefined}
+                data-vagas-idoso={reservadas?.IDOSO.capacidade ? `${reservadas.IDOSO.livres}/${reservadas.IDOSO.capacidade}` : undefined}
                 {...(interativa
                   ? { role: 'button', tabIndex: 0, 'aria-pressed': selecionada === r.id, onClick: selecionar, onKeyDown: teclado, style: { cursor: 'pointer' } }
                   : { role: 'img' })}
@@ -241,6 +248,9 @@ export function MapaEstacionamento(props: MapaEstacionamentoProps) {
                   </>
                 )}
                 <RotuloRegiao id={r.id} x={cx} y={cy} fs={fs} linha2={rotuloLinha2(vivo, faixa)} congestionada={Boolean(cong)} destaque={ehDestino && !props.pinoDestino ? rotuloDestino : undefined} apagada={Boolean(apagada)} semCodigo={ehDestino && props.pinoDestino} />
+                {reservadas && !apagada && (reservadas.PCD.capacidade > 0 || reservadas.IDOSO.capacidade > 0) && (
+                  <SelosReservadas x={cx} y={cy + fs * (rotuloLinha2(vivo, faixa) ? 2.25 : 1.45)} fs={fs} pcd={reservadas.PCD} idoso={reservadas.IDOSO} />
+                )}
                 {ehDestino && props.pinoDestino && <PinoDestino x={cx} y={cy} fs={fs} codigo={r.id} rotulo={rotuloDestino} />}
               </g>
             );
@@ -305,6 +315,36 @@ function RotuloRegiao({ id, x, y, fs, linha2, congestionada: cong, destaque, apa
           ))}
         </g>
       )}
+    </g>
+  );
+}
+
+/**
+ * Selos de vagas reservadas da região: símbolo de acesso (PcD) e "60+" (pessoa idosa) com as vagas livres do tipo.
+ * Ícone + número + contorno: a informação não depende só da cor. Sem vaga livre do tipo, o número fica riscado.
+ */
+function SelosReservadas({ x, y, fs, pcd, idoso }: { x: number; y: number; fs: number; pcd: VagasDoTipo; idoso: VagasDoTipo }) {
+  const k = fs * 0.62;
+  const itens = [pcd.capacidade ? { tipo: 'PCD' as const, v: pcd } : null, idoso.capacidade ? { tipo: 'IDOSO' as const, v: idoso } : null].filter(Boolean) as { tipo: 'PCD' | 'IDOSO'; v: VagasDoTipo }[];
+  const larg = (v: VagasDoTipo) => k * (1.9 + 0.62 * String(v.livres).length);
+  const total = itens.reduce((s, i) => s + larg(i.v), 0) + k * 0.3 * (itens.length - 1);
+  let cursor = x - total / 2;
+  return (
+    <g pointerEvents="none" aria-hidden="true" data-camada="vagas-reservadas">
+      {itens.map(({ tipo, v }) => {
+        const w = larg(v), x0 = cursor;
+        cursor += w + k * 0.3;
+        const esgotada = v.livres === 0;
+        return (
+          <g key={tipo} data-selo-reservada={tipo}>
+            <rect x={x0} y={y - k * 0.62} width={w} height={k * 1.24} rx={k * 0.3} fill="var(--pv-mapa-papel)" stroke="var(--pv-vaga-reservada)" strokeWidth={k * 0.12} />
+            {tipo === 'PCD'
+              ? <Accessibility x={x0 + k * 0.14} y={y - k * 0.5} width={k} height={k} color="var(--pv-vaga-reservada)" strokeWidth={2.6} />
+              : <text x={x0 + k * 0.64} y={y + k * 0.27} textAnchor="middle" fontSize={k * 0.62} fontWeight={800} fill="var(--pv-vaga-reservada)" style={{ fontFamily: 'var(--pv-font-family-sans)' }}>60+</text>}
+            <text x={x0 + k * 1.35} y={y + k * 0.34} fontSize={k * 0.9} fontWeight={700} fill="var(--pv-text-primary)" textDecoration={esgotada ? 'line-through' : undefined} className="num" style={{ fontFamily: 'var(--pv-font-family-sans)' }}>{v.livres}</text>
+          </g>
+        );
+      })}
     </g>
   );
 }
@@ -502,6 +542,14 @@ export function LegendaMapa() {
       </li>
       <li className="inline-flex items-center gap-1.5">
         <span className="inline-block size-3 rounded-full border-2" style={{ background: 'var(--pv-wayfinding-route)', borderColor: 'var(--pv-color-asfalto-950)' }} aria-hidden="true" /> Acesso
+      </li>
+      <li className="inline-flex items-center gap-1.5">
+        <span className="inline-grid place-items-center h-4 px-1 rounded border" style={{ borderColor: 'var(--pv-vaga-reservada)', color: 'var(--pv-vaga-reservada)' }} aria-hidden="true"><Accessibility size={11} strokeWidth={2.6} /></span>
+        Vagas PcD livres
+      </li>
+      <li className="inline-flex items-center gap-1.5">
+        <span className="inline-grid place-items-center h-4 px-1 rounded border text-[9px] font-extrabold" style={{ borderColor: 'var(--pv-vaga-reservada)', color: 'var(--pv-vaga-reservada)' }} aria-hidden="true">60+</span>
+        Vagas para pessoa idosa livres
       </li>
     </ul>
   );

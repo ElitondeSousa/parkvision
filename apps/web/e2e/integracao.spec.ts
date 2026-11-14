@@ -6,7 +6,7 @@ import { expect, test, type APIRequestContext, type Page, type WebSocketRoute } 
 import { apiTeste, TOKEN } from './apoio.ts';
 import preparar from './preparar.ts';
 
-type RegiaoApi = { id: string; nome: string; nivel: string; capacidade: number; ocupadas: number; livres: number; categorias: string[] };
+type RegiaoApi = { id: string; nome: string; nivel: string; capacidade: number; ocupadas: number; livres: number; categorias: string[]; vagas: Record<'COMUM' | 'PCD' | 'IDOSO', { capacidade: number; ocupadas: number; livres: number }> };
 const regioes = async (api: APIRequestContext) => (await (await api.get('/api/regioes')).json()) as RegiaoApi[];
 const ocupadas = async (api: APIRequestContext, id: string) => (await regioes(api)).find((r) => r.id === id)!.ocupadas;
 const total = async (api: APIRequestContext) => (await regioes(api)).reduce((s, r) => s + r.ocupadas, 0);
@@ -29,6 +29,7 @@ async function emitirNoTotem(totem: Page, categoria: RegExp, acesso = 'A_NE') {
   await totem.goto(`/totem?acesso=${acesso}`);
   await totem.getByRole('button', { name: 'Começar' }).click();
   await totem.getByRole('button', { name: categoria }).click();
+  await totem.getByRole('button', { name: /^Vaga comum/ }).click();
   await expect(totem.getByTestId('justificativa')).toBeVisible({ timeout: 10_000 });
   const regiao = (await totem.getByTestId('mapa-estacionamento').locator('[data-destino="true"]').getAttribute('data-regiao'))!;
   await totem.getByRole('button', { name: 'Emitir ticket' }).click();
@@ -137,12 +138,13 @@ test('região lotada recusa a confirmação e o painel pede uma nova recomendaç
   await abrirPainel(page);
   const { ticket } = await (await api.post('/api/entradas', { data: { acessoId: 'A_S1', categoria: 'CARRO_PEQUENO' } })).json();
   const s1 = (await regioes(api)).find((r) => r.id === 'S1')!;
-  await api.patch('/api/regioes/S1', { data: { ocupadas: s1.capacidade } }); // S1 lotou depois da recomendação
+  const comunsS1 = s1.vagas.COMUM.capacidade;
+  await api.patch('/api/regioes/S1', { data: { ocupadas: comunsS1 } }); // vagas comuns de S1 lotaram depois da recomendação
   const caixa = await operar(page, ticket.codigo);
   await caixa.getByLabel('Região onde o veículo estacionou').selectOption('S1');
   await caixa.getByRole('button', { name: 'Confirmar estacionamento' }).click();
   await expect(caixa.getByText('Região S1 está lotada')).toBeVisible();
-  expect(await ocupadas(api, 'S1')).toBe(s1.capacidade);
+  expect(await ocupadas(api, 'S1')).toBe(comunsS1);
   await caixa.getByRole('button', { name: 'Solicitar nova recomendação' }).click();
   await expect(caixa.getByText(/Nova recomendação: região /)).toBeVisible();
   await caixa.getByRole('button', { name: 'Confirmar estacionamento' }).click();
@@ -154,13 +156,21 @@ test('confirmações simultâneas não passam da capacidade e o painel mostra a 
   const api = await apiTeste();
   await abrirPainel(page);
   const s2 = (await regioes(api)).find((r) => r.id === 'S2')!;
-  await api.patch('/api/regioes/S2', { data: { ocupadas: s2.capacidade - 2 } });
-  const tickets = await Promise.all(Array.from({ length: 6 }, async () => (await (await api.post('/api/entradas', { data: { acessoId: 'A_S2', categoria: 'CARRO_PEQUENO' } })).json()).ticket.codigo as string));
-  const res = await Promise.all(tickets.map((c) => api.post(`/api/tickets/${c}/estacionar`, { data: { regiaoId: 'S2' } })));
-  expect(res.filter((r) => r.status() === 200)).toHaveLength(2);
-  expect(await ocupadas(api, 'S2')).toBe(s2.capacidade);
-  await expect(page.getByTestId('mapa-estacionamento').locator('[data-regiao="S2"]')).toHaveAttribute('data-faixa', 'lotada');
-  await expect(page.getByTestId('movimentacoes')).toContainText('Região S2 lotou');
+  // sem vagas reservadas em S2 durante o teste: "lotada" = todas as vagas da região ocupadas
+  const reservadas = (pcd: number, idoso: number) => api.patch('/api/regioes/S2/vagas-reservadas', { data: { capacidadePcd: pcd, capacidadeIdoso: idoso } });
+  await reservadas(0, 0);
+  try {
+    await api.patch('/api/regioes/S2', { data: { ocupadas: s2.capacidade - 2 } });
+    const tickets = await Promise.all(Array.from({ length: 6 }, async () => (await (await api.post('/api/entradas', { data: { acessoId: 'A_S2', categoria: 'CARRO_PEQUENO' } })).json()).ticket.codigo as string));
+    const res = await Promise.all(tickets.map((c) => api.post(`/api/tickets/${c}/estacionar`, { data: { regiaoId: 'S2' } })));
+    expect(res.filter((r) => r.status() === 200)).toHaveLength(2);
+    expect(await ocupadas(api, 'S2')).toBe(s2.capacidade);
+    await expect(page.getByTestId('mapa-estacionamento').locator('[data-regiao="S2"]')).toHaveAttribute('data-faixa', 'lotada');
+    await expect(page.getByTestId('movimentacoes')).toContainText('Região S2 lotou');
+  } finally {
+    await api.patch('/api/regioes/S2', { data: { ocupadas: 0 } });
+    await reservadas(s2.vagas.PCD.capacidade, s2.vagas.IDOSO.capacidade);
+  }
 });
 
 test('evento de sensor repetido não altera os dados duas vezes [17]', async ({ page }) => {

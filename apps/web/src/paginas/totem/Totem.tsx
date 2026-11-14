@@ -1,11 +1,13 @@
 /**
  * Interface 1 — Totem de entrada (tela de toque).
- * Fluxo: início → categoria → processamento → recomendação → ticket.
+ * Fluxo: início → categoria → tipo de vaga (carros) → processamento → recomendação → ticket.
+ * Tipo de vaga: declaração do motorista (sem pergunta médica); o totem lembra da credencial e não diz que a verificou.
+ * Sem vaga do tipo pedido: mostra a indisponibilidade e deixa o motorista decidir — nada de mandar para outro tipo.
  * A entrada é registrada na API (POST /entradas), que devolve a recomendação do algoritmo e o ticket com o QR Code.
  * Nada aqui reserva vaga: a ocupação só muda quando o estacionamento é confirmado.
  */
-import type { Categoria, Regiao } from '@parkvision/shared';
-import { CATEGORIAS } from '@parkvision/shared';
+import type { Categoria, Regiao, TipoVaga } from '@parkvision/shared';
+import { CATEGORIAS, NOME_TIPO_VAGA, TIPOS_VAGA, vagasDaRegiao } from '@parkvision/shared';
 import { ArrowLeft, CircleCheck, LoaderCircle, QrCode, RefreshCw, TriangleAlert } from 'lucide-react';
 import QRCode from 'qrcode';
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
@@ -13,6 +15,7 @@ import { useSearchParams } from 'react-router';
 import { Botao, Marca, Medidor, Placa } from '../../componentes/base.tsx';
 import { ControlesTema } from '../../tema/ControlesTema.tsx';
 import { IconeCategoria } from '../../componentes/IconeCategoria.tsx';
+import { IconeTipoVaga, SeloTipoVaga } from '../../componentes/IconeTipoVaga.tsx';
 import { acessoPorId, nomeCurto, nomeDoNivel, orientacaoDaRota, regiaoDoMapa } from '../../mapa/dados.ts';
 import { NOME_CATEGORIA, dataHora, faixaDaRegiao } from '../../mapa/estado.ts';
 import { MapaEstacionamento } from '../../mapa/MapaEstacionamento.tsx';
@@ -21,11 +24,12 @@ import { ErroServico, api, type RespostaEntrada } from '../../servicos/api.ts';
 type Etapa =
   | { tipo: 'inicio' }
   | { tipo: 'categoria' }
-  | { tipo: 'processando'; categoria: Categoria }
-  | { tipo: 'recomendacao'; dados: RespostaEntrada; regioes: Regiao[] }
-  | { tipo: 'ticket'; dados: RespostaEntrada }
-  | { tipo: 'sem-vagas'; categoria: Categoria; mensagem: string }
-  | { tipo: 'erro'; categoria: Categoria | null; mensagem: string };
+  | { tipo: 'tipo-vaga'; categoria: Categoria }
+  | { tipo: 'processando'; categoria: Categoria; tipoVaga: TipoVaga }
+  | { tipo: 'recomendacao'; dados: RespostaEntrada; regioes: Regiao[]; tipoVaga: TipoVaga }
+  | { tipo: 'ticket'; dados: RespostaEntrada; tipoVaga: TipoVaga }
+  | { tipo: 'sem-vagas'; categoria: Categoria; tipoVaga: TipoVaga; mensagem: string }
+  | { tipo: 'erro'; categoria: Categoria | null; tipoVaga: TipoVaga; mensagem: string };
 
 const PASSOS_PROCESSAMENTO = ['Consultando a ocupação das regiões', 'Comparando distância e fluxo de veículos', 'Escolhendo a região para você'];
 const INATIVIDADE_MS = 120_000;
@@ -49,18 +53,20 @@ export function Totem() {
     return () => { clearTimeout(t); window.removeEventListener('pointerdown', tocar); };
   }, [etapa.tipo, reiniciar]);
 
-  const escolher = async (categoria: Categoria) => {
-    setEtapa({ tipo: 'processando', categoria });
+  // motos não têm vaga reservada no estacionamento: seguem direto com vaga comum
+  const escolherCategoria = (categoria: Categoria) => (categoria === 'MOTO' ? escolher(categoria, 'COMUM') : setEtapa({ tipo: 'tipo-vaga', categoria }));
+  const escolher = async (categoria: Categoria, tipoVaga: TipoVaga) => {
+    setEtapa({ tipo: 'processando', categoria, tipoVaga });
     const inicio = Date.now();
     try {
-      const dados = await api.registrarEntrada(acessoId, categoria);
+      const dados = await api.registrarEntrada(acessoId, categoria, tipoVaga);
       const regioes = await api.regioes().catch(() => [] as Regiao[]);
       await new Promise((ok) => setTimeout(ok, Math.max(0, 1400 - (Date.now() - inicio)))); // tempo mínimo para a animação ser lida
-      setEtapa({ tipo: 'recomendacao', dados, regioes });
+      setEtapa({ tipo: 'recomendacao', dados, regioes, tipoVaga });
     } catch (e) {
-      if (e instanceof ErroServico && e.codigo === 'SEM_REGIAO_ELEGIVEL') setEtapa({ tipo: 'sem-vagas', categoria, mensagem: e.message });
-      else if (e instanceof ErroServico && e.codigo === 'SEM_CONEXAO') setEtapa({ tipo: 'erro', categoria, mensagem: 'O totem perdeu a conexão com o sistema.' });
-      else setEtapa({ tipo: 'erro', categoria, mensagem: e instanceof Error ? e.message : 'Erro inesperado.' });
+      if (e instanceof ErroServico && e.codigo === 'SEM_REGIAO_ELEGIVEL') setEtapa({ tipo: 'sem-vagas', categoria, tipoVaga, mensagem: e.message });
+      else if (e instanceof ErroServico && e.codigo === 'SEM_CONEXAO') setEtapa({ tipo: 'erro', categoria, tipoVaga, mensagem: 'O totem perdeu a conexão com o sistema.' });
+      else setEtapa({ tipo: 'erro', categoria, tipoVaga, mensagem: e instanceof Error ? e.message : 'Erro inesperado.' });
     }
   };
 
@@ -84,25 +90,38 @@ export function Totem() {
         ) : etapa.tipo === 'inicio' ? (
           <TelaInicio aoComecar={() => setEtapa({ tipo: 'categoria' })} />
         ) : etapa.tipo === 'categoria' ? (
-          <TelaCategoria aoEscolher={escolher} aoVoltar={reiniciar} />
+          <TelaCategoria aoEscolher={escolherCategoria} aoVoltar={reiniciar} />
+        ) : etapa.tipo === 'tipo-vaga' ? (
+          <TelaTipoVaga aoEscolher={(t) => escolher(etapa.categoria, t)} aoVoltar={() => setEtapa({ tipo: 'categoria' })} />
         ) : etapa.tipo === 'processando' ? (
           <TelaProcessando categoria={etapa.categoria} />
         ) : etapa.tipo === 'recomendacao' ? (
-          <TelaRecomendacao dados={etapa.dados} regioes={etapa.regioes} aoEmitir={() => setEtapa({ tipo: 'ticket', dados: etapa.dados })} />
+          <TelaRecomendacao dados={etapa.dados} regioes={etapa.regioes} tipoVaga={etapa.tipoVaga} aoEmitir={() => setEtapa({ tipo: 'ticket', dados: etapa.dados, tipoVaga: etapa.tipoVaga })} />
         ) : etapa.tipo === 'ticket' ? (
-          <TelaTicket dados={etapa.dados} aoConcluir={reiniciar} demonstracao={demonstracao} />
+          <TelaTicket dados={etapa.dados} tipoVaga={etapa.tipoVaga} aoConcluir={reiniciar} demonstracao={demonstracao} />
         ) : etapa.tipo === 'sem-vagas' ? (
-          <TelaErro
-            titulo={`Sem vagas para ${NOME_CATEGORIA[etapa.categoria].toLowerCase()} agora`}
-            mensagem={etapa.mensagem}
-            acoes={<><Botao tamanho="xl" onClick={() => setEtapa({ tipo: 'categoria' })} icone={ArrowLeft}>Escolher outra categoria</Botao></>}
-            rodape="Se precisar, procure o atendimento do estacionamento."
-          />
+          etapa.tipoVaga === 'COMUM' ? (
+            <TelaErro
+              titulo={`Sem vagas para ${NOME_CATEGORIA[etapa.categoria].toLowerCase()} agora`}
+              mensagem={etapa.mensagem}
+              acoes={<><Botao tamanho="xl" onClick={() => setEtapa({ tipo: 'categoria' })} icone={ArrowLeft}>Escolher outra categoria</Botao></>}
+              rodape="Se precisar, procure o atendimento do estacionamento."
+            />
+          ) : (
+            // indisponibilidade de vaga reservada: informa e deixa o motorista decidir (o totem não troca o tipo sozinho)
+            <TelaErro
+              titulo={`Sem ${etapa.tipoVaga === 'PCD' ? 'vaga PcD' : 'vaga para pessoa idosa'} disponível agora`}
+              mensagem={etapa.mensagem}
+              acoes={<Botao tamanho="xl" onClick={() => setEtapa({ tipo: 'tipo-vaga', categoria: etapa.categoria })} icone={ArrowLeft}>Voltar às opções de vaga</Botao>}
+              rodape="A equipe do estacionamento pode ajudar. Nenhuma vaga foi indicada para você."
+              voltar={reiniciar}
+            />
+          )
         ) : (
           <TelaErro
             titulo="Não foi possível gerar sua recomendação"
             mensagem={`${etapa.mensagem} Procure o atendimento do estacionamento para retirar seu ticket.`}
-            acoes={etapa.categoria && <Botao tamanho="xl" icone={RefreshCw} onClick={() => escolher(etapa.categoria!)}>Tentar de novo</Botao>}
+            acoes={etapa.categoria && <Botao tamanho="xl" icone={RefreshCw} onClick={() => escolher(etapa.categoria!, etapa.tipoVaga)}>Tentar de novo</Botao>}
             voltar={reiniciar}
           />
         )}
@@ -156,6 +175,39 @@ function TelaCategoria({ aoEscolher, aoVoltar }: { aoEscolher: (c: Categoria) =>
   );
 }
 
+const DESCRICAO_TIPO: Record<TipoVaga, string> = {
+  COMUM: 'Qualquer vaga comum do estacionamento.',
+  PCD: 'Para veículo com credencial de pessoa com deficiência.',
+  IDOSO: 'Para veículo com credencial de pessoa idosa.',
+};
+
+function TelaTipoVaga({ aoEscolher, aoVoltar }: { aoEscolher: (t: TipoVaga) => void; aoVoltar: () => void }) {
+  return (
+    <div className="flex-1 flex flex-col max-w-6xl mx-auto w-full">
+      <h1 className="text-4xl sm:text-5xl font-bold" style={{ color: 'var(--pv-text-primary)' }}>Que tipo de vaga você precisa?</h1>
+      <p className="mt-3 text-lg max-w-[60ch]" style={{ color: 'var(--pv-text-secondary)' }}>
+        As vagas PcD e para pessoa idosa são reservadas e exigem <strong style={{ color: 'var(--pv-text-primary)' }}>credencial válida</strong> à vista no veículo.
+        O Golden Park não verifica a credencial: a sua escolha serve só para indicar a vaga.
+      </p>
+      <div className="grid sm:grid-cols-3 gap-5 mt-8 flex-1 sm:max-h-[380px]" role="group" aria-label="Tipo de vaga">
+        {TIPOS_VAGA.map((t) => (
+          <button
+            key={t}
+            onClick={() => aoEscolher(t)}
+            className="group flex flex-col items-center justify-center gap-4 rounded-2xl p-8 min-h-44 cursor-pointer transition-colors border-2 text-center"
+            style={{ background: 'var(--pv-bg-surface)', borderColor: 'var(--pv-border-default)', color: 'var(--pv-text-primary)' }}
+          >
+            <IconeTipoVaga tipo={t} tamanho={96} className="text-[var(--pv-brand-primary)] group-hover:scale-105 transition-transform" />
+            <span className="font-display text-3xl font-semibold leading-tight">{NOME_TIPO_VAGA[t]}</span>
+            <span className="text-base" style={{ color: 'var(--pv-text-secondary)' }}>{DESCRICAO_TIPO[t]}</span>
+          </button>
+        ))}
+      </div>
+      <div className="mt-8"><Botao variante="secundario" tamanho="lg" icone={ArrowLeft} onClick={aoVoltar}>Voltar</Botao></div>
+    </div>
+  );
+}
+
 function TelaProcessando({ categoria }: { categoria: Categoria }) {
   const [passo, setPasso] = useState(0);
   useEffect(() => {
@@ -178,18 +230,21 @@ function TelaProcessando({ categoria }: { categoria: Categoria }) {
   );
 }
 
-function Disponibilidade({ regiao }: { regiao: Regiao | null }) {
+function Disponibilidade({ regiao, tipoVaga }: { regiao: Regiao | null; tipoVaga: TipoVaga }) {
   if (!regiao) return <p className="m-0" style={{ color: 'var(--pv-text-secondary)' }}>Disponibilidade indisponível no momento.</p>;
   const faixa = faixaDaRegiao(regiao);
+  // vaga reservada: mostra só as vagas do tipo pedido (as comuns não servem para quem pediu PcD/idoso e vice-versa)
+  const v = tipoVaga === 'COMUM' ? { livres: regiao.livres, capacidade: regiao.capacidade, ocupadas: regiao.ocupadas } : vagasDaRegiao(regiao)[tipoVaga];
+  const rotulo = tipoVaga === 'COMUM' ? 'vagas livres' : `${tipoVaga === 'PCD' ? 'vagas PcD' : 'vagas para pessoa idosa'} livres`;
   return (
-    <div>
-      <p className="m-0 text-2xl font-display font-semibold num" style={{ color: 'var(--pv-text-primary)' }}>{regiao.livres} vagas livres <span className="text-lg font-sans font-normal" style={{ color: 'var(--pv-text-secondary)' }}>de {regiao.capacidade}</span></p>
-      <div className="mt-2 max-w-sm"><Medidor valor={regiao.ocupadas} total={regiao.capacidade} cor={faixa === 'livre' ? 'var(--pv-faixa-livre)' : faixa === 'alta' ? 'var(--pv-faixa-alta)' : 'var(--pv-faixa-critica)'} rotulo={`Ocupação da região ${regiao.id}`} /></div>
+    <div data-testid="disponibilidade">
+      <p className="m-0 text-2xl font-display font-semibold num" style={{ color: 'var(--pv-text-primary)' }}>{v.livres} {rotulo} <span className="text-lg font-sans font-normal" style={{ color: 'var(--pv-text-secondary)' }}>de {v.capacidade}</span></p>
+      <div className="mt-2 max-w-sm"><Medidor valor={v.ocupadas} total={v.capacidade} cor={faixa === 'livre' ? 'var(--pv-faixa-livre)' : faixa === 'alta' ? 'var(--pv-faixa-alta)' : 'var(--pv-faixa-critica)'} rotulo={`Ocupação ${tipoVaga === 'COMUM' ? '' : 'das vagas reservadas '}da região ${regiao.id}`} /></div>
     </div>
   );
 }
 
-function TelaRecomendacao({ dados, regioes, aoEmitir }: { dados: RespostaEntrada; regioes: Regiao[]; aoEmitir: () => void }) {
+function TelaRecomendacao({ dados, regioes, tipoVaga, aoEmitir }: { dados: RespostaEntrada; regioes: Regiao[]; tipoVaga: TipoVaga; aoEmitir: () => void }) {
   const { recomendacao } = dados;
   const regiao = regioes.find((r) => r.id === recomendacao.regiaoId) ?? null;
   const doMapa = regiaoDoMapa[recomendacao.regiaoId];
@@ -203,9 +258,11 @@ function TelaRecomendacao({ dados, regioes, aoEmitir }: { dados: RespostaEntrada
             <p className="m-0 text-lg" style={{ color: 'var(--pv-text-secondary)' }}>Região indicada para você</p>
             <h1 id="titulo-rec" className="text-4xl font-bold mt-1" style={{ color: 'var(--pv-text-primary)' }}>{doMapa?.nome ?? recomendacao.regiaoId}</h1>
             {doMapa && <p className="m-0 mt-1 text-lg" style={{ color: 'var(--pv-text-secondary)' }}>{nomeDoNivel(doMapa.nivel)}</p>}
+            {tipoVaga !== 'COMUM' && <div className="mt-2"><SeloTipoVaga tipo={tipoVaga} /></div>}
           </div>
         </div>
-        <Disponibilidade regiao={regiao} />
+        <Disponibilidade regiao={regiao} tipoVaga={tipoVaga} />
+        {tipoVaga !== 'COMUM' && <p className="m-0 text-base" style={{ color: 'var(--pv-text-secondary)' }} data-testid="aviso-credencial">Use a vaga reservada só com a credencial válida à vista no veículo.</p>}
         <div>
           <h2 className="text-xl font-semibold" style={{ color: 'var(--pv-text-primary)' }}>Por que esta região</h2>
           <p className="mt-2 text-lg leading-snug" style={{ color: 'var(--pv-text-primary)' }} data-testid="justificativa">{recomendacao.justificativa}</p>
@@ -229,7 +286,7 @@ function TelaRecomendacao({ dados, regioes, aoEmitir }: { dados: RespostaEntrada
   );
 }
 
-function TelaTicket({ dados, aoConcluir, demonstracao }: { dados: RespostaEntrada; aoConcluir: () => void; demonstracao: boolean }) {
+function TelaTicket({ dados, tipoVaga, aoConcluir, demonstracao }: { dados: RespostaEntrada; tipoVaga: TipoVaga; aoConcluir: () => void; demonstracao: boolean }) {
   const { ticket, recomendacao, qrUrl } = dados;
   const [svg, setSvg] = useState<string | null>('');
   const [restante, setRestante] = useState(RETORNO_TICKET_S);
@@ -266,6 +323,7 @@ function TelaTicket({ dados, aoConcluir, demonstracao }: { dados: RespostaEntrad
         <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 mt-4 text-sm">
           <dt style={{ color: 'var(--pv-color-asfalto-600)' }}>Veículo</dt><dd className="m-0 font-medium">{NOME_CATEGORIA[ticket.categoria]}</dd>
           <dt style={{ color: 'var(--pv-color-asfalto-600)' }}>Entrada</dt><dd className="m-0 font-medium num">{dataHora(ticket.entradaEm)}</dd>
+          {tipoVaga !== 'COMUM' && <><dt style={{ color: 'var(--pv-color-asfalto-600)' }}>Vaga</dt><dd className="m-0 font-medium flex items-center gap-1.5" data-testid="ticket-tipo-vaga"><IconeTipoVaga tipo={tipoVaga} tamanho={16} />{NOME_TIPO_VAGA[tipoVaga]}</dd></>}
         </dl>
         <ol className="mt-4 pl-5 m-0 text-sm grid gap-1 list-decimal">{passos.map((p) => <li key={p}>{p}</li>)}</ol>
         <div className="my-4 border-t-2 border-dashed" style={{ borderColor: 'var(--pv-color-asfalto-200)' }} />

@@ -9,13 +9,13 @@
  * Ordem das travas sempre ticket → região, nas três operações (evita deadlock).
  */
 import { recomendar } from '@parkvision/core';
-import { mapaCapimDourado, type AvaliacaoRegiao, type Categoria, type NovaEntrada, type Pesos, type Recomendacao, type Regiao, type Rota, type Ticket, type TicketAtualizado } from '@parkvision/shared';
+import { caminhoPedestre, caminhosPedestres, mapaCapimDourado, NOME_TIPO_VAGA, type AvaliacaoRegiao, type Categoria, type NovaEntrada, type Pesos, type Recomendacao, type Regiao, type Rota, type Ticket, type TicketAtualizado, type TipoVaga } from '@parkvision/shared';
 import type { Prisma, PrismaClient } from '@prisma/client';
 import { createHash, randomBytes } from 'node:crypto';
 import { vazaoReferencia, type Config } from '../config.ts';
 import { ErroApi } from '../erros.ts';
 import type { Emissor } from '../tempo-real.ts';
-import { buscarRegiao, calcularIndicadores, fluxoPorRegiao, JANELA_FLUXO_MS, listarRegioes } from './regioes.ts';
+import { buscarRegiao, calcularIndicadores, fluxoPorRegiao, JANELA_FLUXO_MS, listarRegioes, vagasDoTipoTexto } from './regioes.ts';
 
 type Db = PrismaClient | Prisma.TransactionClient;
 type TicketDb = Prisma.TicketGetPayload<object>;
@@ -43,6 +43,7 @@ export function ticketDto(t: TicketDb): Ticket {
     estacionadoEm: t.estacionadoEm?.toISOString() ?? null,
     saidaEm: t.saidaEm?.toISOString() ?? null,
     status: t.status,
+    tipoVaga: t.tipoVaga as TipoVaga,
   };
 }
 
@@ -61,10 +62,12 @@ export function recomendacaoDto(r: RecomendacaoDb): Recomendacao {
 }
 
 /** Roda o algoritmo com o estado atual do banco (ocupação, fluxo e sensores). */
-async function calcularRecomendacao(db: Db, config: Config, categoria: Categoria, acessoNo: string, agora: Date, janelaMs: number) {
+async function calcularRecomendacao(db: Db, config: Config, categoria: Categoria, acessoNo: string, agora: Date, janelaMs: number, tipoVaga: TipoVaga = 'COMUM') {
   const regioes = await listarRegioes(db, agora);
   return recomendar({
     categoria,
+    tipoVaga,
+    caminhosPedestres: caminhosPedestres(),
     acessoNo,
     regioes,
     fluxoRecente: await fluxoPorRegiao(db, agora, janelaMs),
@@ -81,14 +84,15 @@ export async function registrarEntrada({ db, emissor, config }: Dependencias, en
   const acesso = await db.acesso.findUnique({ where: { id: entrada.acessoId } });
   if (!acesso) throw new ErroApi('ACESSO_NAO_ENCONTRADO', `Acesso ${entrada.acessoId} não existe`);
 
-  const resultado = await calcularRecomendacao(db, config, entrada.categoria, acesso.noMapa, agora, opcoes.janelaFluxoMs ?? JANELA_FLUXO_MS);
-  if (resultado.tipo === 'SEM_REGIAO') throw new ErroApi('SEM_REGIAO_ELEGIVEL', resultado.justificativa, { avaliacoes: resultado.avaliacoes });
+  const tipoVaga: TipoVaga = entrada.tipoVaga ?? 'COMUM';
+  const resultado = await calcularRecomendacao(db, config, entrada.categoria, acesso.noMapa, agora, opcoes.janelaFluxoMs ?? JANELA_FLUXO_MS, tipoVaga);
+  if (resultado.tipo === 'SEM_REGIAO') throw new ErroApi('SEM_REGIAO_ELEGIVEL', resultado.justificativa, { avaliacoes: resultado.avaliacoes, tipoVaga });
 
   const token = randomBytes(16).toString('base64url');
   const criado = await db.$transaction(async (tx) => {
     const provisorio = await tx.ticket.create({
       data: {
-        codigo: `TMP-${token}`, tokenHash: hashToken(token), categoria: entrada.categoria, acessoId: acesso.id,
+        codigo: `TMP-${token}`, tokenHash: hashToken(token), categoria: entrada.categoria, tipoVaga, acessoId: acesso.id,
         placa: entrada.placa ?? null, regiaoRecomendadaId: resultado.regiaoId, entradaEm: agora, simulado,
       },
     });
@@ -125,8 +129,8 @@ export async function novaRecomendacao({ db, emissor, config }: Dependencias, co
   const t = await buscarTicket(db, codigo);
   if (t.status !== 'AGUARDANDO') throw new ErroApi('TRANSICAO_INVALIDA', `Ticket ${codigo} está ${t.status}; só tickets AGUARDANDO recebem nova recomendação`);
   const acesso = await db.acesso.findUniqueOrThrow({ where: { id: t.acessoId } });
-  const resultado = await calcularRecomendacao(db, config, t.categoria as Categoria, acesso.noMapa, agora, opcoes.janelaFluxoMs ?? JANELA_FLUXO_MS);
-  if (resultado.tipo === 'SEM_REGIAO') throw new ErroApi('SEM_REGIAO_ELEGIVEL', resultado.justificativa, { avaliacoes: resultado.avaliacoes });
+  const resultado = await calcularRecomendacao(db, config, t.categoria as Categoria, acesso.noMapa, agora, opcoes.janelaFluxoMs ?? JANELA_FLUXO_MS, t.tipoVaga as TipoVaga);
+  if (resultado.tipo === 'SEM_REGIAO') throw new ErroApi('SEM_REGIAO_ELEGIVEL', resultado.justificativa, { avaliacoes: resultado.avaliacoes, tipoVaga: t.tipoVaga });
   const { ticket, rec } = await db.$transaction(async (tx) => {
     const mudou = await tx.ticket.updateMany({ where: { numero: t.numero, status: 'AGUARDANDO' }, data: { regiaoRecomendadaId: resultado.regiaoId } });
     if (mudou.count === 0) throw new ErroApi('TRANSICAO_INVALIDA', `Ticket ${codigo} mudou de estado; só tickets AGUARDANDO recebem nova recomendação`);
@@ -152,12 +156,15 @@ export async function estacionar({ db, emissor }: Dependencias, codigo: string, 
     if (!regiao.categorias.includes(t.categoria as Categoria)) throw new ErroApi('CATEGORIA_INCOMPATIVEL', `Região ${destino} não aceita ${t.categoria}`);
     // revalida a disponibilidade no momento da confirmação (a região pode ter sido fechada depois da recomendação)
     if (!regiao.operacional) throw new ErroApi('REGIAO_INDISPONIVEL', `Região ${destino} está indisponível no momento`, { regiaoId: destino });
+    // a vaga ocupada é do tipo declarado no ticket: região sem vagas desse tipo não serve (nada de trocar de tipo)
+    const tipo = t.tipoVaga as TipoVaga;
+    if (regiao.vagas![tipo].capacidade === 0) throw new ErroApi('TIPO_VAGA_INCOMPATIVEL', `Região ${destino} não tem ${vagasDoTipoTexto(tipo)}`, { regiaoId: destino, tipoVaga: tipo });
     // 1) troca de status condicionada: confirmação duplicada (mesmo simultânea) não passa daqui
     const mudou = await tx.ticket.updateMany({ where: { numero: t.numero, status: 'AGUARDANDO' }, data: { status: 'ESTACIONADO', regiaoEstacionadaId: destino, estacionadoEm: agora } });
     if (mudou.count === 0) throw new ErroApi('TRANSICAO_INVALIDA', `Ticket ${codigo} já foi confirmado ou mudou de estado`);
     // 2) incremento atômico condicionado: nunca passa da capacidade, mesmo com confirmações simultâneas
-    const r = await tx.$executeRaw`UPDATE regiao SET ocupadas = ocupadas + 1, versao = versao + 1, "atualizadoEm" = clock_timestamp() WHERE id = ${destino} AND ocupadas < capacidade`;
-    if (r === 0) throw new ErroApi('REGIAO_LOTADA', `Região ${destino} está lotada`, { regiaoId: destino });
+    const r = await ocuparVaga(tx, destino, tipo);
+    if (r === 0) throw new ErroApi('REGIAO_LOTADA', tipo === 'COMUM' ? `Região ${destino} está lotada` : `As ${vagasDoTipoTexto(tipo)} da região ${destino} estão todas ocupadas`, { regiaoId: destino, tipoVaga: tipo });
     await tx.eventoOcupacao.create({ data: { regiaoId: destino, tipo: 'ENTRADA_VAGA', origem: opcoes.origem ?? 'operador', ticketNumero: t.numero, simulado: t.simulado, ocorridoEm: agora } });
     const ticket = await tx.ticket.findUniqueOrThrow({ where: { numero: t.numero } });
     return { ticket: ticketDto(ticket), regiao: await buscarRegiao(tx, destino, agora), simulado: t.simulado };
@@ -168,6 +175,27 @@ export async function estacionar({ db, emissor }: Dependencias, codigo: string, 
   emissor.emitir('regiao:ocupacao', dto.regiao.id, dto.regiao, simulado);
   emissor.emitir('indicadores:atualizados', 'indicadores', await calcularIndicadores(db, agora), simulado);
   return dto;
+}
+
+/**
+ * +1 atômico e condicionado no tipo de vaga (o total acompanha). Nunca passa da capacidade do tipo, mesmo com
+ * confirmações simultâneas; a vaga comum só conta as comuns (as reservadas ficam de fora).
+ */
+function ocuparVaga(tx: Prisma.TransactionClient, id: string, tipo: TipoVaga) {
+  switch (tipo) {
+    case 'PCD': return tx.$executeRaw`UPDATE regiao SET ocupadas = ocupadas + 1, "ocupadasPcd" = "ocupadasPcd" + 1, versao = versao + 1, "atualizadoEm" = clock_timestamp() WHERE id = ${id} AND "ocupadasPcd" < "capacidadePcd"`;
+    case 'IDOSO': return tx.$executeRaw`UPDATE regiao SET ocupadas = ocupadas + 1, "ocupadasIdoso" = "ocupadasIdoso" + 1, versao = versao + 1, "atualizadoEm" = clock_timestamp() WHERE id = ${id} AND "ocupadasIdoso" < "capacidadeIdoso"`;
+    default: return tx.$executeRaw`UPDATE regiao SET ocupadas = ocupadas + 1, versao = versao + 1, "atualizadoEm" = clock_timestamp() WHERE id = ${id} AND ocupadas - "ocupadasPcd" - "ocupadasIdoso" < capacidade - "capacidadePcd" - "capacidadeIdoso"`;
+  }
+}
+
+/** −1 atômico no tipo de vaga do ticket (o total acompanha); nunca deixa ocupação negativa. */
+function liberarVaga(tx: Prisma.TransactionClient, id: string, tipo: TipoVaga) {
+  switch (tipo) {
+    case 'PCD': return tx.$executeRaw`UPDATE regiao SET ocupadas = ocupadas - 1, "ocupadasPcd" = "ocupadasPcd" - 1, versao = versao + 1, "atualizadoEm" = clock_timestamp() WHERE id = ${id} AND "ocupadasPcd" > 0 AND ocupadas > 0`;
+    case 'IDOSO': return tx.$executeRaw`UPDATE regiao SET ocupadas = ocupadas - 1, "ocupadasIdoso" = "ocupadasIdoso" - 1, versao = versao + 1, "atualizadoEm" = clock_timestamp() WHERE id = ${id} AND "ocupadasIdoso" > 0 AND ocupadas > 0`;
+    default: return tx.$executeRaw`UPDATE regiao SET ocupadas = ocupadas - 1, versao = versao + 1, "atualizadoEm" = clock_timestamp() WHERE id = ${id} AND ocupadas - "ocupadasPcd" - "ocupadasIdoso" > 0`;
+  }
 }
 
 /**
@@ -188,8 +216,8 @@ export async function registrarSaida({ db, emissor }: Dependencias, codigo: stri
     // troca de status condicionada: saída duplicada (mesmo simultânea) não passa daqui
     const mudou = await tx.ticket.updateMany({ where: { numero: t.numero, status: 'ESTACIONADO', regiaoEstacionadaId: t.regiaoEstacionadaId }, data: { status: 'SAIU', saidaEm: agora } });
     if (mudou.count === 0) throw new ErroApi('TRANSICAO_INVALIDA', `Ticket ${codigo} já registrou saída ou mudou de estado`);
-    const r = await tx.$executeRaw`UPDATE regiao SET ocupadas = ocupadas - 1, versao = versao + 1, "atualizadoEm" = clock_timestamp() WHERE id = ${t.regiaoEstacionadaId} AND ocupadas > 0`;
-    if (r === 0) throw new ErroApi('DADOS_INVALIDOS', `Região ${t.regiaoEstacionadaId} já está com ocupação zero`);
+    const r = await liberarVaga(tx, t.regiaoEstacionadaId, t.tipoVaga as TipoVaga);
+    if (r === 0) throw new ErroApi('DADOS_INVALIDOS', `Região ${t.regiaoEstacionadaId} já está com ocupação zero para ${vagasDoTipoTexto(t.tipoVaga as TipoVaga)}`);
     await tx.eventoOcupacao.create({ data: { regiaoId: t.regiaoEstacionadaId, tipo: 'SAIDA_VAGA', origem: opcoes.origem ?? 'operador', ticketNumero: t.numero, simulado: t.simulado, ocorridoEm: agora } });
     const ticket = await tx.ticket.findUniqueOrThrow({ where: { numero: t.numero } });
     return { ticket: ticketDto(ticket), regiao: await buscarRegiao(tx, t.regiaoEstacionadaId, agora) as Regiao | null, simulado: t.simulado };
@@ -267,16 +295,22 @@ export async function localizar(db: PrismaClient, token: string) {
   const recomendada = await buscarRegiao(db, t.regiaoRecomendadaId);
   const regiao = t.regiaoEstacionadaId ? await buscarRegiao(db, t.regiaoEstacionadaId) : null;
   const referencia = (id: string) => mapaCapimDourado.regioes.find((r) => r.id === id)?.referencia ?? '';
+  const tipoVaga = t.tipoVaga as TipoVaga;
+  const reservada = tipoVaga !== 'COMUM';
+  const sinalizacao = reservada ? `Procure as vagas sinalizadas: ${NOME_TIPO_VAGA[tipoVaga].toLowerCase()} (credencial válida obrigatória no veículo).` : '';
   const orientacao = regiao
     ? [`Seu carro está na região ${regiao.id} (${regiao.nome}).`, referencia(regiao.id)]
-    : [`O estacionamento ainda não foi confirmado. A região recomendada foi ${recomendada.id} (${recomendada.nome}).`, referencia(recomendada.id)];
+    : [`O estacionamento ainda não foi confirmado. A região recomendada foi ${recomendada.id} (${recomendada.nome}).`, referencia(recomendada.id), sinalizacao];
   return {
     ticket: {
       codigo: t.codigo, entradaEm: t.entradaEm.toISOString(), status: t.status, categoria: t.categoria,
       estacionadoEm: t.estacionadoEm?.toISOString() ?? null, saidaEm: t.saidaEm?.toISOString() ?? null,
       simulado: t.simulado,
+      tipoVaga,
     },
     regiao, recomendada, orientacao: orientacao.filter(Boolean),
+    // vagas reservadas: o que a planta diz do caminho a pé até o shopping (nunca afirma acessibilidade não validada)
+    caminhoPedestre: reservada ? caminhoPedestre((regiao ?? recomendada).id) : null,
     // navegação (Etapa Golden Park mobile): acesso de entrada e a rota da recomendação vigente, só enquanto o veículo
     // ainda está a caminho — depois de estacionar/sair não há rota ativa a mostrar
     acesso: await acessoPublico(db, t.acessoId),

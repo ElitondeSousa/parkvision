@@ -21,6 +21,7 @@ test('totem → ticket → localizador: QR real, sem reserva, e a região regist
   await page.goto('/totem?acesso=A_NE');
   await page.getByRole('button', { name: 'Começar' }).click();
   await page.getByRole('button', { name: 'Carro pequeno' }).click();
+  await page.getByRole('button', { name: /^Vaga comum/ }).click();
   await expect(page.getByTestId('justificativa')).toBeVisible({ timeout: 10_000 });
   const regiaoIndicada = await page.getByTestId('mapa-estacionamento').locator('[data-destino="true"]').getAttribute('data-regiao');
   await page.getByRole('button', { name: 'Emitir ticket' }).click();

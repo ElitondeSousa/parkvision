@@ -9,7 +9,7 @@
  * - Modo automático (timer de 250 ms × velocidade) ou passo a passo (`avancar`), usado nos testes.
  * - Tudo o que ele grava leva `simulado = true`; o reinício só apaga isso (dados reais ficam intactos).
  */
-import { CATEGORIAS, type Categoria, type CenarioId, type ConfigSimulacao, type EventoManual, type EventoSensor, type Regiao } from '@parkvision/shared';
+import { CATEGORIAS, TIPOS_VAGA, vagasDaRegiao, type Categoria, type CenarioId, type ConfigSimulacao, type EventoManual, type EventoSensor, type Regiao, type TipoVaga } from '@parkvision/shared';
 import { randomBytes, randomUUID } from 'node:crypto';
 import { ErroApi } from '../erros.ts';
 import { calcularIndicadores, listarRegioes } from '../servicos/regioes.ts';
@@ -27,6 +27,8 @@ export const CONFIG_PADRAO: ConfigResolvida = {
   permanenciaMediaMin: 90,
   maxVeiculos: 0,
   proporcaoCategorias: { CARRO_PEQUENO: 0.6, CARRO_GRANDE: 0.25, MOTO: 0.15 },
+  // padrão: todos pedem vaga comum (mantém as sementes dos cenários antigos); o painel e o cenário F ligam os reservados
+  proporcaoTipoVaga: { COMUM: 1, PCD: 0, IDOSO: 0 },
   chanceIgnorarRecomendacao: 0.1,
   tempoManobraSeg: 90,
   chanceFalhaSensorPorMin: 0,
@@ -52,7 +54,7 @@ const zerarEstatisticas = () => ({
 });
 export type Estatisticas = ReturnType<typeof zerarEstatisticas>;
 
-interface Pendente { codigo: string; categoria: Categoria; regiaoAlvo: string; confirmarEm: number; tentativas: number }
+interface Pendente { codigo: string; categoria: Categoria; tipoVaga: TipoVaga; regiaoAlvo: string; confirmarEm: number; tentativas: number }
 interface Estacionado { codigo: string; regiaoId: string; sairEm: number }
 interface Agendado { em: number; rotulo: string; executar: () => Promise<unknown> }
 interface Alerta { codigo: string; mensagem: string; ticketCodigo?: string; regiaoId?: string; em: string }
@@ -184,11 +186,12 @@ export class MotorSimulacao {
         case 'entrada': {
           const categoria = ev.categoria ?? this.sortearCategoria(CATEGORIAS);
           const acessoId = ev.acessoId ?? this.sortear(ACESSOS_COM_TOTEM)!;
-          const r = await registrarEntrada(this.deps, { categoria, acessoId }, { simulado: true, agora: this.agora(), origem: 'simulador' });
+          const tipoVaga = categoria === 'MOTO' ? 'COMUM' : ev.tipoVaga ?? this.sortearTipoVaga(categoria);
+          const r = await registrarEntrada(this.deps, { categoria, acessoId, tipoVaga }, { simulado: true, agora: this.agora(), origem: 'simulador' });
           this.estatisticas.entradas++;
           const automatico = this.status !== 'parado' && this.config.modo === 'automatico';
           this.pendentes.set(r.ticket.codigo, {
-            codigo: r.ticket.codigo, categoria, regiaoAlvo: r.recomendacao.regiaoId, tentativas: 0,
+            codigo: r.ticket.codigo, categoria, tipoVaga, regiaoAlvo: r.recomendacao.regiaoId, tentativas: 0,
             confirmarEm: automatico ? this.relogio + this.tempoManobra() : Infinity,
           });
           return r;
@@ -196,7 +199,7 @@ export class MotorSimulacao {
         case 'confirmar': {
           const t = await this.ticketSimulado(ev.codigo);
           const destino = ev.regiaoId ?? t.regiaoRecomendadaId;
-          const p = this.pendentes.get(t.codigo) ?? { codigo: t.codigo, categoria: t.categoria as Categoria, regiaoAlvo: t.regiaoRecomendadaId, confirmarEm: Infinity, tentativas: 0 };
+          const p = this.pendentes.get(t.codigo) ?? { codigo: t.codigo, categoria: t.categoria as Categoria, tipoVaga: t.tipoVaga as TipoVaga, regiaoAlvo: t.regiaoRecomendadaId, confirmarEm: Infinity, tentativas: 0 };
           return this.confirmar(p, destino, false);
         }
         case 'saida': {
@@ -335,14 +338,16 @@ export class MotorSimulacao {
     this.gerados++;
     const categoria = this.sortearCategoria(CATEGORIAS);
     const acessoId = this.sortear(ACESSOS_COM_TOTEM)!;
+    const tipoVaga = this.sortearTipoVaga(categoria);
     try {
-      const r = await registrarEntrada(this.deps, { categoria, acessoId }, { simulado: true, agora: this.agora(), origem: 'simulador' });
+      const r = await registrarEntrada(this.deps, { categoria, acessoId, tipoVaga }, { simulado: true, agora: this.agora(), origem: 'simulador' });
       this.estatisticas.entradas++;
-      this.pendentes.set(r.ticket.codigo, { codigo: r.ticket.codigo, categoria, regiaoAlvo: r.recomendacao.regiaoId, confirmarEm: this.relogio + this.tempoManobra(), tentativas: 0 });
+      this.pendentes.set(r.ticket.codigo, { codigo: r.ticket.codigo, categoria, tipoVaga, regiaoAlvo: r.recomendacao.regiaoId, confirmarEm: this.relogio + this.tempoManobra(), tentativas: 0 });
     } catch (e) {
       if (!(e instanceof ErroApi) || e.codigo !== 'SEM_REGIAO_ELEGIVEL') throw e;
       this.estatisticas.semRegiao++;
-      this.alertar('SEM_REGIAO_ELEGIVEL', `Nenhuma região elegível para ${categoria} no acesso ${acessoId}; o veículo não recebeu ticket.`);
+      const pedido = tipoVaga === 'COMUM' ? categoria : `${categoria} pedindo vaga ${tipoVaga === 'PCD' ? 'PcD' : 'para pessoa idosa'}`;
+      this.alertar(tipoVaga === 'COMUM' ? 'SEM_REGIAO_ELEGIVEL' : 'SEM_VAGA_RESERVADA', `Nenhuma região elegível para ${pedido} no acesso ${acessoId}; o veículo não recebeu ticket.`);
     }
   }
 
@@ -355,7 +360,7 @@ export class MotorSimulacao {
     if (automatico && p.tentativas === 0) {
       const ignorar = this.rng() < this.config.chanceIgnorarRecomendacao;
       if (ignorar) {
-        const alternativa = await this.regiaoAlternativa(p.categoria, destino);
+        const alternativa = await this.regiaoAlternativa(p.categoria, destino, p.tipoVaga);
         if (alternativa) { destino = alternativa; this.estatisticas.recomendacoesIgnoradas++; }
       }
     }
@@ -449,20 +454,28 @@ export class MotorSimulacao {
     const regioes = await listarRegioes(this.deps.db, this.agora());
     for (const r of regioes) {
       const espec = def.ocupacaoPorRegiao?.[r.id];
-      const alvo = espec?.livres !== undefined ? r.capacidade - espec.livres : Math.round(r.capacidade * (espec?.fracao ?? def.ocupacaoInicial));
-      const n = Math.min(r.capacidade, Math.max(0, alvo)) - r.ocupadas;
-      if (n > 0) await this.criarEstacionados(r, n);
+      const vagas = vagasDaRegiao(r);
+      // cada tipo de vaga é preenchido separadamente (reservadas nunca recebem veículo de outro tipo)
+      for (const tipo of TIPOS_VAGA) {
+        const { capacidade, ocupadas } = vagas[tipo];
+        if (capacidade <= 0) continue;
+        const fracao = espec?.fracao ?? def.ocupacaoPorTipo?.[tipo] ?? def.ocupacaoInicial;
+        const alvo = tipo === 'COMUM' && espec?.livres !== undefined ? capacidade - espec.livres : Math.round(capacidade * fracao);
+        const n = Math.min(capacidade, Math.max(0, alvo)) - ocupadas;
+        if (n > 0) await this.criarEstacionados(r, n, tipo);
+      }
     }
   }
 
-  private async criarEstacionados(r: Regiao, n: number) {
+  private async criarEstacionados(r: Regiao, n: number, tipoVaga: TipoVaga = 'COMUM') {
     const permanencia = this.config.permanenciaMediaMin * 60_000;
     const dados = Array.from({ length: n }, () => {
       const entradaEm = this.relogio - this.rng() * permanencia;
       return {
         codigo: `PVS-${randomBytes(5).toString('hex').toUpperCase()}`,
         tokenHash: hashToken(randomBytes(16).toString('base64url')),
-        categoria: this.sortearCategoria(r.categorias),
+        categoria: this.sortearCategoria(tipoVaga === 'COMUM' ? r.categorias : r.categorias.filter((c) => c !== 'MOTO')),
+        tipoVaga,
         acessoId: this.sortear(ACESSOS_COM_TOTEM)!,
         regiaoRecomendadaId: r.id,
         regiaoEstacionadaId: r.id,
@@ -474,7 +487,11 @@ export class MotorSimulacao {
     });
     const criados = await this.deps.db.$transaction(async (tx) => {
       // incremento condicionado: o preenchimento também nunca passa da capacidade
-      const linhas = await tx.$executeRaw`UPDATE regiao SET ocupadas = ocupadas + ${n}::int, versao = versao + 1, "atualizadoEm" = clock_timestamp() WHERE id = ${r.id} AND ocupadas + ${n}::int <= capacidade`;
+      const linhas = tipoVaga === 'PCD'
+        ? await tx.$executeRaw`UPDATE regiao SET ocupadas = ocupadas + ${n}::int, "ocupadasPcd" = "ocupadasPcd" + ${n}::int, versao = versao + 1, "atualizadoEm" = clock_timestamp() WHERE id = ${r.id} AND "ocupadasPcd" + ${n}::int <= "capacidadePcd"`
+        : tipoVaga === 'IDOSO'
+          ? await tx.$executeRaw`UPDATE regiao SET ocupadas = ocupadas + ${n}::int, "ocupadasIdoso" = "ocupadasIdoso" + ${n}::int, versao = versao + 1, "atualizadoEm" = clock_timestamp() WHERE id = ${r.id} AND "ocupadasIdoso" + ${n}::int <= "capacidadeIdoso"`
+          : await tx.$executeRaw`UPDATE regiao SET ocupadas = ocupadas + ${n}::int, versao = versao + 1, "atualizadoEm" = clock_timestamp() WHERE id = ${r.id} AND ocupadas - "ocupadasPcd" - "ocupadasIdoso" + ${n}::int <= capacidade - "capacidadePcd" - "capacidadeIdoso"`;
       if (linhas === 0) throw new ErroApi('REGIAO_LOTADA', `Não cabem mais ${n} veículos em ${r.id}`);
       await tx.eventoOcupacao.create({ data: { regiaoId: r.id, tipo: 'AJUSTE', origem: 'simulador:preenchimento', simulado: true, ocorridoEm: new Date(this.relogio) } });
       return tx.ticket.createManyAndReturn({ data: dados, select: { codigo: true } });
@@ -491,7 +508,7 @@ export class MotorSimulacao {
       if (t.status === 'ESTACIONADO' && t.regiaoEstacionadaId) {
         this.estacionados.set(t.codigo, { codigo: t.codigo, regiaoId: t.regiaoEstacionadaId, sairEm: this.relogio + this.exponencial(this.config.permanenciaMediaMin * 60_000) });
       } else {
-        this.pendentes.set(t.codigo, { codigo: t.codigo, categoria: t.categoria as Categoria, regiaoAlvo: t.regiaoRecomendadaId, confirmarEm: this.relogio + this.tempoManobra(), tentativas: 0 });
+        this.pendentes.set(t.codigo, { codigo: t.codigo, categoria: t.categoria as Categoria, tipoVaga: t.tipoVaga as TipoVaga, regiaoAlvo: t.regiaoRecomendadaId, confirmarEm: this.relogio + this.tempoManobra(), tentativas: 0 });
       }
     }
   }
@@ -503,12 +520,15 @@ export class MotorSimulacao {
    */
   private async limparDadosSimulados() {
     const resumo = await this.deps.db.$transaction(async (tx) => {
-      const porRegiao = await tx.ticket.groupBy({ by: ['regiaoEstacionadaId'], where: { simulado: true, status: 'ESTACIONADO' }, _count: true });
+      const porRegiao = await tx.ticket.groupBy({ by: ['regiaoEstacionadaId', 'tipoVaga'], where: { simulado: true, status: 'ESTACIONADO' }, _count: true });
       let vagasLiberadas = 0;
       for (const g of porRegiao) {
         if (!g.regiaoEstacionadaId) continue;
-        await tx.$executeRaw`UPDATE regiao SET ocupadas = GREATEST(0, ocupadas - ${g._count}::int), versao = versao + 1, "atualizadoEm" = clock_timestamp() WHERE id = ${g.regiaoEstacionadaId}`;
-        vagasLiberadas += g._count;
+        const n = g._count;
+        if (g.tipoVaga === 'PCD') await tx.$executeRaw`UPDATE regiao SET ocupadas = GREATEST(0, ocupadas - ${n}::int), "ocupadasPcd" = GREATEST(0, "ocupadasPcd" - ${n}::int), versao = versao + 1, "atualizadoEm" = clock_timestamp() WHERE id = ${g.regiaoEstacionadaId}`;
+        else if (g.tipoVaga === 'IDOSO') await tx.$executeRaw`UPDATE regiao SET ocupadas = GREATEST(0, ocupadas - ${n}::int), "ocupadasIdoso" = GREATEST(0, "ocupadasIdoso" - ${n}::int), versao = versao + 1, "atualizadoEm" = clock_timestamp() WHERE id = ${g.regiaoEstacionadaId}`;
+        else await tx.$executeRaw`UPDATE regiao SET ocupadas = GREATEST("ocupadasPcd" + "ocupadasIdoso", ocupadas - ${n}::int), versao = versao + 1, "atualizadoEm" = clock_timestamp() WHERE id = ${g.regiaoEstacionadaId}`;
+        vagasLiberadas += n;
       }
       const sensores = await tx.eventoSensor.deleteMany({ where: { simulado: true } });
       await tx.eventoOcupacao.deleteMany({ where: { simulado: true } });
@@ -537,8 +557,9 @@ export class MotorSimulacao {
     return t;
   }
 
-  private async regiaoAlternativa(categoria: Categoria, evitar: string) {
-    const opcoes = (await listarRegioes(this.deps.db, this.agora())).filter((r) => r.id !== evitar && r.operacional && r.categorias.includes(categoria));
+  private async regiaoAlternativa(categoria: Categoria, evitar: string, tipoVaga: TipoVaga = 'COMUM') {
+    // o motorista que ignora a recomendação ainda procura uma vaga do próprio tipo
+    const opcoes = (await listarRegioes(this.deps.db, this.agora())).filter((r) => r.id !== evitar && r.operacional && r.categorias.includes(categoria) && vagasDaRegiao(r)[tipoVaga].capacidade > 0);
     return this.sortear(opcoes)?.id ?? null;
   }
 
@@ -572,6 +593,14 @@ export class MotorSimulacao {
     let x = this.rng() * total;
     for (let i = 0; i < permitidas.length; i++) { x -= pesos[i]!; if (x < 0) return permitidas[i]!; }
     return permitidas[permitidas.length - 1]!;
+  }
+
+  /** Tipo de vaga pedido por um veículo de carro (moto pede sempre comum). Sem reservados configurados, não sorteia. */
+  private sortearTipoVaga(categoria: Categoria): TipoVaga {
+    const p = this.config.proporcaoTipoVaga;
+    if (categoria === 'MOTO' || p.PCD + p.IDOSO <= 0) return 'COMUM';
+    const x = this.rng();
+    return x < p.PCD ? 'PCD' : x < p.PCD + p.IDOSO ? 'IDOSO' : 'COMUM';
   }
 
   private alertar(codigo: string, mensagem: string, ticketCodigo?: string, regiaoId?: string) {
@@ -613,7 +642,14 @@ export class MotorSimulacao {
 /** Junta uma configuração parcial na atual e normaliza as proporções de categoria. */
 export function resolverConfig(base: ConfigResolvida, parcial: ConfigSimulacao): ConfigResolvida {
   const definidos = Object.fromEntries(Object.entries(parcial).filter(([, v]) => v !== undefined)) as ConfigSimulacao;
-  const config = { ...base, ...definidos, proporcaoCategorias: { ...base.proporcaoCategorias, ...(definidos.proporcaoCategorias ?? {}) } };
+  const config = {
+    ...base, ...definidos,
+    proporcaoCategorias: { ...base.proporcaoCategorias, ...(definidos.proporcaoCategorias ?? {}) },
+    proporcaoTipoVaga: { ...base.proporcaoTipoVaga, ...(definidos.proporcaoTipoVaga ?? {}) },
+  };
+  const somaTipos = TIPOS_VAGA.reduce((s, t) => s + config.proporcaoTipoVaga[t], 0);
+  if (somaTipos <= 0) throw new ErroApi('DADOS_INVALIDOS', 'As proporções de tipo de vaga não podem ser todas zero');
+  config.proporcaoTipoVaga = Object.fromEntries(TIPOS_VAGA.map((t) => [t, config.proporcaoTipoVaga[t] / somaTipos])) as ConfigResolvida['proporcaoTipoVaga'];
   const soma = CATEGORIAS.reduce((s, c) => s + config.proporcaoCategorias[c], 0);
   if (soma <= 0) throw new ErroApi('DADOS_INVALIDOS', 'As proporções de categoria não podem ser todas zero');
   config.proporcaoCategorias = Object.fromEntries(CATEGORIAS.map((c) => [c, config.proporcaoCategorias[c] / soma])) as ConfigResolvida['proporcaoCategorias'];

@@ -9,14 +9,15 @@
  */
 import {
   esquemaAtivarCenario, esquemaAtualizarRegiao, esquemaConfigSimulacao, esquemaEstacionar, esquemaEventoManual, esquemaEventoSensor,
-  esquemaIniciarSimulacao, esquemaListarRecomendacoes, esquemaListarTickets, esquemaNovaEntrada, mapaCapimDourado,
+  esquemaIniciarSimulacao, esquemaListarRecomendacoes, esquemaListarTickets, esquemaNovaEntrada, esquemaVagasReservadas, mapaCapimDourado,
+  acessibilidade, caminhosPedestres, resumoVagasReservadas,
 } from '@parkvision/shared';
 import type { PrismaClient } from '@prisma/client';
 import Fastify, { type FastifyReply, type FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import type { Config } from './config.ts';
 import { ErroApi, ehFalhaDeBanco, registrarTratamentoDeErros } from './erros.ts';
-import { atualizarRegiao, calcularIndicadores, listarRegioes } from './servicos/regioes.ts';
+import { atualizarRegiao, calcularIndicadores, configurarVagasReservadas, listarRegioes } from './servicos/regioes.ts';
 import { processarEventoSensor } from './servicos/sensores.ts';
 import {
   cancelar, consultarTicket, estacionar, historico, listarRecomendacoes, listarTickets, localizar, novaRecomendacao, registrarEntrada, registrarSaida,
@@ -88,6 +89,16 @@ export function criarApp({ db, emissor, config, log = false, motor: motorInforma
   app.get('/api/indicadores', async () => calcularIndicadores(db, agora()));
   app.get('/api/recomendacoes', async (req) => listarRecomendacoes(db, esquemaListarRecomendacoes.parse(req.query).limite));
   app.get('/api/historico', async (req) => historico(db, esquemaLimite.parse(req.query).limite));
+  // vagas reservadas: totais por tipo, mínimos legais, alertas, critérios da proposta e caminhos a pé (o que a planta diz)
+  app.get('/api/vagas-reservadas', async () => ({
+    ...resumoVagasReservadas(await listarRegioes(db, agora())),
+    referenciasLegais: acessibilidade.referenciasLegais,
+    baseDeCalculo: acessibilidade.baseDeCalculo,
+    normasAVerificar: acessibilidade.normasAVerificar,
+    criterios: acessibilidade.criteriosDistribuicao,
+    vagasNaPlanta: acessibilidade.vagasNaPlanta,
+    caminhos: caminhosPedestres(),
+  }));
 
   // ── totem e localizador ──
   app.post('/api/entradas', async (req, reply) => {
@@ -102,6 +113,10 @@ export function criarApp({ db, emissor, config, log = false, motor: motorInforma
   app.patch<{ Params: { id: string } }>('/api/regioes/:id', async (req) => {
     exigirOperador(req);
     return atualizarRegiao(db, emissor, req.params.id, esquemaAtualizarRegiao.parse(req.body), origem(req));
+  });
+  app.patch<{ Params: { id: string } }>('/api/regioes/:id/vagas-reservadas', async (req) => {
+    exigirOperador(req);
+    return configurarVagasReservadas(db, emissor, req.params.id, esquemaVagasReservadas.parse(req.body));
   });
   app.get('/api/tickets', async (req) => { exigirOperador(req); return listarTickets(db, esquemaListarTickets.parse(req.query)); });
   app.get('/api/tickets/:codigo', async (req) => { exigirOperador(req); return consultarTicket(db, codigo(req)); });

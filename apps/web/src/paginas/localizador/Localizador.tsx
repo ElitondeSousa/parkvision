@@ -15,6 +15,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import { useParams } from 'react-router';
 import { Botao, Esqueleto, Placa, Selo } from '../../componentes/base.tsx';
 import { IconeCategoria } from '../../componentes/IconeCategoria.tsx';
+import { SeloTipoVaga } from '../../componentes/IconeTipoVaga.tsx';
 import { nomeCurto, nomeDoNivel, orientacaoDaRota, regiaoDoMapa, trechosDaRota } from '../../mapa/dados.ts';
 import { NOME_CATEGORIA, dataHora, hora } from '../../mapa/estado.ts';
 import { MapaEstacionamento, type VeiculoAnimado } from '../../mapa/MapaEstacionamento.tsx';
@@ -93,7 +94,11 @@ function Cabecalho({ subtitulo }: { subtitulo: string }) {
 }
 
 function Navegacao({ dados, aoVivo }: { dados: RespostaLocalizador; aoVivo: boolean }) {
-  const { ticket, regiao, recomendada, orientacao, rota, acesso } = dados;
+  const { ticket, regiao, recomendada, orientacao, rota, acesso, caminhoPedestre } = dados;
+  // vaga reservada (PcD / pessoa idosa): o tipo aparece no painel e no pino; nada de afirmar rota acessível não validada
+  const tipoVaga = ticket.tipoVaga ?? 'COMUM';
+  const reservada = tipoVaga !== 'COMUM';
+  const sinalizacao = reservada ? `Procure as vagas sinalizadas ${tipoVaga === 'PCD' ? 'para PcD' : 'para pessoa idosa'} e use-as só com a credencial válida à vista.` : null;
   const chegando = ticket.status === 'AGUARDANDO';
   const destino = chegando ? recomendada.id : regiao!.id;
   const nos = chegando ? rota?.nos ?? null : null;
@@ -115,7 +120,10 @@ function Navegacao({ dados, aoVivo }: { dados: RespostaLocalizador; aoVivo: bool
   const [expandido, setExpandido] = useState(false);
   const [demo, setDemo] = useState<VeiculoAnimado | null>(null);
   const mapaRef = useRef<HTMLDivElement>(null), painelRef = useRef<HTMLDivElement>(null);
-  const passos = useMemo(() => (nos ? orientacaoDaRota(nos, destino) : [...orientacao, ...(doMapa?.coberta ? [`Fica em área coberta (${nomeDoNivel(doMapa.nivel).toLowerCase()}).`] : [])]), [nos, destino, orientacao, doMapa]);
+  const passos = useMemo(() => {
+    const base = nos ? orientacaoDaRota(nos, destino) : [...orientacao, ...(doMapa?.coberta ? [`Fica em área coberta (${nomeDoNivel(doMapa.nivel).toLowerCase()}).`] : [])];
+    return sinalizacao && !base.includes(sinalizacao) && !base.some((p) => p.includes('credencial')) ? [...base, sinalizacao] : base;
+  }, [nos, destino, orientacao, doMapa, sinalizacao]);
 
   /** enquadra a rota inteira ou só o destino na parte do mapa que o painel não cobre */
   const ajustar = useCallback((tipo: 'rota' | 'destino', n: Nivel = nivel) => {
@@ -177,7 +185,7 @@ function Navegacao({ dados, aoVivo }: { dados: RespostaLocalizador; aoVivo: bool
           destino={destino}
           rota={nos}
           apagarOutras={!chegando}
-          rotuloDestino={chegando ? 'Seu destino' : 'Seu veículo'}
+          rotuloDestino={chegando ? (reservada ? (tipoVaga === 'PCD' ? 'Vaga PcD' : 'Vaga 60+') : 'Seu destino') : 'Seu veículo'}
           veiculos={demo ? [demo] : undefined}
         />
       </div>
@@ -203,6 +211,7 @@ function Navegacao({ dados, aoVivo }: { dados: RespostaLocalizador; aoVivo: bool
             <p className="m-0 text-xs text-ink-2">{chegando ? 'Seu destino' : 'Seu veículo está em'}</p>
             <h1 className="text-2xl font-bold leading-tight" data-testid={chegando ? 'regiao-destino' : 'regiao-registrada'}>{chegando ? recomendada.nome : regiao!.nome}</h1>
             <p className="m-0 text-sm text-ink-2">{doMapa ? nomeDoNivel(doMapa.nivel) : ''}{ticket.simulado ? <> · <Selo tom="atencao">Demonstração</Selo></> : null}</p>
+            {reservada && <div className="mt-1.5"><SeloTipoVaga tipo={tipoVaga} /></div>}
           </div>
         </div>
         <div className="mt-3 flex flex-wrap items-center gap-2 text-sm" data-testid="estado-navegacao">
@@ -219,6 +228,7 @@ function Navegacao({ dados, aoVivo }: { dados: RespostaLocalizador; aoVivo: bool
           )}
         </div>
         {chegando && <p className="m-0 mt-2 text-xs text-ink-3">A indicação considera a ocupação do momento da entrada e não reserva vaga.</p>}
+        {reservada && <p className="m-0 mt-1 text-xs text-ink-2" data-testid="info-vaga-reservada">Vaga reservada: use só com a credencial válida à vista no veículo.</p>}
 
         <div id="detalhes-navegacao" hidden={!expandido} className="mt-4 grid gap-4">
           <section aria-labelledby="titulo-orientacao">
@@ -233,6 +243,13 @@ function Navegacao({ dados, aoVivo }: { dados: RespostaLocalizador; aoVivo: bool
               ))}
             </ol>
           </section>
+          {reservada && (
+            <section aria-labelledby="titulo-reservada" className="rounded-lg border border-line-subtle p-3 text-sm grid gap-1">
+              <h2 id="titulo-reservada" className="text-base font-semibold">Vaga reservada</h2>
+              <p className="m-0 text-ink-2">O Golden Park não verifica a credencial: a indicação segue o tipo de vaga escolhido no totem.</p>
+              {caminhoPedestre && <p className="m-0 text-ink-2" data-testid="caminho-pedestre">Caminho a pé: {caminhoPedestre.texto}</p>}
+            </section>
+          )}
           {chegando && nos && !movimentoReduzido() && (
             <Botao variante="secundario" icone={Play} onClick={verDemonstracao} disabled={Boolean(demo)}>Ver trajeto em demonstração</Botao>
           )}
