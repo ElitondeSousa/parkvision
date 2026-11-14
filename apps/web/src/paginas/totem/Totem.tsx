@@ -11,6 +11,7 @@ import QRCode from 'qrcode';
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { useSearchParams } from 'react-router';
 import { Botao, Marca, Medidor, Placa } from '../../componentes/base.tsx';
+import { ControlesTema } from '../../tema/ControlesTema.tsx';
 import { IconeCategoria } from '../../componentes/IconeCategoria.tsx';
 import { acessoPorId, nomeCurto, nomeDoNivel, orientacaoDaRota, regiaoDoMapa } from '../../mapa/dados.ts';
 import { NOME_CATEGORIA, dataHora, faixaDaRegiao } from '../../mapa/estado.ts';
@@ -64,13 +65,16 @@ export function Totem() {
   };
 
   return (
-    <div data-theme="dark" className="min-h-full flex flex-col" style={{ background: 'var(--pv-color-asfalto-950)', color: 'var(--pv-text-primary)' }}>
-      <header className="flex items-center justify-between gap-4 px-6 sm:px-10 h-20 border-b" style={{ borderColor: 'var(--pv-color-asfalto-800)' }}>
-        <Marca claro tamanho={36} />
-        <div className="text-right text-sm" style={{ color: 'var(--pv-color-asfalto-300)' }}>
-          <p className="m-0 font-semibold" style={{ color: '#fff' }}>Capim Dourado Shopping</p>
+    <div className="min-h-full flex flex-col" style={{ background: 'var(--pv-bg-canvas)', color: 'var(--pv-text-primary)' }}>
+      <header className="flex items-center justify-between gap-4 px-6 sm:px-10 h-20 border-b" style={{ borderColor: 'var(--pv-border-default)' }}>
+        <Marca tamanho={44} />
+        <div className="flex items-center gap-4">
+        <div className="text-right text-sm" style={{ color: 'var(--pv-text-secondary)' }}>
+          <p className="m-0 font-semibold" style={{ color: 'var(--pv-text-primary)' }}>Capim Dourado Shopping</p>
           <p className="m-0">{acesso ? nomeCurto(acesso.nome) : 'Acesso não configurado'}</p>
-          {demonstracao && <p className="m-0 mt-1 font-semibold" style={{ color: 'var(--pv-wayfinding-route)' }} data-testid="totem-demonstracao">Ambiente de demonstração</p>}
+          {demonstracao && <p className="m-0 mt-1 font-semibold" style={{ color: 'var(--pv-brand-on-subtle)' }} data-testid="totem-demonstracao">Ambiente de demonstração</p>}
+        </div>
+        <ControlesTema />
         </div>
       </header>
 
@@ -111,17 +115,17 @@ function TelaInicio({ aoComecar }: { aoComecar: () => void }) {
   return (
     <div className="flex-1 grid lg:grid-cols-[1.1fr_1fr] gap-10 items-center max-w-6xl mx-auto w-full">
       <div>
-        <h1 className="text-5xl sm:text-6xl font-bold tracking-tight" style={{ color: '#fff' }}>Boas-vindas ao estacionamento</h1>
-        <p className="mt-5 text-xl max-w-[34ch]" style={{ color: 'var(--pv-color-asfalto-300)' }}>
-          Informe o tipo do seu veículo e o ParkVision indica a região com melhor acesso agora — com o caminho até lá.
+        <h1 className="text-5xl sm:text-6xl font-bold tracking-tight" style={{ color: 'var(--pv-text-primary)' }}>Boas-vindas ao estacionamento</h1>
+        <p className="mt-5 text-xl max-w-[34ch]" style={{ color: 'var(--pv-text-secondary)' }}>
+          Informe o tipo do seu veículo e o Golden Park indica a região com melhor acesso agora — com o caminho até lá.
         </p>
         <Botao tamanho="xl" className="mt-10 w-full sm:w-auto min-w-80" onClick={aoComecar}>Começar</Botao>
       </div>
       <ol className="list-none m-0 p-0 grid gap-4" aria-label="Como funciona">
         {['Toque em Começar e escolha o tipo do veículo.', 'Veja a região indicada e o caminho até ela.', 'Leve o ticket: o QR Code mostra onde você estacionou.'].map((t, i) => (
-          <li key={t} className="flex items-center gap-4 rounded-xl p-5" style={{ background: 'var(--pv-color-asfalto-900)' }}>
+          <li key={t} className="flex items-center gap-4 rounded-xl p-5" style={{ background: 'var(--pv-bg-surface)', border: '1px solid var(--pv-border-default)' }}>
             <span className="grid place-items-center size-11 shrink-0 rounded-full font-display text-xl font-bold num" style={{ background: 'var(--pv-wayfinding-route)', color: 'var(--pv-wayfinding-on)' }}>{i + 1}</span>
-            <span className="text-lg" style={{ color: 'var(--pv-color-asfalto-100)' }}>{t}</span>
+            <span className="text-lg" style={{ color: 'var(--pv-text-primary)' }}>{t}</span>
           </li>
         ))}
       </ol>
@@ -132,17 +136,17 @@ function TelaInicio({ aoComecar }: { aoComecar: () => void }) {
 function TelaCategoria({ aoEscolher, aoVoltar }: { aoEscolher: (c: Categoria) => void; aoVoltar: () => void }) {
   return (
     <div className="flex-1 flex flex-col max-w-6xl mx-auto w-full">
-      <h1 className="text-4xl sm:text-5xl font-bold" style={{ color: '#fff' }}>Qual é o seu veículo?</h1>
-      <p className="mt-3 text-lg" style={{ color: 'var(--pv-color-asfalto-300)' }}>Toque na opção correspondente.</p>
+      <h1 className="text-4xl sm:text-5xl font-bold" style={{ color: 'var(--pv-text-primary)' }}>Qual é o seu veículo?</h1>
+      <p className="mt-3 text-lg" style={{ color: 'var(--pv-text-secondary)' }}>Toque na opção correspondente.</p>
       <div className="grid sm:grid-cols-3 gap-5 mt-8 flex-1 sm:max-h-[420px]">
         {CATEGORIAS.map((c) => (
           <button
             key={c}
             onClick={() => aoEscolher(c)}
             className="group flex flex-col items-center justify-center gap-5 rounded-2xl p-8 min-h-44 cursor-pointer transition-colors border-2"
-            style={{ background: 'var(--pv-color-asfalto-900)', borderColor: 'var(--pv-color-asfalto-700)', color: '#fff' }}
+            style={{ background: 'var(--pv-bg-surface)', borderColor: 'var(--pv-border-default)', color: 'var(--pv-text-primary)' }}
           >
-            <IconeCategoria categoria={c} tamanho={c === 'MOTO' ? 120 : 140} className="text-[var(--pv-color-vision-300)] group-hover:text-[var(--pv-wayfinding-route)] transition-colors" />
+            <IconeCategoria categoria={c} tamanho={c === 'MOTO' ? 120 : 140} className="text-[var(--pv-brand-primary)] group-hover:text-[var(--pv-brand-primary-hover)] group-hover:scale-105 transition-colors" />
             <span className="font-display text-3xl font-semibold text-center leading-tight">{NOME_CATEGORIA[c]}</span>
           </button>
         ))}
@@ -160,11 +164,11 @@ function TelaProcessando({ categoria }: { categoria: Categoria }) {
   }, []);
   return (
     <div role="status" className="flex-1 flex flex-col items-center justify-center gap-8 text-center">
-      <IconeCategoria categoria={categoria} tamanho={120} className="text-[var(--pv-color-vision-300)]" />
-      <h1 className="text-4xl font-bold" style={{ color: '#fff' }}>Procurando a melhor região</h1>
+      <IconeCategoria categoria={categoria} tamanho={120} className="text-[var(--pv-brand-primary)]" />
+      <h1 className="text-4xl font-bold" style={{ color: 'var(--pv-text-primary)' }}>Procurando a melhor região</h1>
       <ol className="list-none p-0 m-0 grid gap-3 text-left text-lg" aria-label="Etapas da recomendação">
         {PASSOS_PROCESSAMENTO.map((t, i) => (
-          <li key={t} className="flex items-center gap-3" style={{ color: i <= passo ? '#fff' : 'var(--pv-color-asfalto-500)' }}>
+          <li key={t} className="flex items-center gap-3" style={{ color: i <= passo ? 'var(--pv-text-primary)' : 'var(--pv-text-muted)' }}>
             {i < passo ? <CircleCheck size={24} style={{ color: 'var(--pv-feedback-success-solid)' }} aria-hidden /> : i === passo ? <LoaderCircle size={24} className="gira" aria-hidden /> : <span className="inline-block size-6" aria-hidden />}
             {t}
           </li>
@@ -175,11 +179,11 @@ function TelaProcessando({ categoria }: { categoria: Categoria }) {
 }
 
 function Disponibilidade({ regiao }: { regiao: Regiao | null }) {
-  if (!regiao) return <p className="m-0" style={{ color: 'var(--pv-color-asfalto-300)' }}>Disponibilidade indisponível no momento.</p>;
+  if (!regiao) return <p className="m-0" style={{ color: 'var(--pv-text-secondary)' }}>Disponibilidade indisponível no momento.</p>;
   const faixa = faixaDaRegiao(regiao);
   return (
     <div>
-      <p className="m-0 text-2xl font-display font-semibold num" style={{ color: '#fff' }}>{regiao.livres} vagas livres <span className="text-lg font-sans font-normal" style={{ color: 'var(--pv-color-asfalto-300)' }}>de {regiao.capacidade}</span></p>
+      <p className="m-0 text-2xl font-display font-semibold num" style={{ color: 'var(--pv-text-primary)' }}>{regiao.livres} vagas livres <span className="text-lg font-sans font-normal" style={{ color: 'var(--pv-text-secondary)' }}>de {regiao.capacidade}</span></p>
       <div className="mt-2 max-w-sm"><Medidor valor={regiao.ocupadas} total={regiao.capacidade} cor={faixa === 'livre' ? 'var(--pv-faixa-livre)' : faixa === 'alta' ? 'var(--pv-faixa-alta)' : 'var(--pv-faixa-critica)'} rotulo={`Ocupação da região ${regiao.id}`} /></div>
     </div>
   );
@@ -196,28 +200,28 @@ function TelaRecomendacao({ dados, regioes, aoEmitir }: { dados: RespostaEntrada
         <div className="flex items-center gap-6">
           <Placa codigo={recomendacao.regiaoId} tamanho="xl" />
           <div>
-            <p className="m-0 text-lg" style={{ color: 'var(--pv-color-asfalto-300)' }}>Região indicada para você</p>
-            <h1 id="titulo-rec" className="text-4xl font-bold mt-1" style={{ color: '#fff' }}>{doMapa?.nome ?? recomendacao.regiaoId}</h1>
-            {doMapa && <p className="m-0 mt-1 text-lg" style={{ color: 'var(--pv-color-asfalto-300)' }}>{nomeDoNivel(doMapa.nivel)}</p>}
+            <p className="m-0 text-lg" style={{ color: 'var(--pv-text-secondary)' }}>Região indicada para você</p>
+            <h1 id="titulo-rec" className="text-4xl font-bold mt-1" style={{ color: 'var(--pv-text-primary)' }}>{doMapa?.nome ?? recomendacao.regiaoId}</h1>
+            {doMapa && <p className="m-0 mt-1 text-lg" style={{ color: 'var(--pv-text-secondary)' }}>{nomeDoNivel(doMapa.nivel)}</p>}
           </div>
         </div>
         <Disponibilidade regiao={regiao} />
         <div>
-          <h2 className="text-xl font-semibold" style={{ color: '#fff' }}>Por que esta região</h2>
-          <p className="mt-2 text-lg leading-snug" style={{ color: 'var(--pv-color-asfalto-100)' }} data-testid="justificativa">{recomendacao.justificativa}</p>
+          <h2 className="text-xl font-semibold" style={{ color: 'var(--pv-text-primary)' }}>Por que esta região</h2>
+          <p className="mt-2 text-lg leading-snug" style={{ color: 'var(--pv-text-primary)' }} data-testid="justificativa">{recomendacao.justificativa}</p>
         </div>
         <div>
-          <h2 className="text-xl font-semibold" style={{ color: '#fff' }}>Como chegar</h2>
+          <h2 className="text-xl font-semibold" style={{ color: 'var(--pv-text-primary)' }}>Como chegar</h2>
           <ol className="mt-2 p-0 list-none grid gap-2" data-testid="orientacao">
             {passos.map((p, i) => (
-              <li key={p} className="flex gap-3 text-lg" style={{ color: 'var(--pv-color-asfalto-100)' }}>
+              <li key={p} className="flex gap-3 text-lg" style={{ color: 'var(--pv-text-primary)' }}>
                 <span className="grid place-items-center size-8 shrink-0 rounded-full font-display font-bold num" style={{ background: 'var(--pv-wayfinding-route)', color: 'var(--pv-wayfinding-on)' }}>{i + 1}</span>
                 <span className="pt-0.5">{p}</span>
               </li>
             ))}
           </ol>
         </div>
-        <p className="m-0 text-base" style={{ color: 'var(--pv-color-asfalto-400)' }}>A indicação não reserva vaga: ela considera a ocupação deste momento.</p>
+        <p className="m-0 text-base" style={{ color: 'var(--pv-text-muted)' }}>A indicação não reserva vaga: ela considera a ocupação deste momento.</p>
         <Botao tamanho="xl" icone={QrCode} onClick={aoEmitir} className="w-full sm:w-auto self-start min-w-80">Emitir ticket</Botao>
       </section>
       <MapaEstacionamento regioes={regioes.length ? regioes : undefined} destino={recomendacao.regiaoId} rota={recomendacao.rota.nos} rotuloDestino="Sua região" mostrarLegenda={false} className="min-w-0" />
@@ -245,7 +249,7 @@ function TelaTicket({ dados, aoConcluir, demonstracao }: { dados: RespostaEntrad
       {/* o ticket: papel térmico em fundo claro, mesmo no totem escuro */}
       <article data-theme="light" aria-label={`Ticket ${ticket.codigo}`} className="w-full max-w-[380px] rounded-lg p-6 shadow-[var(--pv-shadow-lg)]" style={{ background: '#fff', color: 'var(--pv-color-asfalto-900)' }}>
         <div className="flex items-center justify-between">
-          <Marca tamanho={26} />
+          <Marca tamanho={30} tema="claro" />
           <span className="text-xs text-right leading-tight" style={{ color: 'var(--pv-color-asfalto-600)' }}>Capim Dourado<br />Shopping</span>
         </div>
         <div className="my-4 border-t-2 border-dashed" style={{ borderColor: 'var(--pv-color-asfalto-200)' }} />
@@ -278,10 +282,10 @@ function TelaTicket({ dados, aoConcluir, demonstracao }: { dados: RespostaEntrad
       </article>
       <div className="flex flex-col gap-5 max-w-md text-center lg:text-left items-center lg:items-start">
         <CircleCheck size={56} style={{ color: 'var(--pv-feedback-success-solid)' }} aria-hidden />
-        <h1 className="text-4xl font-bold" style={{ color: '#fff' }}>Ticket emitido</h1>
-        <p className="m-0 text-lg" style={{ color: 'var(--pv-color-asfalto-200)' }}>Retire o ticket e siga para a região <strong style={{ color: '#fff' }}>{recomendacao.regiaoId}</strong>. Guarde-o para localizar o veículo e para a saída.</p>
+        <h1 className="text-4xl font-bold" style={{ color: 'var(--pv-text-primary)' }}>Ticket emitido</h1>
+        <p className="m-0 text-lg" style={{ color: 'var(--pv-text-secondary)' }}>Retire o ticket e siga para a região <strong style={{ color: 'var(--pv-text-primary)' }}>{recomendacao.regiaoId}</strong>. Guarde-o para localizar o veículo e para a saída.</p>
         <Botao tamanho="xl" onClick={aoConcluir} className="min-w-72">Concluir</Botao>
-        <p className="m-0 text-sm num" style={{ color: 'var(--pv-color-asfalto-400)' }}>A tela volta ao início em {restante} s.</p>
+        <p className="m-0 text-sm num" style={{ color: 'var(--pv-text-muted)' }}>A tela volta ao início em {restante} s.</p>
       </div>
     </div>
   );
@@ -291,13 +295,13 @@ function TelaErro({ titulo, mensagem, acoes, rodape, voltar }: { titulo: string;
   return (
     <div role="alert" className="flex-1 flex flex-col items-center justify-center gap-6 text-center max-w-2xl mx-auto">
       <TriangleAlert size={64} style={{ color: 'var(--pv-feedback-warning-solid)' }} aria-hidden />
-      <h1 className="text-4xl font-bold" style={{ color: '#fff' }}>{titulo}</h1>
-      <p className="m-0 text-xl" style={{ color: 'var(--pv-color-asfalto-200)' }}>{mensagem}</p>
+      <h1 className="text-4xl font-bold" style={{ color: 'var(--pv-text-primary)' }}>{titulo}</h1>
+      <p className="m-0 text-xl" style={{ color: 'var(--pv-text-secondary)' }}>{mensagem}</p>
       <div className="flex flex-wrap gap-4 justify-center">
         {acoes}
         {voltar && <Botao tamanho="xl" variante="secundario" onClick={voltar}>Voltar ao início</Botao>}
       </div>
-      {rodape && <p className="m-0" style={{ color: 'var(--pv-color-asfalto-400)' }}>{rodape}</p>}
+      {rodape && <p className="m-0" style={{ color: 'var(--pv-text-muted)' }}>{rodape}</p>}
     </div>
   );
 }

@@ -26,7 +26,16 @@ A linguagem visual nasce do próprio ambiente do estacionamento: **asfalto**, **
 
 ## 2. Identidade visual
 
-### 2.1 Nome e logotipo
+> **Atualização — Golden Park.** O nome oficial passou a ser **Golden Park**, com as duas logos fornecidas pela equipe:
+>
+> | Logo | Tema | Arquivos (`design-system/brand/`) |
+> |---|---|---|
+> | Dourada e preta | **Modo claro** (padrão) | `golden-park-claro-original.jpg` (original) · `golden-park-claro-{completo,simbolo,nome}.png` |
+> | Dourada e bege | **Modo escuro** | `golden-park-escuro-original.jpg` (original) · `golden-park-escuro-{completo,simbolo,nome}.png` |
+>
+> Os PNG são as logos originais apenas **recortadas e com o fundo creme removido** (`design-system/scripts/preparar-logos.py`), sem redesenho e sem mudar proporções. A paleta ganhou o **ouro** (marca e ações primárias) e o **grafite** (modo escuro); a navegação passou a acompanhar o tema para a logo certa sempre ficar sobre o fundo certo. Detalhes: [mvp/14-golden-park.md](mvp/14-golden-park.md). O texto abaixo descreve a identidade anterior (ParkVision) e fica como histórico; a placa azul de região, os estados e a regra "âmbar = rota" continuam valendo.
+
+### 2.1 Nome e logotipo (identidade anterior — ParkVision)
 
 - **Nome:** ParkVision — escrito sempre junto, com "P" e "V" maiúsculos.
 - **Símbolo:** uma **placa azul de cantos arredondados** (referência à placa indicativa de estacionamento) com a letra **P**; o bojo do P é uma **lente**, e a pupila âmbar representa o **sensor** que "enxerga" as vagas.

@@ -8,6 +8,7 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router';
 import { Localizador } from './paginas/localizador/Localizador.tsx';
 import { Painel } from './paginas/painel/Painel.tsx';
 import { Totem } from './paginas/totem/Totem.tsx';
+import { ProvedorTema } from './tema/tema.tsx';
 
 export function Rotas() {
   return (
@@ -22,8 +23,10 @@ export function Rotas() {
 
 export function App() {
   return (
-    <BrowserRouter>
-      <Rotas />
-    </BrowserRouter>
+    <ProvedorTema>
+      <BrowserRouter>
+        <Rotas />
+      </BrowserRouter>
+    </ProvedorTema>
   );
 }

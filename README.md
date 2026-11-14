@@ -1,8 +1,10 @@
 <p align="center">
-  <img src="design-system/brand/logo-horizontal.svg" alt="ParkVision" width="260">
+  <img src="design-system/brand/golden-park-claro-completo.png" alt="Golden Park — sistema inteligente de estacionamento" width="300">
 </p>
 
-# ParkVision — Estacionamento Inteligente
+# Golden Park — Sistema inteligente de estacionamento
+
+> O projeto se chamava **ParkVision** até a atualização de identidade visual; documentos das etapas anteriores mantêm o nome antigo como registro histórico. Identificadores técnicos (pacotes `@parkvision/*`, tokens `--pv-*`, URL do repositório) foram preservados por compatibilidade. Identidade, logos e temas: [docs/mvp/14-golden-park.md](docs/mvp/14-golden-park.md).
 
 Sistema que **organiza e distribui automaticamente os veículos** em estacionamentos de shopping centers: monitora as vagas em tempo real, recomenda a melhor zona na entrada, imprime um ticket com a orientação, guia o motorista por sinalização luminosa (sem exigir aplicativo) e permite pagar pelo QR Code do ticket.
 

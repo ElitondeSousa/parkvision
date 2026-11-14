@@ -140,7 +140,7 @@ export function MapaEstacionamento(props: MapaEstacionamentoProps) {
                 <title>{descricao}</title>
                 <polygon points={pontos} fill={apagada ? 'var(--pv-bg-muted)' : cor} fillOpacity={apagada ? 0.6 : 0.26} stroke={apagada ? 'var(--pv-border-strong)' : cor} strokeWidth={fs / 8} strokeLinejoin="round" />
                 {padrao && !apagada && <polygon points={pontos} fill={`url(#${idBase}-${padrao})`} stroke="none" />}
-                {selecionada === r.id && <polygon points={pontos} fill="none" stroke="var(--pv-brand-primary)" strokeWidth={fs / 3.2} strokeLinejoin="round" />}
+                {selecionada === r.id && <polygon points={pontos} fill="none" stroke="var(--pv-text-primary)" strokeWidth={fs / 3.2} strokeLinejoin="round" />}
                 {ehDestino && (
                   <>
                     <polygon className="mapa-pulso" points={pontos} fill="none" stroke="var(--pv-wayfinding-route)" style={{ ['--pv-pulso-de' as string]: `${fs / 3}px`, ['--pv-pulso-ate' as string]: `${fs * 1.4}px` }} />

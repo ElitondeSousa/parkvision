@@ -1,38 +1,21 @@
 /**
- * Componentes base do Design System ParkVision (contratos em design-system/components/README.md).
+ * Componentes base do Design System Golden Park (contratos em design-system/components/README.md).
  * Todos usam tokens --pv-*; telas só cuidam de layout.
  */
 import { CircleCheck, Info, LoaderCircle, OctagonAlert, TriangleAlert, type LucideIcon } from 'lucide-react';
 import type { ButtonHTMLAttributes, ReactNode } from 'react';
+import { BrandLogo } from '../tema/BrandLogo.tsx';
+import type { Tema } from '../tema/tema.tsx';
 
 const cx = (...c: (string | false | null | undefined)[]) => c.filter(Boolean).join(' ');
 
-// ── Marca ──
-export function Simbolo({ tamanho = 32, titulo = 'ParkVision' }: { tamanho?: number; titulo?: string }) {
-  return (
-    <svg width={tamanho} height={tamanho} viewBox="0 0 64 64" role="img" aria-label={titulo}>
-      <rect width="64" height="64" rx="14" fill="var(--pv-color-vision-600)" />
-      <rect x="17" y="13" width="8" height="38" rx="2" fill="#fff" />
-      <path fill="#fff" fillRule="evenodd" d="M21 13h14a14 14 0 0 1 0 28H21zM35 20.5a6.5 6.5 0 1 0 0 13 6.5 6.5 0 0 0 0-13z" />
-      <circle cx="35" cy="27" r="3" fill="var(--pv-color-faixa-500)" />
-    </svg>
-  );
-}
-
-export function Marca({ claro = false, tamanho = 28 }: { claro?: boolean; tamanho?: number }) {
-  return (
-    <span className="inline-flex items-center gap-2" aria-label="ParkVision">
-      <Simbolo tamanho={tamanho} titulo="" />
-      <span className="font-display text-xl leading-none" aria-hidden="true">
-        <span className="font-semibold" style={{ color: claro ? '#fff' : 'var(--pv-text-primary)' }}>Park</span>
-        <span className="font-bold" style={{ color: claro ? 'var(--pv-color-vision-300)' : 'var(--pv-brand-primary)' }}>Vision</span>
-      </span>
-    </span>
-  );
+// ── Marca ── (Golden Park: logo oficial conforme o tema — ver tema/BrandLogo.tsx)
+export function Marca({ tamanho = 28, tema }: { tamanho?: number; tema?: Tema }) {
+  return <BrandLogo variante="horizontal" altura={tamanho} tema={tema} />;
 }
 
 /**
- * Placa da região — o elemento de identidade do ParkVision: o código da região numa placa azul
+ * Placa da região — elemento de sinalização do Golden Park: o código da região numa placa azul
  * de cantos arredondados, como a placa indicativa de estacionamento. Aparece no totem, no painel e no localizador.
  */
 export function Placa({ codigo, tamanho = 'md', apagada = false }: { codigo: string; tamanho?: 'sm' | 'md' | 'lg' | 'xl'; apagada?: boolean }) {

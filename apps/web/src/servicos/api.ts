@@ -29,13 +29,13 @@ async function pedir<T>(caminho: string, init: RequestInit & { operador?: boolea
   try {
     resposta = await fetch(`/api${caminho}`, { ...init, headers: { ...headers, ...(init.headers as Record<string, string> | undefined) } });
   } catch {
-    throw new ErroServico('SEM_CONEXAO', 'Não foi possível falar com o servidor do ParkVision.');
+    throw new ErroServico('SEM_CONEXAO', 'Não foi possível falar com o servidor do Golden Park.');
   }
   const corpo = await resposta.json().catch(() => null);
   if (!resposta.ok) {
     const erro = (corpo as { erro?: { codigo?: string; mensagem?: string; detalhes?: unknown } } | null)?.erro;
     // sem corpo padronizado e erro de gateway (ex.: proxy sem API): trata como servidor fora do ar
-    if (!erro && resposta.status >= 502) throw new ErroServico('SEM_CONEXAO', 'O servidor do ParkVision não respondeu.', resposta.status);
+    if (!erro && resposta.status >= 502) throw new ErroServico('SEM_CONEXAO', 'O servidor do Golden Park não respondeu.', resposta.status);
     throw new ErroServico(erro?.codigo ?? 'ERRO_INTERNO', erro?.mensagem ?? `Erro ${resposta.status}`, resposta.status, erro?.detalhes);
   }
   return corpo as T;

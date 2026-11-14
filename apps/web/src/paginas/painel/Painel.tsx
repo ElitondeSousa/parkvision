@@ -13,11 +13,13 @@ import type { EventoTempoReal, Indicadores, Recomendacao, Regiao, Ticket } from 
 import { CircleParking, LayoutDashboard, RefreshCw, ScanLine, Wifi, WifiOff } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, NavLink } from 'react-router';
-import { Aviso, Botao, Cartao, Esqueleto, Marca, SeloDemonstracao } from '../../componentes/base.tsx';
+import { Aviso, Botao, Cartao, Esqueleto, SeloDemonstracao } from '../../componentes/base.tsx';
 import { MapaEstacionamento } from '../../mapa/MapaEstacionamento.tsx';
 import { congestionada } from '../../mapa/estado.ts';
 import { api, mensagemDeErro, tokenOperador, type CenarioResumo, type EstadoSimulacao } from '../../servicos/api.ts';
 import { useTempoReal, type EstadoConexao } from '../../servicos/tempo-real.ts';
+import { BrandLogo } from '../../tema/BrandLogo.tsx';
+import { ControlesTema } from '../../tema/ControlesTema.tsx';
 import { AcessoOperador, ControleSimulador, DetalheRegiao, FaixaIndicadores, ListaMovimentacoes, OperacaoTicket, RecomendacaoAtual, TabelaRegioes } from './componentes.tsx';
 import { itemDoEvento, itemDoHistorico, juntarMovimentacoes, TIPOS_DO_HISTORICO, type ItemMovimentacao } from './eventos.ts';
 
@@ -117,6 +119,7 @@ export function Painel() {
           </div>
           {demonstracao && <SeloDemonstracao />}
           <StatusConexao conexao={conexao} />
+          <ControlesTema />
         </header>
 
         <main id="conteudo" className="flex-1 p-4 sm:p-6 grid gap-5 content-start">
@@ -174,15 +177,15 @@ export function Painel() {
 function Navegacao({ conexao }: { conexao: EstadoConexao }) {
   const item = 'flex items-center gap-3 h-11 px-3 rounded-md text-sm font-semibold transition-colors';
   return (
-    <nav aria-label="Navegação principal" className="flex lg:flex-col items-center lg:items-stretch gap-2 px-4 lg:px-3 py-3 lg:py-5 lg:sticky lg:top-0 lg:h-screen" style={{ background: 'var(--pv-sidebar-bg)', color: 'var(--pv-sidebar-fg)' }}>
-      <Link to="/painel" className="lg:mb-6 lg:px-1 xl:px-2 mr-auto lg:mr-0" aria-label="ParkVision — painel">
-        <span className="hidden xl:inline-flex"><Marca claro /></span>
-        <span className="xl:hidden"><Marca claro tamanho={30} /></span>
+    <nav aria-label="Navegação principal" className="flex lg:flex-col items-center lg:items-stretch gap-2 px-4 lg:px-3 py-3 lg:py-5 lg:sticky lg:top-0 lg:h-screen border-b lg:border-b-0 lg:border-r border-line" style={{ background: 'var(--pv-sidebar-bg)', color: 'var(--pv-sidebar-fg)' }}>
+      <Link to="/painel" className="lg:mb-6 lg:px-1 xl:px-2 mr-auto lg:mr-0" aria-label="Golden Park — painel">
+        <span className="hidden xl:inline-flex"><BrandLogo variante="horizontal" altura={34} /></span>
+        <span className="xl:hidden"><BrandLogo variante="simbolo" altura={38} /></span>
       </Link>
-      <NavLink to="/painel" end className={({ isActive }) => `${item} ${isActive ? 'text-white' : ''}`} style={({ isActive }) => ({ background: isActive ? 'var(--pv-sidebar-item-bg-active)' : undefined, boxShadow: isActive ? 'inset 3px 0 0 var(--pv-sidebar-indicator)' : undefined })}>
+      <NavLink to="/painel" end className={({ isActive }) => `${item} ${isActive ? 'text-ink' : ''}`} style={({ isActive }) => ({ background: isActive ? 'var(--pv-sidebar-item-bg-active)' : undefined, boxShadow: isActive ? 'inset 3px 0 0 var(--pv-sidebar-indicator)' : undefined })}>
         <LayoutDashboard size={20} aria-hidden /> <span className="lg:hidden xl:inline">Painel</span>
       </NavLink>
-      <Link to="/totem" className={`${item} hover:text-white`} title="Abrir o totem de entrada">
+      <Link to="/totem" className={`${item} hover:text-ink`} title="Abrir o totem de entrada">
         <CircleParking size={20} aria-hidden /> <span className="lg:hidden xl:inline">Totem de entrada</span>
       </Link>
       <span className={`${item} cursor-default opacity-70`} title="O localizador abre pelo QR Code do ticket">

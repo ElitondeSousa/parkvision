@@ -96,3 +96,52 @@ h1, h2, h3 { font-family: var(--pv-font-family-display); line-height: var(--pv-l
   .esqueleto, .gira, .mapa-pulso { animation: none; }
   * { transition-duration: 0ms !important; }
 }
+
+/* ───────── Easter egg: abóbora e chuva de abóboras (só modo escuro) ───────── */
+.gp-abobora {
+  display: inline-grid; place-items: center; width: 40px; height: 40px; border-radius: 999px;
+  border: 1px solid transparent; background: transparent; cursor: pointer; padding: 0;
+  animation: gp-abobora-entra 650ms var(--pv-easing-standard) both;
+  transition: border-color 150ms, box-shadow 150ms;
+}
+.gp-abobora:hover { border-color: #F07A1A; box-shadow: 0 0 14px rgba(240, 122, 26, 0.45); }
+.gp-abobora-mexe { animation: gp-abobora-mexe 600ms ease-in-out; }
+@keyframes gp-abobora-entra {
+  0% { opacity: 0; transform: translateY(8px) scale(0.3) rotate(-25deg); }
+  70% { opacity: 1; transform: translateY(0) scale(1.15) rotate(8deg); }
+  100% { transform: scale(1) rotate(0); }
+}
+@keyframes gp-abobora-mexe {
+  0%, 100% { transform: rotate(0) scale(1); }
+  25% { transform: rotate(-18deg) scale(1.12); }
+  50% { transform: rotate(14deg) scale(1.18); }
+  75% { transform: rotate(-8deg) scale(1.06); }
+}
+
+/* camada própria por cima de tudo, que NÃO captura cliques */
+.gp-chuva { position: fixed; inset: 0; z-index: 9000; pointer-events: none; overflow: hidden; }
+.gp-gota {
+  position: absolute; top: -12vh; will-change: transform;
+  animation-name: gp-queda; animation-timing-function: cubic-bezier(0.45, 0.05, 0.75, 0.95); animation-fill-mode: both;
+}
+.gp-gota-giro {
+  display: inline-block; will-change: rotate, translate;
+  animation-name: gp-giro, gp-balanco; animation-timing-function: linear, ease-in-out;
+  animation-iteration-count: 1, infinite; animation-direction: normal, alternate; animation-fill-mode: both;
+}
+.gp-gota-giro svg { display: block; filter: drop-shadow(0 3px 4px rgba(0, 0, 0, 0.35)); }
+@keyframes gp-queda { from { transform: translate3d(0, 0, 0); } to { transform: translate3d(var(--gp-desvio, 0), 125vh, 0); } }
+@keyframes gp-giro { from { rotate: var(--gp-giro-ini, 0deg); } to { rotate: var(--gp-giro-fim, 360deg); } }
+@keyframes gp-balanco { from { translate: calc(var(--gp-balanco, 12px) * -1) 0; } to { translate: var(--gp-balanco, 12px) 0; } }
+/* versão para quem prefere menos movimento: só aparece e some, sem queda nem giro */
+.gp-gota-suave { animation-name: gp-surge; animation-timing-function: ease-in-out; }
+@keyframes gp-surge { 0% { opacity: 0; } 25%, 75% { opacity: 1; } 100% { opacity: 0; } }
+.gp-parar {
+  position: fixed; top: 12px; left: 50%; transform: translateX(-50%); pointer-events: auto;
+  display: inline-flex; align-items: center; gap: 4px; height: 32px; padding: 0 12px; border-radius: 999px;
+  font: 600 13px var(--pv-font-family-sans); cursor: pointer;
+  background: var(--pv-bg-surface); color: var(--pv-text-primary); border: 1px solid #F07A1A;
+}
+@media (prefers-reduced-motion: reduce) {
+  .gp-abobora, .gp-abobora-mexe { animation: none; }
+}

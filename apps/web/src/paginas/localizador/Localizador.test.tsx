@@ -73,7 +73,7 @@ describe('localizador de veículo', () => {
   it('sem conexão: permite tentar de novo', async () => {
     simularApi({});
     abrir();
-    expect(await screen.findByText('Sem conexão com o ParkVision')).toBeInTheDocument();
+    expect(await screen.findByText('Sem conexão com o Golden Park')).toBeInTheDocument();
     simularApi({ '/localizador/:token': { corpo: resposta('ESTACIONADO') } });
     fireEvent.click(screen.getByRole('button', { name: 'Tentar de novo' }));
     expect(await screen.findByTestId('regiao-registrada')).toBeInTheDocument();

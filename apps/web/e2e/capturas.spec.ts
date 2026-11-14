@@ -103,3 +103,50 @@ test('capturas da etapa 4: operação de tickets e localizador ao vivo', async (
   await celular.close();
   await api.post('/api/simulacao/reiniciar');
 });
+
+test('capturas golden park: temas claro e escuro e chuva de abóboras', async ({ browser }) => {
+  test.setTimeout(150_000);
+  const api = await apiTeste();
+  await api.post('/api/simulacao/reiniciar');
+  await api.post('/api/simulacao/cenario', { data: { cenario: 'D' } });
+  await new Promise((ok) => setTimeout(ok, 4000));
+  await api.post('/api/simulacao/pausar');
+  const { ticket, token } = await entrar(api, 'CARRO_PEQUENO', 'A_S1');
+  await api.post(`/api/tickets/${ticket.codigo}/estacionar`, { data: { regiaoId: 'S1' } });
+  for (const tema of ['claro', 'escuro'] as const) {
+    const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+    await ctx.addInitScript((t) => localStorage.setItem('gp-tema', t), tema);
+    const painel = await ctx.newPage();
+    await painel.goto('/painel');
+    await expect(painel.getByTestId('kpi-capacidade')).toContainText('1269');
+    await painel.waitForTimeout(800);
+    await painel.screenshot({ path: `${DESTINO}/golden-painel-${tema}.png` });
+    const totem = await ctx.newPage();
+    await totem.setViewportSize({ width: 1366, height: 900 });
+    await totem.goto('/totem?acesso=A_NE');
+    await totem.waitForTimeout(400);
+    await totem.screenshot({ path: `${DESTINO}/golden-totem-inicio-${tema}.png` });
+    await totem.getByRole('button', { name: 'Começar' }).click();
+    await totem.getByRole('button', { name: /Carro grande/ }).click();
+    await expect(totem.getByTestId('justificativa')).toBeVisible({ timeout: 10_000 });
+    await totem.waitForTimeout(300);
+    await totem.screenshot({ path: `${DESTINO}/golden-totem-recomendacao-${tema}.png` });
+    await totem.getByRole('button', { name: 'Emitir ticket' }).click();
+    await totem.waitForTimeout(300);
+    await totem.screenshot({ path: `${DESTINO}/golden-totem-ticket-${tema}.png` });
+    const celular = await ctx.newPage();
+    await celular.setViewportSize({ width: 390, height: 844 });
+    await celular.goto(`/t/${token}`);
+    await expect(celular.getByTestId('regiao-registrada')).toBeVisible();
+    await celular.waitForTimeout(300);
+    await celular.screenshot({ path: `${DESTINO}/golden-localizador-${tema}.png`, fullPage: true });
+    if (tema === 'escuro') {
+      await painel.bringToFront();
+      await painel.getByTestId('abobora').click();
+      await painel.waitForTimeout(2200);
+      await painel.screenshot({ path: `${DESTINO}/golden-chuva-aboboras.png` });
+    }
+    await ctx.close();
+  }
+  await api.post('/api/simulacao/reiniciar');
+});

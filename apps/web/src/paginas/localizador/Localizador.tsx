@@ -9,6 +9,7 @@ import { Clock, LogOut, MapPin, QrCode, RefreshCw, SearchX, TicketX, WifiOff } f
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { useParams } from 'react-router';
 import { Botao, Esqueleto, Marca, Placa, Selo } from '../../componentes/base.tsx';
+import { ControlesTema } from '../../tema/ControlesTema.tsx';
 import { IconeCategoria } from '../../componentes/IconeCategoria.tsx';
 import { nomeDoNivel, regiaoDoMapa } from '../../mapa/dados.ts';
 import { NOME_CATEGORIA, dataHora, hora } from '../../mapa/estado.ts';
@@ -45,20 +46,20 @@ export function Localizador() {
   const aoVivo = useTicketAoVivo(estado.tipo === 'ok' ? token : null, () => void consultar(true));
 
   return (
-    <div className="min-h-full bg-canvas">
+    <div className="min-h-full bg-canvas text-ink">
       <header className="flex items-center justify-between px-4 h-14 border-b border-line bg-surface">
-        <Marca tamanho={26} />
-        <span className="text-sm text-ink-2">Localizador</span>
+        <Marca tamanho={30} />
+        <span className="flex items-center gap-2 text-sm text-ink-2">Localizador <ControlesTema /></span>
       </header>
       <main className="max-w-xl mx-auto px-4 py-5 grid gap-5" aria-live="polite">
         {estado.tipo === 'carregando' ? (
           <div role="status" aria-label="Consultando o ticket" className="grid gap-4"><Esqueleto className="h-28" /><Esqueleto className="h-72" /></div>
         ) : estado.tipo === 'invalido' ? (
-          <Mensagem icone={QrCode} titulo="QR Code inválido">Este endereço não corresponde a um ticket do ParkVision. Escaneie de novo o QR Code impresso no ticket.</Mensagem>
+          <Mensagem icone={QrCode} titulo="QR Code inválido">Este endereço não corresponde a um ticket do Golden Park. Escaneie de novo o QR Code impresso no ticket.</Mensagem>
         ) : estado.tipo === 'inexistente' ? (
           <Mensagem icone={SearchX} titulo="Ticket não encontrado">Confira se escaneou o QR Code do seu ticket. Se o problema continuar, procure o atendimento do estacionamento.</Mensagem>
         ) : estado.tipo === 'sem-conexao' ? (
-          <Mensagem icone={WifiOff} titulo="Sem conexão com o ParkVision" acao={<Botao icone={RefreshCw} onClick={() => void consultar()}>Tentar de novo</Botao>}>Verifique a internet do celular e tente de novo.</Mensagem>
+          <Mensagem icone={WifiOff} titulo="Sem conexão com o Golden Park" acao={<Botao icone={RefreshCw} onClick={() => void consultar()}>Tentar de novo</Botao>}>Verifique a internet do celular e tente de novo.</Mensagem>
         ) : (
           <>
             <Resultado dados={estado.dados} />
@@ -115,7 +116,7 @@ function Resultado({ dados }: { dados: RespostaLocalizador }) {
   const doMapa = regiaoDoMapa[regiao.id];
   return (
     <>
-      <section aria-labelledby="titulo-local" className="rounded-xl p-5 text-white" style={{ background: 'var(--pv-color-asfalto-900)' }}>
+      <section aria-labelledby="titulo-local" className="rounded-xl p-5 text-white" style={{ background: 'var(--pv-color-grafite-900)', border: '1px solid var(--pv-color-ouro-600)' }}>
         <p className="m-0 text-sm" style={{ color: 'var(--pv-color-asfalto-300)' }}>Seu veículo está na região</p>
         <div className="flex items-center gap-4 mt-2">
           <Placa codigo={regiao.id} tamanho="xl" />
@@ -141,7 +142,7 @@ function Resultado({ dados }: { dados: RespostaLocalizador }) {
 
       <MapaEstacionamento destino={regiao.id} apagarOutras rotuloDestino="Seu veículo" mostrarLegenda={false} enquadrarDestino />
       {cabecalho}
-      <p className="m-0 text-xs text-ink-3">O ParkVision não rastreia o veículo: esta é a região registrada quando o estacionamento foi confirmado.</p>
+      <p className="m-0 text-xs text-ink-3">O Golden Park não rastreia o veículo: esta é a região registrada quando o estacionamento foi confirmado.</p>
     </>
   );
 }
