@@ -16,7 +16,7 @@ test('capturas das três interfaces e do mapa', async ({ browser }) => {
   // painel (aberto antes da simulação, para as movimentações chegarem em tempo real)
   const painel = await browser.newPage({ viewport: { width: 1440, height: 900 } });
   await painel.goto('/painel');
-  await expect(painel.getByTestId('kpi-capacidade')).toContainText('1269');
+  await expect(painel.getByTestId('kpi-capacidade')).toContainText('1.269');
   await expect(painel.getByText('Ao vivo')).toBeVisible();
   await api.post('/api/simulacao/cenario', { data: { cenario: 'D' } });
   await painel.waitForTimeout(6000);
@@ -119,7 +119,7 @@ test('capturas golden park: temas claro e escuro e chuva de abóboras', async ({
     await ctx.addInitScript((t) => localStorage.setItem('gp-tema', t), tema);
     const painel = await ctx.newPage();
     await painel.goto('/painel');
-    await expect(painel.getByTestId('kpi-capacidade')).toContainText('1269');
+    await expect(painel.getByTestId('kpi-capacidade')).toContainText('1.269');
     await painel.waitForTimeout(800);
     await painel.screenshot({ path: `${DESTINO}/golden-painel-${tema}.png` });
     const totem = await ctx.newPage();
@@ -222,4 +222,51 @@ test('capturas das vagas reservadas: totem, QR Code e painel', async ({ browser 
   await painel.getByTestId('vagas-reservadas').screenshot({ path: `${DESTINO}/vagas-painel-resumo.png` });
   await painel.locator('tr[data-regiao="N1"]').locator('xpath=ancestor::table[1]').screenshot({ path: `${DESTINO}/vagas-painel-tabela.png` });
   await painel.close();
+});
+
+test('capturas das telas MVP definitivas (comparação com os wireframes)', async ({ browser }) => {
+  test.setTimeout(180_000);
+  const api = await apiTeste();
+  await api.post('/api/simulacao/reiniciar');
+  await api.post('/api/simulacao/cenario', { data: { cenario: 'A', config: { velocidade: 1, entradasPorMinuto: 0 } } }); // ocupação de demonstração parada
+  const { token } = await entrar(api, 'CARRO_PEQUENO', 'A_ROT');
+  const foto = async (largura: number, altura: number, tema: 'claro' | 'escuro', url: string, nome: string, antes?: (p: import('@playwright/test').Page) => Promise<void>) => {
+    const p = await browser.newPage({ viewport: { width: largura, height: altura }, isMobile: largura < 768, hasTouch: largura < 768, deviceScaleFactor: largura < 768 ? 2 : 1 });
+    await p.addInitScript((t) => localStorage.setItem('gp-tema', t), tema);
+    await p.goto(url);
+    await p.waitForTimeout(1600);
+    if (antes) await antes(p);
+    await p.screenshot({ path: `${DESTINO}/mvp-${nome}.png` });
+    await p.close();
+  };
+  await foto(375, 812, 'claro', `/t/${token}`, 'localizador-375-claro');
+  await foto(375, 812, 'claro', `/t/${token}`, 'localizador-375-detalhes', async (p) => { await p.getByRole('button', { name: 'Mostrar detalhes' }).tap(); await p.waitForTimeout(500); });
+  await foto(320, 640, 'escuro', `/t/${token}`, 'localizador-320-escuro');
+  await foto(430, 932, 'escuro', `/t/${token}`, 'localizador-430-escuro');
+  await foto(1440, 900, 'claro', `/t/${token}`, 'localizador-1440-claro');
+  await foto(1440, 900, 'claro', '/t/token-que-nao-existe-123456', 'localizador-nao-encontrado');
+  const totemAte = (etapa: 'categoria' | 'tipo' | 'rec') => async (p: import('@playwright/test').Page) => {
+    await p.getByRole('button', { name: 'Começar' }).click();
+    if (etapa === 'categoria') return;
+    await p.getByRole('button', { name: 'Carro pequeno' }).click();
+    if (etapa === 'tipo') { await p.waitForTimeout(500); return; } // espera a transição da etapa (200 ms)
+    await p.getByRole('button', { name: /^Vaga comum/ }).click();
+    await p.getByTestId('justificativa').waitFor({ timeout: 10_000 });
+    await p.waitForTimeout(1300);
+  };
+  await foto(1440, 900, 'claro', '/totem?acesso=A_ROT', 'totem-1440-inicio');
+  await foto(1440, 900, 'claro', '/totem?acesso=A_ROT', 'totem-1440-tipo', totemAte('tipo'));
+  await foto(1440, 900, 'claro', '/totem?acesso=A_ROT', 'totem-1440-recomendacao', totemAte('rec'));
+  await foto(1080, 1920, 'escuro', '/totem?acesso=A_ROT', 'totem-1080-escuro', totemAte('rec'));
+  await foto(375, 812, 'claro', '/totem?acesso=A_ROT', 'totem-375-recomendacao', totemAte('rec'));
+  await foto(1440, 900, 'claro', '/painel', 'painel-1440-claro');
+  await foto(1440, 900, 'escuro', '/painel', 'painel-1440-escuro');
+  await foto(375, 812, 'claro', '/painel', 'painel-375-claro');
+  const pg = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+  await pg.addInitScript(() => localStorage.setItem('gp-tema', 'claro'));
+  await pg.goto('/painel');
+  await pg.waitForTimeout(1500);
+  await pg.screenshot({ path: `${DESTINO}/mvp-painel-1440-completo.png`, fullPage: true });
+  await pg.close();
+  await api.post('/api/simulacao/reiniciar');
 });

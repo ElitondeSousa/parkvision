@@ -37,6 +37,9 @@ describe('navegação do motorista — estacionado', () => {
     expect(screen.getByText(/Carro grande, SUV ou picape/)).toBeInTheDocument();
     expect(screen.getByText(/Estacionamento confirmado às/)).toBeInTheDocument();
     expect(screen.getByTestId('orientacao')).toHaveTextContent('Seu carro está na região S1');
+    // painel recolhido: o código da região é o destaque e a instrução principal é a referência da região
+    expect(screen.getByTestId('codigo-regiao')).toHaveTextContent('S1');
+    expect(screen.getByTestId('instrucao-principal')).toHaveTextContent('Bolsões a oeste do retorno de embarque');
   });
 
   it('o mapa destaca a região efetivamente ocupada (não a recomendada) e não desenha rota', async () => {
@@ -46,7 +49,7 @@ describe('navegação do motorista — estacionado', () => {
     const mapaSvg = screen.getByTestId('mapa-estacionamento');
     expect(mapaSvg.querySelector('[data-destino="true"]')).toHaveAttribute('data-regiao', 'S1');
     expect(mapaSvg.querySelector('[data-regiao="N3"]')).not.toHaveAttribute('data-destino');
-    expect(mapaSvg.querySelector('[data-regiao="N3"]')).toHaveAttribute('opacity', '0.35');
+    expect(Number(mapaSvg.querySelector('[data-regiao="N3"]')!.getAttribute('opacity'))).toBeLessThan(1); // demais regiões apagadas
     expect(mapaSvg.querySelector('[data-camada="rota"]')).toBeNull();
     expect(screen.getByTestId('pino-destino')).toHaveTextContent('S1');
     expect(screen.queryByRole('button', { name: 'Ver rota inteira' })).not.toBeInTheDocument();
@@ -61,7 +64,9 @@ describe('navegação do motorista — a caminho', () => {
     expect(await screen.findByTestId('regiao-destino')).toHaveTextContent(reg('N3').nome);
     expect(screen.getByText('Estacionamento ainda não confirmado')).toBeInTheDocument();
     expect(screen.getByText(/não reserva vaga/)).toBeInTheDocument();
-    expect(screen.getByText(/Partida: Acesso nordeste/)).toBeInTheDocument();
+    expect(screen.getByTestId('instrucao-principal')).toHaveTextContent('Siga a rota destacada a partir do acesso nordeste.');
+    expect(screen.getByTestId('codigo-regiao')).toHaveTextContent('N3');
+    expect(screen.getByTestId('codigo-ticket').closest('dl')).toHaveTextContent('PartidaAcesso nordeste'); // partida, nos detalhes do ticket
     const mapaSvg = screen.getByTestId('mapa-estacionamento');
     expect(mapaSvg.querySelector('[data-destino="true"]')).toHaveAttribute('data-regiao', 'N3');
     const rota = mapaSvg.querySelector('[data-camada="rota"]');
@@ -95,6 +100,33 @@ describe('navegação do motorista — a caminho', () => {
     expect(screen.getByText('Como chegar')).toBeVisible();
     expect(screen.getByTestId('orientacao').querySelectorAll('li').length).toBeGreaterThan(0);
     expect(screen.getAllByTestId('codigo-ticket')[0]).toHaveTextContent('PV-0042');
+  });
+
+  it('detalhes recolhidos ficam fora da leitura; o ticket no cabeçalho e o Esc também abrem/fecham o painel', async () => {
+    simularApi({ '/localizador/:token': { corpo: resposta('AGUARDANDO') } });
+    abrir();
+    await screen.findByTestId('regiao-destino');
+    expect(screen.queryByRole('heading', { name: 'Como chegar' })).not.toBeInTheDocument();
+    const ticketNoCabecalho = screen.getByRole('button', { name: /Ticket PV-0042/ });
+    expect(ticketNoCabecalho).toHaveAttribute('aria-expanded', 'false');
+    fireEvent.click(ticketNoCabecalho);
+    expect(screen.getByTestId('painel-navegacao')).toHaveAttribute('data-expandido', 'true');
+    expect(screen.getByRole('heading', { name: 'Como chegar' })).toBeVisible();
+    expect(screen.getByText('Vaga comum')).toBeInTheDocument(); // tipo de vaga no ticket
+    fireEvent.keyDown(screen.getByRole('heading', { name: 'Como chegar' }), { key: 'Escape' });
+    expect(screen.getByTestId('painel-navegacao')).toHaveAttribute('data-expandido', 'false');
+    expect(screen.getByRole('button', { name: 'Mostrar detalhes' })).toHaveFocus();
+  });
+
+  it('arrastar a alça para cima expande sem o toque desfazer o gesto', async () => {
+    simularApi({ '/localizador/:token': { corpo: resposta('AGUARDANDO') } });
+    abrir();
+    await screen.findByTestId('regiao-destino');
+    const alca = screen.getByRole('button', { name: 'Mostrar detalhes' });
+    fireEvent.pointerDown(alca, { clientY: 400 });
+    fireEvent.pointerUp(alca, { clientY: 300 });
+    fireEvent.click(alca); // o clique que o navegador dispara depois do gesto não pode recolher de novo
+    expect(screen.getByTestId('painel-navegacao')).toHaveAttribute('data-expandido', 'true');
   });
 
   it('botões do mapa: ver rota inteira e centralizar no destino', async () => {
@@ -153,12 +185,14 @@ describe('navegação do motorista — encerrado e erros', () => {
     abrir();
     expect(await screen.findByText('Ticket não encontrado')).toBeInTheDocument();
     expect(screen.queryByTestId('mapa-estacionamento')).not.toBeInTheDocument();
+    expect(screen.getByTestId('ajuda-atendimento')).toHaveTextContent('Procure o atendimento do estacionamento');
   });
 
   it('token com formato inválido nem consulta a API', () => {
     const { fetchFalso } = simularApi({});
     abrir('abc<script>');
     expect(screen.getByText('QR Code inválido')).toBeInTheDocument();
+    expect(screen.getByTestId('ajuda-atendimento')).toBeInTheDocument();
     expect(fetchFalso).not.toHaveBeenCalled();
   });
 

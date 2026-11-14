@@ -141,6 +141,33 @@ describe('totem de entrada', () => {
     expect(screen.getByText('Que tipo de vaga você precisa?')).toBeInTheDocument();
   });
 
+  it('indicador de etapa discreto acompanha o fluxo real (moto já tem o tipo de vaga decidido)', async () => {
+    simularApi({ 'POST /entradas': entradaOk(), '/regioes': { corpo: regioesDeTeste() } });
+    abrir();
+    expect(screen.queryByRole('navigation', { name: 'Progresso do atendimento' })).not.toBeInTheDocument(); // tela inicial sem indicador
+    fireEvent.click(screen.getByRole('button', { name: 'Começar' }));
+    expect(screen.getByRole('navigation', { name: 'Progresso do atendimento' })).toHaveTextContent('Etapa 1 de 4');
+    fireEvent.click(screen.getByRole('button', { name: 'Carro pequeno' }));
+    expect(screen.getByRole('navigation', { name: 'Progresso do atendimento' })).toHaveTextContent('Etapa 2 de 4');
+    fireEvent.click(screen.getByRole('button', { name: 'Voltar' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Motocicleta' }));
+    await screen.findByTestId('justificativa', {}, espera);
+    expect(screen.getByRole('navigation', { name: 'Progresso do atendimento' })).toHaveTextContent('Etapa 3 de 4');
+    fireEvent.click(screen.getByRole('button', { name: 'Emitir ticket' }));
+    expect(screen.getByRole('navigation', { name: 'Progresso do atendimento' })).toHaveTextContent('Etapa 4 de 4');
+  });
+
+  it('recomendação: código da região em destaque, aviso de que não reserva vaga e nenhum tempo de caminhada inventado', async () => {
+    simularApi({ 'POST /entradas': entradaOk(), '/regioes': { corpo: regioesDeTeste() } });
+    abrir();
+    await chegarNaRecomendacao();
+    expect(screen.getByText('N3', { selector: 'p' })).toBeInTheDocument();
+    expect(screen.getByText(/A indicação não reserva vaga/)).toBeInTheDocument();
+    expect(screen.getByRole('meter', { name: /Ocupação da região N3/ })).toBeInTheDocument();
+    expect(screen.queryByText(/a pé|min|metros/i)).not.toBeInTheDocument();
+    expect(screen.getAllByRole('button', { name: 'Emitir ticket' })).toHaveLength(1);
+  });
+
   it('acesso inexistente na URL não abre o atendimento', () => {
     abrir('A_XYZ');
     expect(screen.getByText('Totem sem acesso configurado')).toBeInTheDocument();

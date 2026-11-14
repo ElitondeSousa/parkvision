@@ -39,16 +39,38 @@ describe('dashboard administrativo', () => {
   it('carrega os indicadores do backend', async () => {
     api();
     await abrir();
-    expect(screen.getByTestId('kpi-capacidade')).toHaveTextContent('1269');
+    // vagas livres como número dominante, "de 1.269" (formato brasileiro), e a barra de ocupação geral
+    expect(screen.getByTestId('kpi-capacidade')).toHaveTextContent('de 1.269');
+    expect(screen.getByTestId('kpi-livres')).toHaveTextContent(`Vagas livres${indicadoresDe(regioesDeTeste()).livres}`);
+    expect(screen.getByRole('meter', { name: 'Taxa de ocupação geral' })).toHaveAttribute('aria-valuemax', '1269');
     expect(screen.getByTestId('kpi-entrando')).toHaveTextContent('4');
     expect(screen.getByTestId('kpi-indisponiveis')).toHaveTextContent('0');
     expect(screen.getByTestId('kpi-indisponiveis')).toHaveTextContent('todas operando');
+  });
+
+  it('navegação superior por âncoras: todas as seções ficam na página, sem barra lateral', async () => {
+    api();
+    await abrir();
+    const nav = screen.getByRole('navigation', { name: 'Seções do painel' });
+    for (const [rotulo, id] of [['Visão geral', 'visao-geral'], ['Mapa', 'mapa'], ['Regiões', 'regioes'], ['Tickets', 'tickets'], ['Simulador', 'simulador'], ['Vagas reservadas', 'reservadas']]) {
+      expect(within(nav).getByRole('link', { name: rotulo })).toHaveAttribute('href', `#${id}`);
+      expect(document.getElementById(id!)).not.toBeNull();
+    }
+    expect(screen.getByRole('link', { name: 'Consultar ticket' })).toHaveAttribute('href', '#tickets');
+    // o menu do celular abre e fecha pelo mesmo botão, com estado acessível
+    const botaoMenu = screen.getByRole('button', { name: 'Abrir menu' });
+    fireEvent.click(botaoMenu);
+    expect(botaoMenu).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getAllByRole('navigation', { name: 'Seções do painel' })).toHaveLength(2);
+    fireEvent.click(screen.getByRole('button', { name: 'Fechar menu' }));
+    expect(screen.getAllByRole('navigation', { name: 'Seções do painel' })).toHaveLength(1);
   });
 
   it('exibe as 10 regiões no mapa e na tabela, e a recomendação mais recente', async () => {
     api();
     await abrir();
     expect(screen.getAllByRole('row')).toHaveLength(11);
+    expect(within(screen.getByRole('row', { name: /Norte Leste/ })).getAllByRole('cell')[3]).toHaveTextContent('122 de 203');
     expect(screen.getByTestId('mapa-estacionamento').querySelectorAll('[data-regiao]')).toHaveLength(5); // térreo
     expect(screen.getByTestId('recomendacao-atual')).toHaveTextContent('PV-0042');
     expect(regiaoNoMapa('N3')).toHaveAttribute('data-destino', 'true');

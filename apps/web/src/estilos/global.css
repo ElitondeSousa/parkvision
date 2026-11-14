@@ -52,7 +52,7 @@
   /* vagas reservadas (PcD / pessoa idosa): azul do Símbolo de Acesso, mais claro no tema escuro para manter contraste */
   --pv-vaga-reservada: var(--pv-color-vision-600);
 }
-[data-theme="dark"] { --pv-vaga-reservada: var(--pv-color-vision-300); }
+[data-theme="dark"] { --pv-vaga-reservada: var(--pv-color-vision-300); --pv-mapa-via: var(--pv-color-asfalto-800); }
 
 html, body, #raiz { height: 100%; }
 body {
@@ -65,6 +65,15 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 h1, h2, h3 { font-family: var(--pv-font-family-display); line-height: var(--pv-line-height-tight); margin: 0; }
+/* dentro de @layer base: utilitários do Tailwind (truncate, whitespace-nowrap, bg-*) continuam vencendo */
+@layer base {
+  h1, h2, h3 { text-wrap: balance; }
+  p { text-wrap: pretty; }
+  /* toque: sem atraso de duplo toque e sem o flash cinza padrão; o foco visível continua com o anel bronze */
+  button, a, [role="button"], summary, select, input, label { touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+  /* select nativo segue o tema (no escuro o Chrome desenha o menu claro sem isto) */
+  select { background-color: var(--pv-bg-surface); color: var(--pv-text-primary); }
+}
 .num { font-variant-numeric: tabular-nums; }
 
 :focus-visible {
@@ -102,7 +111,7 @@ h1, h2, h3 { font-family: var(--pv-font-family-display); line-height: var(--pv-l
 
 /* ───────── Easter egg: abóbora e chuva de abóboras (só modo escuro) ───────── */
 .gp-abobora {
-  display: inline-grid; place-items: center; width: 40px; height: 40px; border-radius: 999px;
+  display: inline-grid; place-items: center; width: 44px; height: 44px; border-radius: 999px;
   border: 1px solid transparent; background: transparent; cursor: pointer; padding: 0;
   animation: gp-abobora-entra 650ms var(--pv-easing-standard) both;
   transition: border-color 150ms, box-shadow 150ms;

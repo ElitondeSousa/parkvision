@@ -23,9 +23,9 @@ test('marca Golden Park, modo claro por padrão, alternância sem recarregar e p
   expect(await page.evaluate(() => (window as unknown as { __semRecarregar: number }).__semRecarregar)).toBe(marcador); // não recarregou
   // componentes seguem o tema (cartões, mapa), não só o fundo
   const fundoCartao = await page.getByTestId('kpi-capacidade').locator('xpath=..').evaluate((e) => getComputedStyle(e).backgroundColor);
-  expect(fundoCartao).toBe('rgb(21, 21, 23)');
+  expect(fundoCartao).toBe('rgb(22, 28, 41)'); // grafite #161C29 (superfície do tema escuro)
   const papelMapa = await page.getByTestId('mapa-estacionamento').locator('xpath=..').evaluate((e) => getComputedStyle(e).backgroundColor);
-  expect(papelMapa).toBe('rgb(21, 21, 23)');
+  expect(papelMapa).toBe('rgb(22, 28, 41)');
 
   await page.reload();
   expect(await tema(page)).toBe('dark');

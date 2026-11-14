@@ -23,6 +23,10 @@ export const areasForaDaDistribuicao = ((mapaCapimDourado as unknown as { areasN
 export const nomeDoNivel = (n: Nivel) => (NIVEIS.find((x) => x.id === n)?.nome ?? n).replace(/\s*\(.*\)\s*$/, '');
 /** "Acesso nordeste (Av. LO 2A)" → "Acesso nordeste". */
 export const nomeCurto = (nome: string) => nome.replace(/\s*\(.*\)\s*$/, '');
+/** "pelo acesso nordeste" / "pela entrada do pátio norte" — o artigo concorda com o nome do acesso. */
+const feminino = (nome: string) => /^(entrada|rampa|portaria)(\s|$)/i.test(nome.trim());
+export const pelo = (nome: string) => `${feminino(nome) ? 'pela' : 'pelo'} ${nomeCurto(nome).toLowerCase()}`;
+export const doAcesso = (nome: string) => `${feminino(nome) ? 'da' : 'do'} ${nomeCurto(nome).toLowerCase()}`;
 
 /** Centro visual do polígono (média dos vértices — suficiente para os polígonos simples das regiões). */
 export function centro(poligono: [number, number][]): [number, number] {
@@ -85,7 +89,7 @@ export function trechosDaRota(nos: string[]): TrechoRota[] {
 export function orientacaoDaRota(nos: string[], regiaoId: string): string[] {
   const passos: string[] = [];
   const acesso = acessoPorNo[nos[0] ?? ''];
-  if (acesso) passos.push(`Entre pelo ${nomeCurto(acesso.nome).toLowerCase()}.`);
+  if (acesso) passos.push(`Entre ${pelo(acesso.nome)}.`);
   for (let i = 1; i < nos.length; i++) {
     const a = nosPorId[nos[i - 1]!], b = nosPorId[nos[i]!];
     if (!a || !b) continue;

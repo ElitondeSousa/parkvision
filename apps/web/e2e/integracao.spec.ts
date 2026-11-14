@@ -199,7 +199,7 @@ test('o simulador atualiza todos os módulos: painel, mapa, totem e localizador 
   await expect(painel.getByText(/Ambiente de demonstração/)).toBeVisible();
   // painel e mapa refletem o preenchimento do cenário (N3 e N2 cheias) sem recarregar
   await expect(painel.getByTestId('mapa-estacionamento').locator('[data-regiao="N3"]')).toHaveAttribute('data-faixa', 'lotada');
-  await expect(painel.getByTestId('kpi-ocupadas')).not.toContainText(/^Veículos estacionados0/);
+  await expect(painel.getByTestId('kpi-ocupadas')).not.toContainText(/Estacionados0$/);
   await expect(painel.getByTestId('movimentacoes')).toContainText('simulado');
   // o totem usa o mesmo estado: pela rotatória, N3 e N2 cheias não são recomendadas
   const totem = await ctx.newPage();

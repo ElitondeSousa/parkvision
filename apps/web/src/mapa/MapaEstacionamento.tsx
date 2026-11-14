@@ -69,6 +69,29 @@ const COR_FAIXA: Record<FaixaRegiao, string> = {
 };
 const PADRAO_FAIXA: Partial<Record<FaixaRegiao, string>> = { lotada: 'xadrez', indisponivel: 'hachura', 'sem-dados': 'pontos' };
 
+/**
+ * Linguagem visual do mapa (wireframes aprovados): papel, traços finos e neutros, ocupação lida sem gritar.
+ * As misturas usam tokens semânticos, então acompanham o tema claro/escuro sem CSS extra:
+ *  - contorno: a cor da faixa puxada para a tinta do texto — escurece no claro (verde ≈ #0E6B37, 3:1 ou mais sobre o papel)
+ *    e clareia no escuro;
+ *  - preenchimento: um véu da cor sobre o papel (sólido, sem opacidade empilhada).
+ */
+const contornoDa = (cor: string) => `color-mix(in srgb, ${cor} 62%, var(--pv-text-primary))`;
+const veuDa = (cor: string, pct = 16) => `color-mix(in srgb, ${cor} ${pct}%, var(--pv-mapa-papel))`;
+/** Rota: âmbar de orientação com contorno bronze (contraste não textual no claro; bronze claro no escuro). */
+const COR_ROTA = 'var(--pv-wayfinding-route)';
+const CONTORNO_ROTA = 'var(--pv-brand-primary)';
+/** Destino / seleção: fundo quente claro + contorno bronze. */
+const FUNDO_DESTINO = 'var(--pv-brand-subtle)';
+/** Piso do tamanho-base dos textos do mapa, em px de tela (o código da região sai com ≈ 0,92 disso). */
+const FS_MIN_PX = 14;
+const FONTE = { fontFamily: 'var(--pv-font-family-sans)' } as const;
+const FONTE_TITULO = { fontFamily: 'var(--pv-font-family-display)' } as const;
+/** Texto sobre o mapa: halo da cor do papel para ler por cima de vias e contornos. */
+const HALO = (fs: number, estilo: { fontFamily: string } = FONTE) => ({
+  stroke: 'var(--pv-mapa-papel)', strokeWidth: fs / 4.5, strokeLinejoin: 'round' as const, style: { paintOrder: 'stroke', ...estilo },
+});
+
 export function MapaEstacionamento(props: MapaEstacionamentoProps) {
   const { regioes, selecionada, aoSelecionar, destino, rota, apagarOutras, rotuloDestino, seguirDestino = true, enquadrarDestino = false, mostrarLegenda = true, className } = props;
   const nivelDoDestino = destino ? regiaoDoMapa[destino]?.nivel : undefined;
@@ -90,10 +113,20 @@ export function MapaEstacionamento(props: MapaEstacionamentoProps) {
   const mudarCamera = props.aoMudarCamera ?? setCamInterna;
   const [vx, vy, vw, vh] = cam;
   const base = escalaDoNivel(nivel);
-  const fs = Math.min(base * 1.2, Math.max(base * 0.12, escalaDaArea(cam))); // textos e traços com tamanho estável na tela
-
-  // gestos (arrastar, pinça, roda)
+  // gestos (arrastar, pinça, roda) e tamanho do SVG na tela
   const svgRef = useRef<SVGSVGElement>(null);
+  const [tela, setTela] = useState<[number, number]>([0, 0]);
+  useEffect(() => {
+    const el = svgRef.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    const obs = new ResizeObserver(([e]) => { const r = e!.contentRect; setTela((t) => (t[0] === Math.round(r.width) && t[1] === Math.round(r.height) ? t : [Math.round(r.width), Math.round(r.height)])); });
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, []);
+  // textos e traços com tamanho estável na tela; no celular, piso de legibilidade (≈ 13 px no código da região)
+  const pxPorUnidade = tela[0] && tela[1] ? Math.min(tela[0] / vw, tela[1] / vh) : 0;
+  const fsBase = Math.min(base * 1.2, Math.max(base * 0.12, escalaDaArea(cam)));
+  const fs = pxPorUnidade ? Math.min(Math.max(fsBase, FS_MIN_PX / pxPorUnidade), Math.max(vw, vh) / 14) : fsBase;
   const camRef = useRef(cam); camRef.current = cam;
   const ponteiros = useRef(new Map<number, Ponto>());
   const inicioGesto = useRef<{ cam: Camera; pts: Map<number, Ponto> } | null>(null);
@@ -156,10 +189,10 @@ export function MapaEstacionamento(props: MapaEstacionamentoProps) {
           </div>
         )}
         {props.interativo && camInterna && !props.camera && (
-          <button onClick={() => setCamInterna(null)} className="absolute bottom-2 right-2 z-10 h-9 px-3 rounded-md text-sm font-semibold border border-line bg-surface cursor-pointer">Reenquadrar</button>
+          <button onClick={() => setCamInterna(null)} className="absolute bottom-2 right-2 z-10 h-9 px-3 rounded-md text-sm font-semibold border border-line bg-surface text-ink shadow-[var(--pv-shadow-sm)] cursor-pointer">Reenquadrar</button>
         )}
         {enquadrarDestino && destino && nivelDoDestino === nivel && (
-          <button onClick={() => setAproximado((a) => !a)} className="absolute top-2 right-2 z-10 h-9 px-3 rounded-md text-sm font-semibold border border-line bg-surface cursor-pointer" aria-pressed={!aproximado}>
+          <button onClick={() => setAproximado((a) => !a)} className="absolute top-2 right-2 z-10 h-9 px-3 rounded-md text-sm font-semibold border border-line bg-surface text-ink shadow-[var(--pv-shadow-sm)] cursor-pointer" aria-pressed={!aproximado}>
             {aproximado ? 'Ver nível inteiro' : 'Aproximar da região'}
           </button>
         )}
@@ -181,24 +214,24 @@ export function MapaEstacionamento(props: MapaEstacionamentoProps) {
         >
           <Padroes id={idBase} fs={fs} />
           {/* 1. planta */}
-          <path data-camada="planta" d={tracadoPlanta[nivel].d} fill="none" stroke="var(--pv-mapa-tinta)" strokeWidth={0.8} vectorEffect="non-scaling-stroke" aria-hidden="true" />
+          <path data-camada="planta" d={tracadoPlanta[nivel].d} fill="none" stroke="var(--pv-mapa-tinta)" strokeWidth={0.7} strokeLinejoin="round" vectorEffect="non-scaling-stroke" aria-hidden="true" />
 
           {/* 2. fora da distribuição */}
           {areasForaDaDistribuicao.filter((a) => a.nivel === nivel).map((a) => {
             const [cx, cy] = centro(a.poligono);
             return (
               <g key={a.id} aria-hidden="true">
-                <polygon points={a.poligono.map((p) => p.join(',')).join(' ')} fill={`url(#${idBase}-hachura)`} stroke="var(--pv-border-strong)" strokeDasharray={`${fs / 3} ${fs / 4}`} strokeWidth={fs / 12} />
-                <text x={cx} y={cy} textAnchor="middle" fontSize={fs * 0.62} fill="var(--pv-text-secondary)" style={{ paintOrder: 'stroke' }} stroke="var(--pv-mapa-papel)" strokeWidth={fs / 5}>Fora da distribuição</text>
+                <polygon points={a.poligono.map((p) => p.join(',')).join(' ')} fill={`url(#${idBase}-hachura)`} stroke="var(--pv-mapa-tinta)" strokeDasharray={`${fs / 3} ${fs / 4}`} strokeWidth={fs / 14} />
+                <text x={cx} y={cy} textAnchor="middle" fontSize={fs * 0.56} fontWeight={500} fill="var(--pv-text-muted)" {...HALO(fs)}>Fora da distribuição</text>
               </g>
             );
           })}
 
-          {/* 3. vias */}
-          <g data-camada="vias" aria-hidden="true">
+          {/* 3. vias: faixa larga e clara, só para dar o desenho da circulação (a rota é que chama a atenção) */}
+          <g data-camada="vias" aria-hidden="true" stroke="var(--pv-mapa-via)" strokeWidth={fs * 0.42} strokeLinecap="round">
             {mapa.arestas.filter((a) => nosPorId[a.de]?.nivel === nivel).map((a) => {
               const p = nosPorId[a.de]!.xy, q = nosPorId[a.para]!.xy;
-              return <line key={`${a.de}-${a.para}`} x1={p[0]} y1={p[1]} x2={q[0]} y2={q[1]} stroke="var(--pv-mapa-via)" strokeWidth={fs * 0.55} strokeLinecap="round" />;
+              return <line key={`${a.de}-${a.para}`} x1={p[0]} y1={p[1]} x2={q[0]} y2={q[1]} />;
             })}
           </g>
 
@@ -206,8 +239,9 @@ export function MapaEstacionamento(props: MapaEstacionamentoProps) {
           {mapa.regioes.filter((r) => r.nivel === nivel).map((r) => {
             const vivo = porId[r.id];
             const faixa = vivo ? faixaDaRegiao(vivo) : null;
-            const cor = faixa ? COR_FAIXA[faixa] : 'var(--pv-color-asfalto-400)';
+            const cor = faixa ? COR_FAIXA[faixa] : 'var(--pv-text-muted)';
             const ehDestino = destino === r.id;
+            const ehSelecionada = selecionada === r.id;
             const apagada = apagarOutras && destino && !ehDestino;
             const pontos = r.poligono.map((p) => p.join(',')).join(' ');
             const [cx, cy] = centro(r.poligono);
@@ -232,26 +266,30 @@ export function MapaEstacionamento(props: MapaEstacionamentoProps) {
                 data-vagas-pcd={reservadas?.PCD.capacidade ? `${reservadas.PCD.livres}/${reservadas.PCD.capacidade}` : undefined}
                 data-vagas-idoso={reservadas?.IDOSO.capacidade ? `${reservadas.IDOSO.livres}/${reservadas.IDOSO.capacidade}` : undefined}
                 {...(interativa
-                  ? { role: 'button', tabIndex: 0, 'aria-pressed': selecionada === r.id, onClick: selecionar, onKeyDown: teclado, style: { cursor: 'pointer' } }
+                  ? { role: 'button', tabIndex: 0, 'aria-pressed': ehSelecionada, onClick: selecionar, onKeyDown: teclado, style: { cursor: 'pointer' } }
                   : { role: 'img' })}
                 aria-label={descricao + (ehDestino && rotuloDestino ? ` — ${rotuloDestino}` : '')}
-                opacity={apagada ? 0.35 : 1}
+                opacity={apagada ? 0.5 : 1}
               >
                 <title>{descricao}</title>
-                <polygon points={pontos} fill={apagada ? 'var(--pv-bg-muted)' : cor} fillOpacity={apagada ? 0.6 : 0.26} stroke={apagada ? 'var(--pv-border-strong)' : cor} strokeWidth={fs / 8} strokeLinejoin="round" />
+                {/* base: véu da faixa (ou fundo quente no destino) + contorno escurecido da faixa */}
+                <polygon
+                  points={pontos}
+                  fill={apagada ? 'var(--pv-mapa-via)' : ehDestino ? FUNDO_DESTINO : veuDa(cor, faixa ? 13 : 7)}
+                  stroke={apagada ? 'var(--pv-mapa-tinta)' : ehDestino ? CONTORNO_ROTA : faixa ? contornoDa(cor) : 'var(--pv-border-strong)'}
+                  strokeWidth={ehDestino ? fs / 5 : fs / 10}
+                  strokeLinejoin="round"
+                />
                 {padrao && !apagada && <polygon points={pontos} fill={`url(#${idBase}-${padrao})`} stroke="none" />}
-                {selecionada === r.id && <polygon points={pontos} fill="none" stroke="var(--pv-text-primary)" strokeWidth={fs / 3.2} strokeLinejoin="round" />}
+                {/* seleção (painel): contorno bronze espesso; o destino se distingue pelo pulso, pela rota e pelo rótulo */}
+                {ehSelecionada && <polygon data-selecionada points={pontos} fill="none" stroke={CONTORNO_ROTA} strokeWidth={fs / 3.2} strokeLinejoin="round" />}
                 {ehDestino && (
-                  <>
-                    <polygon className="mapa-pulso" points={pontos} fill="none" stroke="var(--pv-wayfinding-route)" style={{ ['--pv-pulso-de' as string]: `${fs / 3}px`, ['--pv-pulso-ate' as string]: `${fs * 1.4}px` }} />
-                    <polygon points={pontos} fill="none" stroke="var(--pv-wayfinding-route)" strokeWidth={fs / 3} strokeLinejoin="round" />
-                  </>
+                  <polygon className="mapa-pulso" points={pontos} fill="none" stroke={CONTORNO_ROTA} strokeLinejoin="round" style={{ ['--pv-pulso-de' as string]: `${fs / 5}px`, ['--pv-pulso-ate' as string]: `${fs * 1.1}px` }} />
                 )}
-                <RotuloRegiao id={r.id} x={cx} y={cy} fs={fs} linha2={rotuloLinha2(vivo, faixa)} congestionada={Boolean(cong)} destaque={ehDestino && !props.pinoDestino ? rotuloDestino : undefined} apagada={Boolean(apagada)} semCodigo={ehDestino && props.pinoDestino} />
+                <RotuloRegiao id={r.id} x={cx} y={cy} fs={fs} linha2={rotuloLinha2(vivo, faixa)} congestionada={Boolean(cong)} destaque={ehDestino && !props.pinoDestino ? rotuloDestino : undefined} apagada={Boolean(apagada)} semCodigo={ehDestino && props.pinoDestino} ativa={ehDestino || ehSelecionada} />
                 {reservadas && !apagada && (reservadas.PCD.capacidade > 0 || reservadas.IDOSO.capacidade > 0) && (
-                  <SelosReservadas x={cx} y={cy + fs * (rotuloLinha2(vivo, faixa) ? 2.25 : 1.45)} fs={fs} pcd={reservadas.PCD} idoso={reservadas.IDOSO} />
+                  <SelosReservadas x={cx} y={cy + fs * (rotuloLinha2(vivo, faixa) ? Y_SELOS.comLinha2 : Y_SELOS.semLinha2)} fs={fs} pcd={reservadas.PCD} idoso={reservadas.IDOSO} />
                 )}
-                {ehDestino && props.pinoDestino && <PinoDestino x={cx} y={cy} fs={fs} codigo={r.id} rotulo={rotuloDestino} />}
               </g>
             );
           })}
@@ -266,15 +304,23 @@ export function MapaEstacionamento(props: MapaEstacionamentoProps) {
           <g data-camada="acessos" pointerEvents="none">
             {mapa.acessos.filter((a) => a.nivel === nivel).map((a) => {
               const [x, y] = nosPorId[a.no]!.xy;
+              const incerto = a.confianca === 'baixa';
+              // acesso: disco em tinta com seta de entrada; posição a confirmar = disco vazado e tracejado
               return (
-                <g key={a.id} data-acesso={a.id} role="img" aria-label={`${a.nome}${a.confianca === 'baixa' ? ' (posição a confirmar)' : ''}`}>
-                  <circle cx={x} cy={y} r={fs * 0.42} fill={a.confianca === 'baixa' ? 'var(--pv-mapa-papel)' : 'var(--pv-wayfinding-route)'} stroke="var(--pv-color-asfalto-950)" strokeWidth={fs / 10} strokeDasharray={a.confianca === 'baixa' ? `${fs / 6} ${fs / 8}` : undefined} />
-                  <path d={`M${x - fs * 0.18} ${y - fs * 0.16}l${fs * 0.18} ${fs * 0.2} ${fs * 0.18} -${fs * 0.2}`} fill="none" stroke="var(--pv-color-asfalto-950)" strokeWidth={fs / 10} strokeLinecap="round" />
-                  <text x={x + fs * 0.6} y={y + fs * 0.25} fontSize={fs * 0.62} fontWeight={600} fill="var(--pv-text-primary)" stroke="var(--pv-mapa-papel)" strokeWidth={fs / 5} style={{ paintOrder: 'stroke', fontFamily: 'var(--pv-font-family-sans)' }}>{nomeCurto(a.nome)}</text>
+                <g key={a.id} data-acesso={a.id} role="img" aria-label={`${a.nome}${incerto ? ' (posição a confirmar)' : ''}`}>
+                  <circle cx={x} cy={y} r={fs * 0.4} fill={incerto ? 'var(--pv-mapa-papel)' : 'var(--pv-text-primary)'} stroke="var(--pv-text-primary)" strokeWidth={fs / 12} strokeDasharray={incerto ? `${fs / 7} ${fs / 9}` : undefined} />
+                  <path d={`M${x - fs * 0.16} ${y - fs * 0.08}l${fs * 0.16} ${fs * 0.17} ${fs * 0.16} -${fs * 0.17}`} fill="none" stroke={incerto ? 'var(--pv-text-primary)' : 'var(--pv-mapa-papel)'} strokeWidth={fs / 11} strokeLinecap="round" strokeLinejoin="round" />
+                  <text x={x + fs * 0.62} y={y + fs * 0.22} fontSize={fs * 0.56} fontWeight={600} fill="var(--pv-text-secondary)" {...HALO(fs)}>{nomeCurto(a.nome)}</text>
                 </g>
               );
             })}
           </g>
+
+          {/* 7. pino de destino: por cima da rota e dos acessos, para a placa nunca ficar coberta */}
+          {props.pinoDestino && destino && nivelDoDestino === nivel && regiaoDoMapa[destino] && (() => {
+            const [px, py] = centro(regiaoDoMapa[destino]!.poligono);
+            return <PinoDestino x={px} y={py} fs={fs} codigo={destino} rotulo={rotuloDestino} />;
+          })()}
         </svg>
       </div>
       {mostrarLegenda && <LegendaMapa />}
@@ -288,30 +334,36 @@ function rotuloLinha2(vivo: Regiao | undefined, faixa: FaixaRegiao | null) {
   return `${vivo.livres} livres`;
 }
 
-function RotuloRegiao({ id, x, y, fs, linha2, congestionada: cong, destaque, apagada, semCodigo }: { id: string; x: number; y: number; fs: number; linha2: string; congestionada: boolean; destaque?: string; apagada: boolean; semCodigo?: boolean }) {
-  const w = fs * (0.62 * id.length + 0.9), h = fs * 1.15;
+/** Deslocamento vertical dos selos de vagas reservadas abaixo do rótulo (com e sem a 2ª linha). */
+const Y_SELOS = { comLinha2: 2.05, semLinha2: 1.3 };
+
+/**
+ * Rótulo da região: código em texto (sem placa, como nos wireframes) + 2ª linha discreta ("N livres" ou o estado).
+ * A placa azul fica reservada ao pino de destino, que repete a sinalização física.
+ */
+function RotuloRegiao({ id, x, y, fs, linha2, congestionada: cong, destaque, apagada, semCodigo, ativa }: { id: string; x: number; y: number; fs: number; linha2: string; congestionada: boolean; destaque?: string; apagada: boolean; semCodigo?: boolean; ativa?: boolean }) {
+  const w = fs * 0.6 * id.length;
+  const corCodigo = apagada ? 'var(--pv-text-muted)' : ativa ? 'var(--pv-brand-on-subtle)' : 'var(--pv-text-primary)';
+  const larguraDestaque = destaque ? fs * (0.32 * destaque.length + 0.9) : 0;
   return (
     <g pointerEvents="none" aria-hidden="true">
       {destaque && (
         <g>
-          <rect x={x - fs * 3} y={y - h / 2 - fs * 1.35} width={fs * 6} height={fs * 0.95} rx={fs * 0.47} fill="var(--pv-wayfinding-route)" />
-          <text x={x} y={y - h / 2 - fs * 0.66} textAnchor="middle" fontSize={fs * 0.58} fontWeight={700} fill="var(--pv-wayfinding-on)" style={{ fontFamily: 'var(--pv-font-family-sans)' }}>{destaque}</text>
+          <rect x={x - larguraDestaque / 2} y={y - fs * 1.75} width={larguraDestaque} height={fs * 0.92} rx={fs * 0.46} fill={CONTORNO_ROTA} />
+          <text x={x} y={y - fs * 1.1} textAnchor="middle" fontSize={fs * 0.56} fontWeight={600} fill="var(--pv-text-on-brand)" style={FONTE}>{destaque}</text>
         </g>
       )}
       {!semCodigo && (
-        <>
-          <rect x={x - w / 2} y={y - h / 2} width={w} height={h} rx={fs * 0.22} fill={apagada ? 'var(--pv-color-asfalto-400)' : 'var(--pv-color-vision-600)'} stroke="#fff" strokeWidth={fs * 0.08} />
-          <text x={x} y={y + fs * 0.33} textAnchor="middle" fontSize={fs * 0.9} fontWeight={700} fill="#fff" style={{ fontFamily: 'var(--pv-font-family-display)' }}>{id}</text>
-        </>
+        <text x={x} y={y + fs * 0.32} textAnchor="middle" fontSize={fs * 0.92} fontWeight={700} fill={corCodigo} {...HALO(fs, FONTE_TITULO)}>{id}</text>
       )}
       {linha2 && (
-        <text x={x} y={y + h / 2 + fs * 0.82} textAnchor="middle" fontSize={fs * 0.62} fontWeight={600} fill="var(--pv-text-primary)" stroke="var(--pv-mapa-papel)" strokeWidth={fs / 5} style={{ paintOrder: 'stroke', fontFamily: 'var(--pv-font-family-sans)' }} className="num">{linha2}</text>
+        <text x={x} y={y + fs * 1.22} textAnchor="middle" fontSize={fs * 0.58} fontWeight={500} fill={apagada ? 'var(--pv-text-muted)' : 'var(--pv-text-secondary)'} {...HALO(fs)} className="num">{linha2}</text>
       )}
       {cong && (
-        <g transform={`translate(${x + w / 2 + fs * 0.2} ${y - fs * 0.45})`}>
-          <rect width={fs * 0.95} height={fs * 0.9} rx={fs * 0.2} fill="var(--pv-feedback-warning-solid)" stroke="#fff" strokeWidth={fs * 0.06} />
-          {[0.25, 0.47, 0.69].map((k) => (
-            <path key={k} d={`M${fs * 0.15} ${fs * k}q${fs * 0.16} -${fs * 0.12} ${fs * 0.32} 0t${fs * 0.32} 0`} fill="none" stroke="#fff" strokeWidth={fs * 0.07} strokeLinecap="round" />
+        <g transform={`translate(${x + w / 2 + fs * 0.25} ${y - fs * 0.5})`}>
+          <rect width={fs * 0.9} height={fs * 0.84} rx={fs * 0.2} fill="var(--pv-feedback-warning-solid)" stroke="var(--pv-mapa-papel)" strokeWidth={fs * 0.06} />
+          {[0.23, 0.43, 0.63].map((k) => (
+            <path key={k} d={`M${fs * 0.14} ${fs * k}q${fs * 0.155} -${fs * 0.11} ${fs * 0.31} 0t${fs * 0.31} 0`} fill="none" stroke="var(--pv-mapa-papel)" strokeWidth={fs * 0.07} strokeLinecap="round" />
           ))}
         </g>
       )}
@@ -337,7 +389,7 @@ function SelosReservadas({ x, y, fs, pcd, idoso }: { x: number; y: number; fs: n
         const esgotada = v.livres === 0;
         return (
           <g key={tipo} data-selo-reservada={tipo}>
-            <rect x={x0} y={y - k * 0.62} width={w} height={k * 1.24} rx={k * 0.3} fill="var(--pv-mapa-papel)" stroke="var(--pv-vaga-reservada)" strokeWidth={k * 0.12} />
+            <rect x={x0} y={y - k * 0.62} width={w} height={k * 1.24} rx={k * 0.32} fill="var(--pv-mapa-papel)" stroke="var(--pv-vaga-reservada)" strokeWidth={k * 0.1} />
             {tipo === 'PCD'
               ? <Accessibility x={x0 + k * 0.14} y={y - k * 0.5} width={k} height={k} color="var(--pv-vaga-reservada)" strokeWidth={2.6} />
               : <text x={x0 + k * 0.64} y={y + k * 0.27} textAnchor="middle" fontSize={k * 0.62} fontWeight={800} fill="var(--pv-vaga-reservada)" style={{ fontFamily: 'var(--pv-font-family-sans)' }}>60+</text>}
@@ -361,10 +413,11 @@ function TrechoDeRota({ nos, rotaCompleta, fs, idBase }: { nos: string[]; rotaCo
     <g data-camada="rota" data-nos={nos.join(' ')} aria-label="Rota recomendada" role="img" pointerEvents="none">
       {pts.length > 1 && (
         <>
-          <path d={d} fill="none" stroke="var(--pv-color-asfalto-950)" strokeOpacity={0.6} strokeWidth={fs * 0.7} strokeLinecap="round" strokeLinejoin="round" />
-          <path className="gp-rota-traco" pathLength={1} d={d} fill="none" stroke="var(--pv-wayfinding-route)" strokeWidth={fs * 0.4} strokeLinecap="round" strokeLinejoin="round" markerEnd={`url(#${idBase}-seta)`} />
+          {/* contorno bronze (contraste não textual do âmbar sobre o papel) + traço âmbar desenhado ao carregar */}
+          <path className="gp-rota-traco" pathLength={1} d={d} fill="none" stroke={CONTORNO_ROTA} strokeWidth={fs * 0.6} strokeLinecap="round" strokeLinejoin="round" />
+          <path className="gp-rota-traco" pathLength={1} d={d} fill="none" stroke={COR_ROTA} strokeWidth={fs * 0.34} strokeLinecap="round" strokeLinejoin="round" markerEnd={`url(#${idBase}-seta)`} />
           {setasDaRota(pts, fs * 4).map((s, i) => (
-            <path key={i} data-seta-rota d={`M${-fs * 0.18} ${-fs * 0.16}L${fs * 0.14} 0L${-fs * 0.18} ${fs * 0.16}`} transform={`translate(${s.x} ${s.y}) rotate(${s.angulo})`} fill="none" stroke="var(--pv-color-asfalto-950)" strokeWidth={fs * 0.09} strokeLinecap="round" strokeLinejoin="round" />
+            <path key={i} data-seta-rota d={`M${-fs * 0.14} ${-fs * 0.12}L${fs * 0.1} 0L${-fs * 0.14} ${fs * 0.12}`} transform={`translate(${s.x} ${s.y}) rotate(${s.angulo})`} fill="none" stroke="var(--pv-wayfinding-on)" strokeWidth={fs * 0.075} strokeLinecap="round" strokeLinejoin="round" />
           ))}
         </>
       )}
@@ -372,8 +425,9 @@ function TrechoDeRota({ nos, rotaCompleta, fs, idBase }: { nos: string[]; rotaCo
       {vaiParaOutroNivel && <Chip x={pts[pts.length - 1]![0]} y={pts[pts.length - 1]![1]} fs={fs} texto={`Rampa para o ${nomeDoNivel(vaiParaOutroNivel).toLowerCase()}`} />}
       {!veioDeOutroNivel && acessoPorNo[primeiro] && (
         <g data-testid="partida-rota">
-          <circle cx={pts[0]![0]} cy={pts[0]![1]} r={fs * 0.6} fill="var(--pv-mapa-papel)" stroke="var(--pv-wayfinding-route)" strokeWidth={fs * 0.18} />
-          <circle cx={pts[0]![0]} cy={pts[0]![1]} r={fs * 0.22} fill="var(--pv-color-asfalto-950)" />
+          {/* partida: anel bronze sobre o papel com miolo bronze — lê como "início" e não se confunde com o pino */}
+          <circle cx={pts[0]![0]} cy={pts[0]![1]} r={fs * 0.58} fill="var(--pv-mapa-papel)" stroke={CONTORNO_ROTA} strokeWidth={fs * 0.16} />
+          <circle cx={pts[0]![0]} cy={pts[0]![1]} r={fs * 0.24} fill={CONTORNO_ROTA} />
         </g>
       )}
     </g>
@@ -385,11 +439,14 @@ function PinoDestino({ x, y, fs: fsBase, codigo, rotulo }: { x: number; y: numbe
   const r = fs * 0.95, w = fs * (0.62 * codigo.length + 0.9);
   return (
     <g data-testid="pino-destino" pointerEvents="none" aria-hidden="true">
+      {/* sombra de contato no chão: marca o ponto exato sem filtro */}
+      <ellipse cx={x} cy={y} rx={r * 0.42} ry={r * 0.16} fill="var(--pv-text-primary)" fillOpacity={0.18} />
       <path d={`M${x} ${y}c${-r * 0.55} ${-r * 0.9} ${-r * 1.05} ${-r * 1.4} ${-r * 1.05} ${-r * 2.1}a${r * 1.05} ${r * 1.05} 0 1 1 ${r * 2.1} 0c0 ${r * 0.7} ${-r * 0.5} ${r * 1.2} ${-r * 1.05} ${r * 2.1}z`}
-        fill="var(--pv-wayfinding-route)" stroke="var(--pv-color-asfalto-950)" strokeWidth={fs * 0.1} />
-      <rect x={x - w / 2} y={y - r * 2.62} width={w} height={fs * 1.05} rx={fs * 0.22} fill="var(--pv-color-vision-600)" stroke="#fff" strokeWidth={fs * 0.07} />
-      <text x={x} y={y - r * 2.62 + fs * 0.82} textAnchor="middle" fontSize={fs * 0.82} fontWeight={700} fill="#fff" style={{ fontFamily: 'var(--pv-font-family-display)' }}>{codigo}</text>
-      {rotulo && <text x={x} y={y - r * 3.3} textAnchor="middle" fontSize={fs * 0.62} fontWeight={700} fill="var(--pv-text-primary)" stroke="var(--pv-mapa-papel)" strokeWidth={fs / 5} style={{ paintOrder: 'stroke', fontFamily: 'var(--pv-font-family-sans)' }}>{rotulo}</text>}
+        fill={COR_ROTA} stroke={CONTORNO_ROTA} strokeWidth={fs * 0.1} strokeLinejoin="round" />
+      {/* placa azul: repete a sinalização física da região */}
+      <rect x={x - w / 2} y={y - r * 2.62} width={w} height={fs * 1.05} rx={fs * 0.2} fill="var(--pv-color-vision-600)" stroke="var(--pv-mapa-papel)" strokeWidth={fs * 0.07} />
+      <text x={x} y={y - r * 2.62 + fs * 0.82} textAnchor="middle" fontSize={fs * 0.82} fontWeight={700} fill="#fff" style={FONTE_TITULO}>{codigo}</text>
+      {rotulo && <text x={x} y={y - r * 3.3} textAnchor="middle" fontSize={fs * 0.6} fontWeight={600} fill="var(--pv-text-primary)" {...HALO(fs)}>{rotulo}</text>}
     </g>
   );
 }
@@ -460,11 +517,13 @@ function CamadaVeiculos({ veiculos, nivel, fs }: { veiculos: VeiculoAnimado[]; n
 }
 
 function Chip({ x, y, fs, texto }: { x: number; y: number; fs: number; texto: string }) {
-  const w = fs * 0.36 * texto.length + fs;
+  // troca de nível: etiqueta em tinta invertida (escura no claro, clara no escuro), presa ao ponto por uma haste curta
+  const w = fs * 0.33 * texto.length + fs;
   return (
     <g pointerEvents="none">
-      <rect x={x - w / 2} y={y - fs * 1.9} width={w} height={fs} rx={fs / 2} fill="var(--pv-color-asfalto-950)" />
-      <text x={x} y={y - fs * 1.2} textAnchor="middle" fontSize={fs * 0.6} fontWeight={600} fill="var(--pv-color-faixa-300)" style={{ fontFamily: 'var(--pv-font-family-sans)' }}>{texto}</text>
+      <line x1={x} y1={y - fs * 0.5} x2={x} y2={y - fs * 0.95} stroke="var(--pv-text-primary)" strokeWidth={fs * 0.07} strokeLinecap="round" />
+      <rect x={x - w / 2} y={y - fs * 1.9} width={w} height={fs * 0.95} rx={fs * 0.24} fill="var(--pv-text-primary)" />
+      <text x={x} y={y - fs * 1.25} textAnchor="middle" fontSize={fs * 0.56} fontWeight={600} fill="var(--pv-mapa-papel)" style={FONTE}>{texto}</text>
     </g>
   );
 }
@@ -474,16 +533,16 @@ function Padroes({ id, fs }: { id: string; fs: number }) {
   return (
     <defs>
       <pattern id={`${id}-hachura`} width={s} height={s} patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
-        <line x1="0" y1="0" x2="0" y2={s} stroke="var(--pv-color-asfalto-500)" strokeWidth={s / 5} strokeOpacity={0.55} />
+        <line x1="0" y1="0" x2="0" y2={s} stroke="var(--pv-text-muted)" strokeWidth={s / 6} strokeOpacity={0.4} />
       </pattern>
       <pattern id={`${id}-xadrez`} width={s} height={s} patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
-        <path d={`M0 0V${s}M0 0H${s}`} stroke="var(--pv-faixa-lotada)" strokeWidth={s / 6} strokeOpacity={0.6} />
+        <path d={`M0 0V${s}M0 0H${s}`} stroke={contornoDa('var(--pv-faixa-lotada)')} strokeWidth={s / 7} strokeOpacity={0.5} />
       </pattern>
       <pattern id={`${id}-pontos`} width={s} height={s} patternUnits="userSpaceOnUse">
-        <circle cx={s / 2} cy={s / 2} r={s / 6} fill="var(--pv-faixa-sem-dados)" fillOpacity={0.7} />
+        <circle cx={s / 2} cy={s / 2} r={s / 7} fill={contornoDa('var(--pv-faixa-sem-dados)')} fillOpacity={0.6} />
       </pattern>
       <marker id={`${id}-seta`} viewBox="0 0 10 10" refX="5" refY="5" markerWidth="2.6" markerHeight="2.6" orient="auto-start-reverse">
-        <path d="M0 0L10 5L0 10z" fill="var(--pv-wayfinding-route)" stroke="var(--pv-color-asfalto-950)" strokeWidth="1" />
+        <path d="M0 0L10 5L0 10z" fill={COR_ROTA} stroke={CONTORNO_ROTA} strokeWidth="1.2" strokeLinejoin="round" />
       </marker>
     </defs>
   );
@@ -491,27 +550,28 @@ function Padroes({ id, fs }: { id: string; fs: number }) {
 
 function AbasDeNivel({ nivel, aoTrocar, regioes, destino, trechos, compactas }: { nivel: Nivel; aoTrocar: (n: Nivel) => void; regioes?: Regiao[]; destino?: string | null; trechos: Nivel[]; compactas?: boolean }) {
   return (
-    <div role="tablist" aria-label="Nível do estacionamento" className={compactas ? 'inline-flex gap-1 p-1 rounded-lg bg-surface border border-line shadow-[var(--pv-shadow-sm)]' : 'flex gap-1 mb-2 overflow-x-auto'}>
+    // padrão: abas sublinhadas (bronze) como nos wireframes; compactas (sobre o mapa): segmento com fundo quente na ativa
+    <div role="tablist" aria-label="Nível do estacionamento" className={compactas ? 'inline-flex max-w-full overflow-x-auto gap-0.5 p-1 rounded-lg bg-surface border border-line shadow-[var(--pv-shadow-sm)]' : 'flex gap-1 mb-2 overflow-x-auto border-b border-line'}>
       {NIVEIS.map((n) => {
         const doNivel = (regioes ?? []).filter((r) => r.nivel === n.id);
         const livres = doNivel.reduce((s, r) => s + (r.operacional ? r.livres : 0), 0);
         const temDestino = destino && regiaoDoMapa[destino]?.nivel === n.id;
         const ativo = n.id === nivel;
+        const estilo = compactas
+          ? { background: ativo ? 'var(--pv-brand-subtle)' : 'transparent', color: ativo ? 'var(--pv-brand-on-subtle)' : 'var(--pv-text-secondary)' }
+          : { color: ativo ? 'var(--pv-text-primary)' : 'var(--pv-text-secondary)', boxShadow: ativo ? 'inset 0 -2px 0 var(--pv-brand-primary)' : undefined };
         return (
           <button
             key={n.id}
             role="tab"
             aria-selected={ativo}
             onClick={() => aoTrocar(n.id)}
-            className="flex items-center gap-2 h-10 px-3 rounded-md text-sm font-semibold whitespace-nowrap cursor-pointer transition-colors"
-            style={{
-              background: ativo ? 'var(--pv-text-primary)' : 'var(--pv-bg-subtle)',
-              color: ativo ? 'var(--pv-bg-surface)' : 'var(--pv-text-secondary)',
-            }}
+            className={`flex items-center gap-1.5 h-11 ${compactas ? 'px-2.5 rounded-md max-[360px]:px-2' : 'px-3 rounded-t-md'} text-sm whitespace-nowrap cursor-pointer transition-colors ${ativo ? 'font-semibold' : 'font-medium'}`}
+            style={estilo}
           >
             {nomeDoNivel(n.id)}
             {regioes && <span className="num font-normal opacity-80">{livres} livres</span>}
-            {(temDestino || trechos.includes(n.id)) && <span className="size-2 rounded-full" style={{ background: 'var(--pv-wayfinding-route)' }} aria-label={temDestino ? 'destino neste nível' : 'rota passa neste nível'} />}
+            {(temDestino || trechos.includes(n.id)) && <span className="size-2 rounded-full" style={{ background: COR_ROTA, boxShadow: `0 0 0 1.5px ${CONTORNO_ROTA}` }} aria-label={temDestino ? 'destino neste nível' : 'rota passa neste nível'} />}
           </button>
         );
       })}
@@ -519,36 +579,41 @@ function AbasDeNivel({ nivel, aoTrocar, regioes, destino, trechos, compactas }: 
   );
 }
 
+/** Legenda compacta, em caixa normal: cada amostra repete o desenho do mapa (véu + contorno + padrão), não só a cor. */
 export function LegendaMapa() {
   const itens: [FaixaRegiao, string][] = [['livre', '< 70%'], ['alta', '70–89%'], ['critica', '≥ 90%'], ['lotada', 'sem vagas'], ['indisponivel', ''], ['sem-dados', '']];
+  const item = 'inline-flex items-center gap-1.5';
   return (
-    <ul aria-label="Legenda do mapa" className="flex flex-wrap gap-x-4 gap-y-1.5 mt-2 text-xs text-ink-2 list-none p-0 m-0">
+    <ul aria-label="Legenda do mapa" className="flex flex-wrap gap-x-3.5 gap-y-1 mt-2 text-xs leading-5 text-ink-2 list-none p-0 m-0">
       {itens.map(([f, extra]) => (
-        <li key={f} className="inline-flex items-center gap-1.5">
-          <svg width="18" height="12" aria-hidden="true">
-            <rect x="1" y="1" width="16" height="10" rx="2" fill={COR_FAIXA[f]} fillOpacity={0.3} stroke={COR_FAIXA[f]} strokeWidth="1.5" />
-            {f === 'lotada' && <path d="M3 3l12 6M15 3L3 9" stroke={COR_FAIXA[f]} strokeWidth="1.2" />}
-            {f === 'indisponivel' && <path d="M2 10l6-8M8 10l6-8M14 10l2-3" stroke="var(--pv-color-asfalto-500)" strokeWidth="1.2" />}
-            {f === 'sem-dados' && <><circle cx="6" cy="6" r="1.4" fill={COR_FAIXA[f]} /><circle cx="12" cy="6" r="1.4" fill={COR_FAIXA[f]} /></>}
+        <li key={f} className={item}>
+          <svg width="16" height="12" aria-hidden="true" className="shrink-0">
+            <rect x="0.75" y="0.75" width="14.5" height="10.5" rx="2" fill={veuDa(COR_FAIXA[f], 22)} stroke={contornoDa(COR_FAIXA[f])} strokeWidth="1.25" />
+            {f === 'lotada' && <path d="M3 3l10 6M13 3L3 9" stroke={contornoDa(COR_FAIXA[f])} strokeWidth="1" />}
+            {f === 'indisponivel' && <path d="M2 10l6-8M7 10l6-8M12 10l2.5-3.3" stroke="var(--pv-text-muted)" strokeWidth="1" />}
+            {f === 'sem-dados' && <><circle cx="5.5" cy="6" r="1.3" fill={contornoDa(COR_FAIXA[f])} /><circle cx="10.5" cy="6" r="1.3" fill={contornoDa(COR_FAIXA[f])} /></>}
           </svg>
-          {ROTULO_FAIXA[f]}{extra && <span className="opacity-75">({extra})</span>}
+          <span>{ROTULO_FAIXA[f]}{extra && <span className="text-ink-3"> {extra}</span>}</span>
         </li>
       ))}
-      <li className="inline-flex items-center gap-1.5">
-        <span className="inline-block w-4 h-3 rounded-sm" style={{ background: 'var(--pv-feedback-warning-solid)' }} aria-hidden="true" /> Fluxo elevado
+      <li className={item}>
+        <span className="inline-block w-3.5 h-3 rounded-[3px] shrink-0" style={{ background: 'var(--pv-feedback-warning-solid)' }} aria-hidden="true" />Fluxo elevado
       </li>
-      <li className="inline-flex items-center gap-1.5">
-        <span className="inline-block w-5 h-1.5 rounded-full" style={{ background: 'var(--pv-wayfinding-route)' }} aria-hidden="true" /> Rota e destino
+      <li className={item}>
+        <span className="inline-block w-5 h-1.5 rounded-full shrink-0" style={{ background: COR_ROTA, boxShadow: `0 0 0 1.5px ${CONTORNO_ROTA}` }} aria-hidden="true" />Rota
       </li>
-      <li className="inline-flex items-center gap-1.5">
-        <span className="inline-block size-3 rounded-full border-2" style={{ background: 'var(--pv-wayfinding-route)', borderColor: 'var(--pv-color-asfalto-950)' }} aria-hidden="true" /> Acesso
+      <li className={item}>
+        <span className="inline-block w-4 h-3 rounded-[3px] shrink-0" style={{ background: FUNDO_DESTINO, boxShadow: `inset 0 0 0 1.5px ${CONTORNO_ROTA}` }} aria-hidden="true" />Destino
       </li>
-      <li className="inline-flex items-center gap-1.5">
-        <span className="inline-grid place-items-center h-4 px-1 rounded border" style={{ borderColor: 'var(--pv-vaga-reservada)', color: 'var(--pv-vaga-reservada)' }} aria-hidden="true"><Accessibility size={11} strokeWidth={2.6} /></span>
+      <li className={item}>
+        <span className="inline-block size-3 rounded-full shrink-0" style={{ background: 'var(--pv-text-primary)' }} aria-hidden="true" />Acesso
+      </li>
+      <li className={item}>
+        <span className="inline-grid place-items-center h-4 px-1 rounded border shrink-0" style={{ borderColor: 'var(--pv-vaga-reservada)', color: 'var(--pv-vaga-reservada)' }} aria-hidden="true"><Accessibility size={11} strokeWidth={2.6} /></span>
         Vagas PcD livres
       </li>
-      <li className="inline-flex items-center gap-1.5">
-        <span className="inline-grid place-items-center h-4 px-1 rounded border text-[9px] font-extrabold" style={{ borderColor: 'var(--pv-vaga-reservada)', color: 'var(--pv-vaga-reservada)' }} aria-hidden="true">60+</span>
+      <li className={item}>
+        <span className="inline-grid place-items-center h-4 px-1 rounded border text-[9px] font-bold shrink-0" style={{ borderColor: 'var(--pv-vaga-reservada)', color: 'var(--pv-vaga-reservada)' }} aria-hidden="true">60+</span>
         Vagas para pessoa idosa livres
       </li>
     </ul>

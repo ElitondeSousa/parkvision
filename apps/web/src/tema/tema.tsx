@@ -19,7 +19,7 @@ export function aplicarTema(tema: Tema) {
   const raiz = document.documentElement;
   raiz.dataset.theme = tema === 'escuro' ? 'dark' : 'light';
   raiz.style.colorScheme = tema === 'escuro' ? 'dark' : 'light';
-  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', tema === 'escuro' ? '#0D0D0E' : '#FAF8F4');
+  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', tema === 'escuro' ? '#0C111C' : '#F7F9FC');
 }
 
 interface ContextoTema { tema: Tema; definir: (t: Tema) => void; alternar: () => void }
@@ -50,7 +50,7 @@ export function BotaoTema({ className }: { className?: string }) {
       aria-label={escuro ? 'Mudar para o modo claro' : 'Mudar para o modo escuro'}
       title={escuro ? 'Modo claro' : 'Modo escuro'}
       data-testid="botao-tema"
-      className={`inline-grid place-items-center size-10 rounded-full border border-line bg-surface text-ink cursor-pointer transition-colors hover:border-[var(--pv-brand-primary)] ${className ?? ''}`}
+      className={`inline-grid place-items-center size-11 rounded-full border border-line bg-surface text-ink cursor-pointer transition-colors hover:border-[var(--pv-brand-primary)] ${className ?? ''}`}
     >
       {escuro ? <Sun size={18} aria-hidden /> : <Moon size={18} aria-hidden />}
     </button>

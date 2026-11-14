@@ -32,7 +32,7 @@ describe('localizador ao vivo', () => {
     await waitFor(() => expect(socketFalso.ouvintes.get('ticket:atualizado')?.length).toBeGreaterThan(0)); // assinou o próprio ticket
     act(() => socketFalso.disparar('connect'));
     expect(screen.getByTestId('ao-vivo')).toHaveTextContent('se atualiza sozinha');
-    expect(screen.getByText('Demonstração')).toBeInTheDocument();
+    expect(screen.getByText('Ticket simulado')).toBeInTheDocument();
     status = 'ESTACIONADO';
     act(() => socketFalso.disparar('ticket:atualizado', evento('ticket:atualizado', { codigo: 'PV-0042', status: 'ESTACIONADO', regiaoRecomendadaId: 'N3', regiaoEstacionadaId: 'S2' }, 'PV-0042')));
     expect(await screen.findByTestId('regiao-registrada')).toHaveTextContent('Sul Leste');

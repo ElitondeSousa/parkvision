@@ -24,9 +24,9 @@ export function Placa({ codigo, tamanho = 'md', apagada = false }: { codigo: str
     <span
       className={cx('inline-flex items-center justify-center font-display font-bold leading-none tracking-tight num', t)}
       style={{
+        // placa chapada (wireframes aprovados): azul de placa com texto branco (6,65:1), sem moldura decorativa
         background: apagada ? 'var(--pv-bg-muted)' : 'var(--pv-color-vision-600)',
         color: apagada ? 'var(--pv-text-secondary)' : '#fff',
-        boxShadow: apagada ? 'none' : 'inset 0 0 0 2px rgba(255,255,255,.85), inset 0 0 0 4px var(--pv-color-vision-600)',
       }}
     >
       {codigo}
@@ -35,7 +35,11 @@ export function Placa({ codigo, tamanho = 'md', apagada = false }: { codigo: str
 }
 
 // ── Botão ──
-type VarianteBotao = 'primario' | 'secundario' | 'fantasma' | 'perigo';
+/**
+ * Botões dos wireframes: primário bronze (única cor de ação), secundário contornado em bronze, neutro grafite,
+ * fantasma e perigo. Altura mínima de 44 px a partir do tamanho md (alvo de toque). Ao pressionar, encolhe 2%.
+ */
+type VarianteBotao = 'primario' | 'secundario' | 'neutro' | 'fantasma' | 'perigo';
 export interface BotaoProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variante?: VarianteBotao;
   tamanho?: 'sm' | 'md' | 'lg' | 'xl';
@@ -45,11 +49,12 @@ export interface BotaoProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 export function Botao({ variante = 'primario', tamanho = 'md', carregando, icone: Icone, children, className, disabled, ...resto }: BotaoProps) {
   const estilos: Record<VarianteBotao, string> = {
     primario: 'bg-[var(--pv-button-primary-bg)] text-[var(--pv-button-primary-fg)] hover:bg-[var(--pv-button-primary-bg-hover)] active:bg-[var(--pv-button-primary-bg-active)]',
-    secundario: 'bg-[var(--pv-button-secondary-bg)] text-[var(--pv-button-secondary-fg)] border border-[var(--pv-button-secondary-border)] hover:bg-[var(--pv-bg-subtle)]',
+    secundario: 'bg-[var(--pv-bg-surface)] text-[var(--pv-text-link)] border border-[var(--pv-brand-primary)] hover:bg-[var(--pv-brand-subtle)]',
+    neutro: 'bg-[var(--pv-color-cinza-700)] text-white hover:brightness-110',
     fantasma: 'bg-transparent text-ink hover:bg-[var(--pv-button-ghost-bg-hover)]',
     perigo: 'bg-[var(--pv-button-danger-bg)] text-[var(--pv-button-danger-fg)] hover:brightness-95',
   };
-  const alturas = { sm: 'h-8 px-3 text-sm', md: 'h-10 px-4 text-sm', lg: 'h-12 px-5 text-base', xl: 'h-20 px-8 text-2xl font-display' }[tamanho];
+  const alturas = { sm: 'h-9 px-3 text-sm', md: 'h-11 px-4 text-sm', lg: 'h-12 px-5 text-base', xl: 'h-[72px] px-8 text-2xl font-display' }[tamanho];
   const inativo = disabled || carregando;
   return (
     <button
@@ -57,7 +62,7 @@ export function Botao({ variante = 'primario', tamanho = 'md', carregando, icone
       disabled={inativo}
       aria-busy={carregando || undefined}
       className={cx(
-        'inline-flex items-center justify-center gap-2 rounded-[var(--pv-button-radius)] font-semibold transition-colors duration-100 select-none',
+        'inline-flex items-center justify-center gap-2 rounded-[var(--pv-button-radius)] font-semibold transition-[background-color,color,transform,filter] duration-150 ease-out select-none enabled:active:scale-[0.98]',
         'disabled:opacity-[var(--pv-button-disabled-opacity)] disabled:cursor-not-allowed cursor-pointer',
         estilos[variante], alturas, className,
       )}
@@ -100,6 +105,41 @@ export function Selo({ tom = 'neutro', icone: Icone, children }: { tom?: TomSelo
       {Icone && <Icone size={13} aria-hidden strokeWidth={2.25} />}
       {children}
     </span>
+  );
+}
+
+/**
+ * Status dos wireframes: ponto + texto, sem pílula (a cor nunca é o único sinal).
+ */
+export type TomStatus = 'normal' | 'atencao' | 'perigo' | 'info' | 'offline';
+const COR_STATUS: Record<TomStatus, [string, string]> = {
+  normal: ['var(--pv-feedback-success-solid)', 'var(--pv-feedback-success-fg)'],
+  atencao: ['var(--pv-feedback-warning-solid)', 'var(--pv-feedback-warning-fg)'],
+  perigo: ['var(--pv-feedback-danger-solid)', 'var(--pv-feedback-danger-fg)'],
+  info: ['var(--pv-feedback-info-solid)', 'var(--pv-feedback-info-fg)'],
+  offline: ['var(--pv-text-muted)', 'var(--pv-text-secondary)'],
+};
+export function Status({ tom = 'normal', tamanho = 'sm', children, className }: { tom?: TomStatus; tamanho?: 'sm' | 'md' | 'lg'; children: ReactNode; className?: string }) {
+  const [ponto, texto] = COR_STATUS[tom];
+  const t = { sm: 'text-sm gap-1.5', md: 'text-base gap-2', lg: 'text-xl gap-2.5' }[tamanho];
+  return (
+    <span className={cx('inline-flex items-center font-medium whitespace-nowrap', t, className)} style={{ color: texto }}>
+      <span className={cx('rounded-full shrink-0', tamanho === 'lg' ? 'size-3' : 'size-2')} style={{ background: ponto }} aria-hidden />
+      {children}
+    </span>
+  );
+}
+
+/** Número dominante com rótulo (ex.: "Vagas livres 685 de 1.269"). */
+export function Indicador({ rotulo, valor, complemento, tamanho = 'xl', testId }: { rotulo: string; valor: ReactNode; complemento?: ReactNode; tamanho?: 'md' | 'xl'; testId?: string }) {
+  return (
+    <div data-testid={testId}>
+      <p className="m-0 text-sm text-ink-2">{rotulo}</p>
+      <p className="m-0 flex items-baseline gap-2">
+        <span className={cx('font-display font-bold num leading-none tracking-tight text-ink', tamanho === 'xl' ? 'text-[64px] sm:text-[80px]' : 'text-3xl')}>{valor}</span>
+        {complemento && <span className="text-sm text-ink-2 num">{complemento}</span>}
+      </p>
+    </div>
   );
 }
 
@@ -162,9 +202,9 @@ export function Carregando({ rotulo = 'Carregando…' }: { rotulo?: string }) {
 }
 
 /** Selo de dados de demonstração: obrigatório onde houver números do simulador. */
-export function SeloDemonstracao() {
+export function SeloDemonstracao({ testId }: { testId?: string } = {}) {
   return (
-    <span className="inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full text-xs font-semibold" style={{ background: 'var(--pv-wayfinding-subtle)', color: 'var(--pv-text-primary)', border: '1px solid var(--pv-wayfinding-route)' }}>
+    <span data-testid={testId} className="inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full text-xs font-semibold" style={{ background: 'var(--pv-wayfinding-subtle)', color: 'var(--pv-text-primary)', border: '1px solid var(--pv-wayfinding-route)' }}>
       Ambiente de demonstração · dados simulados
     </span>
   );
