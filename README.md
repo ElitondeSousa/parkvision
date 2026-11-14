@@ -8,7 +8,7 @@
 
 Sistema que **organiza e distribui automaticamente os veículos** em estacionamentos de shopping centers: monitora as vagas em tempo real, recomenda a melhor zona na entrada, imprime um ticket com a orientação, guia o motorista por sinalização luminosa (sem exigir aplicativo) e permite pagar pelo QR Code do ticket.
 
-### ▶ [Abrir o protótipo das telas](https://elitondesousa.github.io/parkvision/prototype/)
+### ▶ [Abrir o protótipo das telas](https://elitondesousa.github.io/golden-park/prototype/)
 
 As 6 telas (Visão geral, Mapa de vagas, Distribuição inteligente, Veículos e tickets, Pagamento por QR Code, Configurações) e a vitrine do Design System, direto no navegador.
 
