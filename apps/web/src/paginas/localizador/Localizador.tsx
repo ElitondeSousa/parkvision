@@ -2,16 +2,19 @@
  * Interface 3 — Localizador de veículo (aberto pelo QR Code do ticket, pensado para o celular).
  * Consulta GET /localizador/:token: só os dados deste ticket, sem placa nem dados pessoais.
  * Sem GPS: mostra a região REGISTRADA na confirmação do estacionamento — nunca a recomendada como se fosse a ocupada.
+ * Etapa 4: assina o próprio ticket no Socket.IO (/localizador) e recarrega sozinho quando ele muda (confirmação, saída)
+ * ou quando a conexão volta.
  */
 import { Clock, LogOut, MapPin, QrCode, RefreshCw, SearchX, TicketX, WifiOff } from 'lucide-react';
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { useParams } from 'react-router';
-import { Botao, Esqueleto, Marca, Placa } from '../../componentes/base.tsx';
+import { Botao, Esqueleto, Marca, Placa, Selo } from '../../componentes/base.tsx';
 import { IconeCategoria } from '../../componentes/IconeCategoria.tsx';
 import { nomeDoNivel, regiaoDoMapa } from '../../mapa/dados.ts';
 import { NOME_CATEGORIA, dataHora, hora } from '../../mapa/estado.ts';
 import { MapaEstacionamento } from '../../mapa/MapaEstacionamento.tsx';
 import { ErroServico, api, type RespostaLocalizador } from '../../servicos/api.ts';
+import { useTicketAoVivo } from '../../servicos/tempo-real.ts';
 
 /** O token do QR é base64url (16 bytes = 22 caracteres). Formato estranho nem chega a consultar a API. */
 const TOKEN_VALIDO = /^[A-Za-z0-9_-]{16,64}$/;
@@ -27,16 +30,19 @@ export function Localizador() {
   const { token = '' } = useParams();
   const [estado, setEstado] = useState<Estado>({ tipo: 'carregando' });
 
-  const consultar = useCallback(async () => {
+  const consultar = useCallback(async (silencioso = false) => {
     if (!TOKEN_VALIDO.test(token)) { setEstado({ tipo: 'invalido' }); return; }
-    setEstado({ tipo: 'carregando' });
+    if (!silencioso) setEstado({ tipo: 'carregando' });
     try {
       setEstado({ tipo: 'ok', dados: await api.localizar(token) });
     } catch (e) {
+      if (silencioso && !(e instanceof ErroServico && e.codigo === 'TICKET_NAO_ENCONTRADO')) return; // mantém o que já estava na tela
       setEstado(e instanceof ErroServico && e.codigo === 'TICKET_NAO_ENCONTRADO' ? { tipo: 'inexistente' } : { tipo: 'sem-conexao' });
     }
   }, [token]);
   useEffect(() => { void consultar(); }, [consultar]);
+  // atualização ao vivo só para o próprio ticket (e só depois de ele existir)
+  const aoVivo = useTicketAoVivo(estado.tipo === 'ok' ? token : null, () => void consultar(true));
 
   return (
     <div className="min-h-full bg-canvas">
@@ -52,9 +58,14 @@ export function Localizador() {
         ) : estado.tipo === 'inexistente' ? (
           <Mensagem icone={SearchX} titulo="Ticket não encontrado">Confira se escaneou o QR Code do seu ticket. Se o problema continuar, procure o atendimento do estacionamento.</Mensagem>
         ) : estado.tipo === 'sem-conexao' ? (
-          <Mensagem icone={WifiOff} titulo="Sem conexão com o ParkVision" acao={<Botao icone={RefreshCw} onClick={consultar}>Tentar de novo</Botao>}>Verifique a internet do celular e tente de novo.</Mensagem>
+          <Mensagem icone={WifiOff} titulo="Sem conexão com o ParkVision" acao={<Botao icone={RefreshCw} onClick={() => void consultar()}>Tentar de novo</Botao>}>Verifique a internet do celular e tente de novo.</Mensagem>
         ) : (
-          <Resultado dados={estado.dados} />
+          <>
+            <Resultado dados={estado.dados} />
+            <p className="m-0 text-xs text-ink-3" role="status" data-testid="ao-vivo">
+              {aoVivo === 'conectado' ? 'Esta página se atualiza sozinha quando o ticket muda.' : 'Sem atualização automática no momento — recarregue a página para ver mudanças.'}
+            </p>
+          </>
         )}
       </main>
     </div>
@@ -67,7 +78,7 @@ function Resultado({ dados }: { dados: RespostaLocalizador }) {
     <div className="flex items-center gap-3 text-sm text-ink-2">
       <IconeCategoria categoria={ticket.categoria} tamanho={40} className="text-ink-2" />
       <div>
-        <p className="m-0">Ticket <span className="font-mono text-ink" data-testid="codigo-ticket">{ticket.codigo}</span></p>
+        <p className="m-0">Ticket <span className="font-mono text-ink" data-testid="codigo-ticket">{ticket.codigo}</span>{ticket.simulado && <> <Selo tom="atencao">Demonstração</Selo></>}</p>
         <p className="m-0">{NOME_CATEGORIA[ticket.categoria]}, entrada às {hora(ticket.entradaEm)}</p>
       </div>
     </div>

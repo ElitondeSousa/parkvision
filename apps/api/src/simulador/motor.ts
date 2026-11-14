@@ -474,7 +474,7 @@ export class MotorSimulacao {
     });
     const criados = await this.deps.db.$transaction(async (tx) => {
       // incremento condicionado: o preenchimento também nunca passa da capacidade
-      const linhas = await tx.$executeRaw`UPDATE regiao SET ocupadas = ocupadas + ${n}::int, "atualizadoEm" = now() WHERE id = ${r.id} AND ocupadas + ${n}::int <= capacidade`;
+      const linhas = await tx.$executeRaw`UPDATE regiao SET ocupadas = ocupadas + ${n}::int, versao = versao + 1, "atualizadoEm" = clock_timestamp() WHERE id = ${r.id} AND ocupadas + ${n}::int <= capacidade`;
       if (linhas === 0) throw new ErroApi('REGIAO_LOTADA', `Não cabem mais ${n} veículos em ${r.id}`);
       await tx.eventoOcupacao.create({ data: { regiaoId: r.id, tipo: 'AJUSTE', origem: 'simulador:preenchimento', simulado: true, ocorridoEm: new Date(this.relogio) } });
       return tx.ticket.createManyAndReturn({ data: dados, select: { codigo: true } });
@@ -507,15 +507,15 @@ export class MotorSimulacao {
       let vagasLiberadas = 0;
       for (const g of porRegiao) {
         if (!g.regiaoEstacionadaId) continue;
-        await tx.$executeRaw`UPDATE regiao SET ocupadas = GREATEST(0, ocupadas - ${g._count}::int), "atualizadoEm" = now() WHERE id = ${g.regiaoEstacionadaId}`;
+        await tx.$executeRaw`UPDATE regiao SET ocupadas = GREATEST(0, ocupadas - ${g._count}::int), versao = versao + 1, "atualizadoEm" = clock_timestamp() WHERE id = ${g.regiaoEstacionadaId}`;
         vagasLiberadas += g._count;
       }
       const sensores = await tx.eventoSensor.deleteMany({ where: { simulado: true } });
       await tx.eventoOcupacao.deleteMany({ where: { simulado: true } });
       const tickets = await tx.ticket.deleteMany({ where: { simulado: true } });
-      await tx.regiao.updateMany({ where: { bloqueioSimulado: true }, data: { bloqueioSimulado: false } });
-      await tx.regiao.updateMany({ where: { statusSensoresSimulado: true }, data: { statusSensores: 'ok', statusSensoresSimulado: false } });
-      await tx.regiao.updateMany({ where: { fluxoSimulado: true }, data: { fluxoSensor: 0, fluxoSensorAte: null, fluxoSimulado: false } });
+      await tx.regiao.updateMany({ where: { bloqueioSimulado: true }, data: { bloqueioSimulado: false, versao: { increment: 1 } } });
+      await tx.regiao.updateMany({ where: { statusSensoresSimulado: true }, data: { statusSensores: 'ok', statusSensoresSimulado: false, versao: { increment: 1 } } });
+      await tx.regiao.updateMany({ where: { fluxoSimulado: true }, data: { fluxoSensor: 0, fluxoSensorAte: null, fluxoSimulado: false, versao: { increment: 1 } } });
       return { tickets: tickets.count, eventosSensor: sensores.count, vagasLiberadas };
     }, { timeout: 30_000 });
     const agora = new Date();

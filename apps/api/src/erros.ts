@@ -1,4 +1,5 @@
 import { CODIGOS_ERRO, type CodigoErro, type RespostaErro } from '@parkvision/shared';
+import { Prisma } from '@prisma/client';
 import type { FastifyInstance } from 'fastify';
 import { ZodError } from 'zod';
 
@@ -7,6 +8,15 @@ export class ErroApi extends Error {
   constructor(public codigo: CodigoErro, mensagem: string, public detalhes?: unknown) {
     super(mensagem);
   }
+}
+
+/** Falhas de conexão do Prisma com o PostgreSQL (servidor fora do ar, conexão recusada/encerrada, tempo esgotado). */
+const CODIGOS_CONEXAO = new Set(['P1001', 'P1002', 'P1008', 'P1017', 'P2024']);
+export function ehFalhaDeBanco(e: unknown) {
+  return e instanceof Prisma.PrismaClientInitializationError
+    || e instanceof Prisma.PrismaClientRustPanicError
+    || (e instanceof Prisma.PrismaClientKnownRequestError && CODIGOS_CONEXAO.has(e.code))
+    || (e instanceof Prisma.PrismaClientUnknownRequestError && /connect|connection|ECONNREFUSED/i.test(e.message));
 }
 
 export function registrarTratamentoDeErros(app: FastifyInstance) {
@@ -19,6 +29,12 @@ export function registrarTratamentoDeErros(app: FastifyInstance) {
       const corpo: RespostaErro = { erro: { codigo: 'DADOS_INVALIDOS', mensagem: 'Dados inválidos', detalhes: erro.issues } };
       return reply.status(400).send(corpo);
     }
+    if (ehFalhaDeBanco(erro)) {
+      app.log.error(erro);
+      // mensagem clara, sem detalhes internos (endereço, usuário, credenciais)
+      const corpo: RespostaErro = { erro: { codigo: 'BANCO_INDISPONIVEL', mensagem: 'O banco de dados está indisponível no momento. Tente de novo em instantes.' } };
+      return reply.status(503).send(corpo);
+    }
     const e = erro as { statusCode?: number; message?: string };
     if (e.statusCode && e.statusCode < 500) {
       return reply.status(e.statusCode).send({ erro: { codigo: 'DADOS_INVALIDOS', mensagem: e.message ?? 'Requisição inválida' } });
@@ -26,4 +42,5 @@ export function registrarTratamentoDeErros(app: FastifyInstance) {
     app.log.error(erro);
     return reply.status(500).send({ erro: { codigo: 'ERRO_INTERNO', mensagem: 'Erro interno' } });
   });
+  app.setNotFoundHandler((req, reply) => reply.status(404).send({ erro: { codigo: 'ROTA_NAO_ENCONTRADA', mensagem: `Rota ${req.method} ${req.url.split('?')[0]} não existe` } }));
 }

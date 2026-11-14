@@ -2,6 +2,12 @@
  * Interface 2 — Dashboard administrativo.
  * O mapa é o centro: ocupação por região, recomendação atual com a rota, seleção de região.
  * Dados: REST no carregamento + Socket.IO (/painel) para atualizar em tempo real. Simulador pelos endpoints da Etapa 2.
+ *
+ * Integração (Etapa 4): o backend é a fonte da verdade.
+ *  - ao abrir, a cada reconexão e a cada 30 s o painel recarrega o estado (regiões, indicadores, histórico, simulador);
+ *  - eventos de região mais antigos que a versão já aplicada são ignorados (eventos fora de ordem);
+ *  - indicadores com sequência menor que a última aplicada são ignorados;
+ *  - eventos repetidos são descartados na camada de tempo real e na lista de movimentações (id estável por fato).
  */
 import type { EventoTempoReal, Indicadores, Recomendacao, Regiao, Ticket } from '@parkvision/shared';
 import { CircleParking, LayoutDashboard, RefreshCw, ScanLine, Wifi, WifiOff } from 'lucide-react';
@@ -10,12 +16,15 @@ import { Link, NavLink } from 'react-router';
 import { Aviso, Botao, Cartao, Esqueleto, Marca, SeloDemonstracao } from '../../componentes/base.tsx';
 import { MapaEstacionamento } from '../../mapa/MapaEstacionamento.tsx';
 import { congestionada } from '../../mapa/estado.ts';
-import { api, mensagemDeErro, type CenarioResumo, type EstadoSimulacao } from '../../servicos/api.ts';
+import { api, mensagemDeErro, tokenOperador, type CenarioResumo, type EstadoSimulacao } from '../../servicos/api.ts';
 import { useTempoReal, type EstadoConexao } from '../../servicos/tempo-real.ts';
-import { ControleSimulador, DetalheRegiao, FaixaIndicadores, ListaMovimentacoes, RecomendacaoAtual, TabelaRegioes } from './componentes.tsx';
-import { itemDoEvento, type ItemMovimentacao } from './eventos.ts';
+import { AcessoOperador, ControleSimulador, DetalheRegiao, FaixaIndicadores, ListaMovimentacoes, OperacaoTicket, RecomendacaoAtual, TabelaRegioes } from './componentes.tsx';
+import { itemDoEvento, itemDoHistorico, juntarMovimentacoes, TIPOS_DO_HISTORICO, type ItemMovimentacao } from './eventos.ts';
 
 const MAX_MOVIMENTACOES = 60;
+const RESSINCRONIZAR_MS = 30_000;
+/** Aplica a região do evento só se ela não for mais antiga que a já exibida. */
+export const regiaoMaisNova = (nova: Regiao, atual?: Regiao) => (nova.versao ?? 0) >= (atual?.versao ?? 0);
 
 export function Painel() {
   const [regioes, setRegioes] = useState<Regiao[] | null>(null);
@@ -28,22 +37,34 @@ export function Painel() {
   const [mostrarRota, setMostrarRota] = useState(true);
   const [erro, setErro] = useState<string | null>(null);
   const [eventoSimulado, setEventoSimulado] = useState(false);
+  const [sincronizadoEm, setSincronizadoEm] = useState<Date | null>(null);
+  const [pedindoToken, setPedindoToken] = useState(() => !tokenOperador.ler());
+  const pedirToken = useCallback(() => setPedindoToken(true), []);
   const regioesRef = useRef<Record<string, Regiao>>({});
+  const seqIndicadores = useRef(0);
 
+  /** Estado atual a partir do backend (ao abrir, ao reconectar e periodicamente). */
   const carregar = useCallback(async () => {
-    setErro(null);
     try {
-      const [rs, ind, recs, est, cens] = await Promise.all([
-        api.regioes(), api.indicadores(), api.recomendacoes(1), api.simulacao.estado(), api.simulacao.cenarios(),
+      const [rs, ind, recs, est, cens, hist] = await Promise.all([
+        api.regioes(), api.indicadores(), api.recomendacoes(1), api.simulacao.estado(), api.simulacao.cenarios(), api.historico(MAX_MOVIMENTACOES),
       ]);
       regioesRef.current = Object.fromEntries(rs.map((r) => [r.id, r]));
+      seqIndicadores.current = 0;
       setRegioes(rs); setIndicadores(ind); setSimulacao(est); setCenarios(cens);
-      setRecomendacao(recs[0] ? { recomendacao: recs[0] } : null);
+      setRecomendacao((atual) => (recs[0] && atual?.recomendacao.id !== recs[0].id ? { recomendacao: recs[0] } : atual ?? (recs[0] ? { recomendacao: recs[0] } : null)));
+      setMovimentacoes((atuais) => juntarMovimentacoes(hist.map(itemDoHistorico), atuais.filter((i) => !TIPOS_DO_HISTORICO.includes(i.tipo)), MAX_MOVIMENTACOES));
+      setErro(null);
+      setSincronizadoEm(new Date());
     } catch (e) {
       setErro(mensagemDeErro(e));
     }
   }, []);
   useEffect(() => { void carregar(); }, [carregar]);
+  useEffect(() => {
+    const t = setInterval(() => void carregar(), RESSINCRONIZAR_MS);
+    return () => clearInterval(t);
+  }, [carregar]);
 
   const atualizarSimulacao = useCallback(() => api.simulacao.estado().then(setSimulacao).catch(() => {}), []);
   // o relógio e as estatísticas da simulação mudam sem evento: consulta leve enquanto ela existe
@@ -56,14 +77,18 @@ export function Painel() {
   const aoEvento = useCallback((e: EventoTempoReal) => {
     if (e.simulado) setEventoSimulado(true);
     const dados = e.dados as Regiao;
-    const anterior = e.tipo.startsWith('regiao:') ? regioesRef.current[dados.id] : undefined;
+    const ehRegiao = e.tipo.startsWith('regiao:');
+    const anterior = ehRegiao ? regioesRef.current[dados.id] : undefined;
+    if (ehRegiao && !regiaoMaisNova(dados, anterior)) return; // evento atrasado: o painel já mostra um estado mais novo
     const item = itemDoEvento(e, anterior);
-    if (item) setMovimentacoes((lista) => (lista.some((x) => x.id === item.id) ? lista : [item, ...lista].slice(0, MAX_MOVIMENTACOES)));
+    if (item) setMovimentacoes((lista) => juntarMovimentacoes([], [item, ...lista], MAX_MOVIMENTACOES));
 
-    if (e.tipo.startsWith('regiao:')) {
+    if (ehRegiao) {
       regioesRef.current = { ...regioesRef.current, [dados.id]: dados };
       setRegioes((lista) => lista?.map((r) => (r.id === dados.id ? dados : r)) ?? lista);
     } else if (e.tipo === 'indicadores:atualizados') {
+      if (e.sequencia < seqIndicadores.current) return;
+      seqIndicadores.current = e.sequencia;
       setIndicadores(e.dados as Indicadores);
     } else if (e.tipo === 'veiculo:entrou' || e.tipo === 'veiculo:recomendado') {
       setRecomendacao(e.dados as { recomendacao: Recomendacao; ticket: Ticket });
@@ -72,10 +97,11 @@ export function Painel() {
       if (e.tipo === 'simulador:estado' && (e.dados as { acao: string }).acao === 'reiniciado') { setEventoSimulado(false); void carregar(); }
     }
   }, [atualizarSimulacao, carregar]);
-  const conexao = useTempoReal(aoEvento);
+  // reconectou: busca o estado atual no backend em vez de confiar só nos eventos (os da queda se perderam)
+  const conexao = useTempoReal(aoEvento, carregar);
 
   const regiaoSelecionada = useMemo(() => regioes?.find((r) => r.id === selecionada) ?? null, [regioes, selecionada]);
-  const demonstracao = eventoSimulado || (simulacao ? simulacao.status !== 'parado' || simulacao.veiculosSimuladosAtivos > 0 : false);
+  const demonstracao = eventoSimulado || (simulacao ? simulacao.modoDemonstracao || simulacao.status !== 'parado' || simulacao.veiculosSimuladosAtivos > 0 : false);
   const congestionadas = regioes?.filter(congestionada).map((r) => r.id) ?? [];
   const indisponiveis = regioes?.filter((r) => !r.operacional).map((r) => r.id) ?? [];
 
@@ -100,7 +126,9 @@ export function Painel() {
             </Aviso>
           )}
           {conexao === 'desconectado' && !erro && (
-            <Aviso tom="atencao" titulo="Atualização em tempo real interrompida">Tentando reconectar. Os números podem estar desatualizados até a conexão voltar.</Aviso>
+            <Aviso tom="atencao" titulo="Atualização em tempo real interrompida">
+              Tentando reconectar. Os números abaixo são de {sincronizadoEm ? sincronizadoEm.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : 'antes da queda'} e serão recarregados do servidor quando a conexão voltar.
+            </Aviso>
           )}
 
           <FaixaIndicadores indicadores={indicadores} congestionadas={congestionadas} indisponiveis={indisponiveis} />
@@ -129,7 +157,9 @@ export function Painel() {
 
             <div className="grid gap-5 content-start">
               <DetalheRegiao regiao={regiaoSelecionada} aoFechar={() => setSelecionada(null)} />
-              <ControleSimulador estado={simulacao} cenarios={cenarios} aoAtualizar={atualizarSimulacao} />
+              <AcessoOperador pedindo={pedindoToken} aoSalvar={(t) => { tokenOperador.gravar(t); setPedindoToken(false); }} aoTrocar={pedirToken} />
+              <OperacaoTicket regioes={regioes} aoSelecionar={setSelecionada} aoNaoAutorizado={pedirToken} />
+              <ControleSimulador estado={simulacao} cenarios={cenarios} aoAtualizar={atualizarSimulacao} aoNaoAutorizado={pedirToken} />
               <ListaMovimentacoes itens={movimentacoes} conexao={conexao} aoSelecionar={setSelecionada} />
             </div>
           </div>

@@ -16,7 +16,7 @@ export default defineConfig({
   testDir: './e2e',
   fullyParallel: false,
   workers: 1,
-  timeout: 45_000,
+  timeout: 60_000,
   reporter: [['list']],
   globalSetup: './e2e/preparar.ts',
   use: { baseURL: `http://localhost:${PORTA_WEB}`, channel: 'msedge', trace: 'retain-on-failure' },
@@ -28,7 +28,7 @@ export default defineConfig({
       command: 'pnpm --filter @parkvision/api inicio',
       url: `http://localhost:${PORTA_API}/api/saude`,
       reuseExistingServer: false,
-      env: { DATABASE_URL: envApi.DATABASE_URL_TESTE!, PORTA: String(PORTA_API), WEB_URL: `http://localhost:${PORTA_WEB}`, SIMULADOR_TOKEN: TOKEN_E2E },
+      env: { DATABASE_URL: envApi.DATABASE_URL_TESTE!, PORTA: String(PORTA_API), WEB_URL: `http://localhost:${PORTA_WEB}`, SIMULADOR_TOKEN: TOKEN_E2E, MODO_DEMONSTRACAO: 'false' },
       cwd: '../..',
     },
     {

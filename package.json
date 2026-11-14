@@ -13,6 +13,8 @@
     "db:seed": "pnpm --filter @parkvision/api db:seed",
     "dev:api": "pnpm --filter @parkvision/api dev",
     "dev:web": "pnpm --filter @parkvision/web dev",
+    "demo:preparar": "pnpm db:up && pnpm db:push && pnpm db:seed",
+    "demo": "pnpm --parallel --filter @parkvision/api --filter @parkvision/web dev",
     "test": "pnpm -r --workspace-concurrency=1 test",
     "typecheck": "pnpm -r typecheck",
     "e2e": "pnpm --filter @parkvision/web e2e"

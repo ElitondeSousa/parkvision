@@ -113,6 +113,9 @@ export const CODIGOS_ERRO = {
   REGIAO_INDISPONIVEL: 409,
   NAO_AUTORIZADO: 401,
   SIMULACAO_ESTADO_INVALIDO: 409,
+  /** Banco de dados fora do ar ou sem resposta (Etapa 4). */
+  BANCO_INDISPONIVEL: 503,
+  ROTA_NAO_ENCONTRADA: 404,
 } as const;
 export type CodigoErro = keyof typeof CODIGOS_ERRO;
 

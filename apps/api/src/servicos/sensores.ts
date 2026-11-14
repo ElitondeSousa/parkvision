@@ -67,20 +67,20 @@ export async function processarEventoSensor(
       case 'LEITURA_INCONSISTENTE':
       case 'SENSOR_NORMALIZADO': {
         const status = evento.tipo === 'SEM_COMUNICACAO' ? 'sem-comunicacao' : evento.tipo === 'LEITURA_INCONSISTENTE' ? 'inconsistente' : 'ok';
-        await db.regiao.update({ where: { id: evento.regiaoId }, data: { statusSensores: status, statusSensoresSimulado: status !== 'ok' && simulado } });
+        await db.regiao.update({ where: { id: evento.regiaoId }, data: { statusSensores: status, statusSensoresSimulado: status !== 'ok' && simulado, versao: { increment: 1 } } });
         await emitirRegiao(deps, 'regiao:status', evento.regiaoId, agora, simulado);
         break;
       }
       case 'FLUXO':
         await db.regiao.update({
           where: { id: evento.regiaoId },
-          data: { fluxoSensor: evento.veiculosEmCirculacao, fluxoSensorAte: new Date(agora.getTime() + evento.duracaoMin * 60_000), fluxoSimulado: simulado },
+          data: { fluxoSensor: evento.veiculosEmCirculacao, fluxoSensorAte: new Date(agora.getTime() + evento.duracaoMin * 60_000), fluxoSimulado: simulado, versao: { increment: 1 } },
         });
         await emitirRegiao(deps, 'regiao:fluxo', evento.regiaoId, agora, simulado);
         break;
       case 'DISPONIBILIDADE':
         // a simulação nunca mexe no estado definido pelo operador: usa um bloqueio próprio, desfeito no reinício
-        await db.regiao.update({ where: { id: evento.regiaoId }, data: simulado ? { bloqueioSimulado: !evento.disponivel } : { operacional: evento.disponivel } });
+        await db.regiao.update({ where: { id: evento.regiaoId }, data: { ...(simulado ? { bloqueioSimulado: !evento.disponivel } : { operacional: evento.disponivel }), versao: { increment: 1 } } });
         await emitirRegiao(deps, 'regiao:status', evento.regiaoId, agora, simulado);
         break;
     }

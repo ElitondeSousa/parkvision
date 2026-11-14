@@ -148,8 +148,9 @@ export function Aviso({ tom = 'info', titulo, children, acao }: { tom?: TomAviso
       <div className="min-w-0 flex-1">
         <p className="font-semibold m-0">{titulo}</p>
         {children && <div className="text-sm mt-0.5">{children}</div>}
+        {/* a ação fica abaixo do texto: o aviso funciona igual em colunas estreitas */}
+        {acao && <div className="mt-2.5">{acao}</div>}
       </div>
-      {acao && <div className="shrink-0 self-center">{acao}</div>}
     </div>
   );
 }

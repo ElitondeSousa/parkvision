@@ -32,6 +32,11 @@ export interface Regiao {
   statusSensores?: StatusSensores;
   /** Fluxo recente (recomendações + leitura dos sensores de fluxo) e nível. */
   fluxo?: { recente: number; vazaoReferencia: number; nivel: NivelFluxo };
+  /**
+   * Versão do registro (Etapa 4): sobe a cada mudança gravada na região, sob a trava da linha no banco.
+   * Clientes de tempo real ignoram eventos com versão menor que a já aplicada (eventos fora de ordem).
+   */
+  versao?: number;
 }
 
 export function nivelFluxo(recente: number, vazaoReferencia: number): NivelFluxo {

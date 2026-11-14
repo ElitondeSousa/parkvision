@@ -9,6 +9,8 @@ import { emissorColetor } from '../src/tempo-real.ts';
 const db = new PrismaClient({ datasources: { db: { url: process.env.DATABASE_URL_TESTE! } } });
 const config = { ...lerConfig({}), simuladorToken: 'token-teste', webUrl: 'http://web.teste' };
 const coletor = emissorColetor();
+/** Token do operador (rotas restritas desde a Etapa 4). */
+const OP = { 'x-operador-token': 'token-teste' };
 const app = criarApp({ db, emissor: coletor.emissor, config });
 
 const CARROS = ['N1', 'N2', 'N3', 'S1', 'S2', 'SS1', 'SS2O', 'SS2C', 'SS2L'];
@@ -16,7 +18,7 @@ const regioes = async () => (await app.inject('/api/regioes')).json() as Regiao[
 const ocupadas = async (id: string) => (await regioes()).find((r) => r.id === id)!.ocupadas;
 const entrar = (categoria = 'CARRO_PEQUENO', acessoId = 'A_NE') => app.inject({ method: 'POST', url: '/api/entradas', payload: { acessoId, categoria } });
 const lotar = (id: string, capacidade?: number) =>
-  regioes().then((rs) => app.inject({ method: 'PATCH', url: `/api/regioes/${id}`, payload: { ocupadas: capacidade ?? rs.find((r) => r.id === id)!.capacidade } }));
+  regioes().then((rs) => app.inject({ method: 'PATCH', headers: OP, url: `/api/regioes/${id}`, payload: { ocupadas: capacidade ?? rs.find((r) => r.id === id)!.capacidade } }));
 
 beforeAll(async () => { await app.ready(); });
 beforeEach(async () => { await semear(db, { limpar: true }); coletor.eventos.length = 0; });
@@ -52,38 +54,38 @@ describe('fluxo do veículo', () => {
 
   it('confirmação ocupa a vaga e a saída libera', async () => {
     const { ticket, recomendacao } = (await entrar()).json();
-    const est = await app.inject({ method: 'POST', url: `/api/tickets/${ticket.codigo}/estacionar` });
+    const est = await app.inject({ method: 'POST', headers: OP, url: `/api/tickets/${ticket.codigo}/estacionar` });
     expect(est.statusCode).toBe(200);
     expect(est.json().ticket).toMatchObject({ status: 'ESTACIONADO', regiaoEstacionadaId: recomendacao.regiaoId });
     expect(await ocupadas(recomendacao.regiaoId)).toBe(1);
     expect(coletor.eventos.map((e) => e.tipo)).toEqual(expect.arrayContaining(['veiculo:estacionou', 'regiao:ocupacao', 'indicadores:atualizados']));
 
-    const repetir = await app.inject({ method: 'POST', url: `/api/tickets/${ticket.codigo}/estacionar` });
+    const repetir = await app.inject({ method: 'POST', headers: OP, url: `/api/tickets/${ticket.codigo}/estacionar` });
     expect(repetir.statusCode).toBe(409);
     expect(repetir.json().erro.codigo).toBe('TRANSICAO_INVALIDA');
 
-    const saida = await app.inject({ method: 'POST', url: `/api/tickets/${ticket.codigo}/saida` });
+    const saida = await app.inject({ method: 'POST', headers: OP, url: `/api/tickets/${ticket.codigo}/saida` });
     expect(saida.json().ticket.status).toBe('SAIU');
     expect(await ocupadas(recomendacao.regiaoId)).toBe(0);
 
-    const saidaDuplicada = await app.inject({ method: 'POST', url: `/api/tickets/${ticket.codigo}/saida` });
+    const saidaDuplicada = await app.inject({ method: 'POST', headers: OP, url: `/api/tickets/${ticket.codigo}/saida` });
     expect(saidaDuplicada.statusCode).toBe(409);
     expect(await ocupadas(recomendacao.regiaoId)).toBe(0);
   });
 
   it('permite confirmar em outra região compatível (motorista não seguiu a recomendação)', async () => {
     const { ticket } = (await entrar()).json();
-    const r = await app.inject({ method: 'POST', url: `/api/tickets/${ticket.codigo}/estacionar`, payload: { regiaoId: 'S2' } });
+    const r = await app.inject({ method: 'POST', headers: OP, url: `/api/tickets/${ticket.codigo}/estacionar`, payload: { regiaoId: 'S2' } });
     expect(r.json().regiao).toMatchObject({ id: 'S2', ocupadas: 1 });
   });
 
   // Etapa 2: saída só para veículo estacionado; quem desistiu antes de estacionar é cancelado.
   it('saída sem ter estacionado é recusada; desistência usa cancelar (ocupação intacta)', async () => {
     const { ticket } = (await entrar()).json();
-    const r = await app.inject({ method: 'POST', url: `/api/tickets/${ticket.codigo}/saida` });
+    const r = await app.inject({ method: 'POST', headers: OP, url: `/api/tickets/${ticket.codigo}/saida` });
     expect(r.statusCode).toBe(409);
     expect(r.json().erro.codigo).toBe('TRANSICAO_INVALIDA');
-    const c = await app.inject({ method: 'POST', url: `/api/tickets/${ticket.codigo}/cancelar` });
+    const c = await app.inject({ method: 'POST', headers: OP, url: `/api/tickets/${ticket.codigo}/cancelar` });
     expect(c.json()).toMatchObject({ ticket: { status: 'CANCELADO' } });
     expect((await regioes()).reduce((s, x) => s + x.ocupadas, 0)).toBe(0);
   });
@@ -91,7 +93,7 @@ describe('fluxo do veículo', () => {
   it('localizador pelo token do QR Code', async () => {
     const { ticket, qrUrl } = (await entrar()).json();
     const token = qrUrl.split('/t/')[1];
-    await app.inject({ method: 'POST', url: `/api/tickets/${ticket.codigo}/estacionar` });
+    await app.inject({ method: 'POST', headers: OP, url: `/api/tickets/${ticket.codigo}/estacionar` });
     const r = (await app.inject(`/api/localizador/${token}`)).json();
     expect(r.ticket.codigo).toBe(ticket.codigo);
     expect(r.ticket.estacionadoEm).toMatch(/^\d{4}-/);
@@ -124,17 +126,17 @@ describe('regras da distribuição', () => {
 
   it('região fora de operação não é recomendada', async () => {
     for (const id of CARROS.filter((x) => x !== 'N1' && x !== 'N2')) await lotar(id);
-    await app.inject({ method: 'PATCH', url: '/api/regioes/N1', payload: { operacional: false } });
+    await app.inject({ method: 'PATCH', headers: OP, url: '/api/regioes/N1', payload: { operacional: false } });
     const { recomendacao } = (await entrar()).json();
     expect(recomendacao.regiaoId).toBe('N2');
   });
 
   it('bloqueia confirmação em região incompatível ou lotada', async () => {
     const { ticket } = (await entrar()).json();
-    const moto = await app.inject({ method: 'POST', url: `/api/tickets/${ticket.codigo}/estacionar`, payload: { regiaoId: 'SS1M' } });
+    const moto = await app.inject({ method: 'POST', headers: OP, url: `/api/tickets/${ticket.codigo}/estacionar`, payload: { regiaoId: 'SS1M' } });
     expect(moto.json().erro.codigo).toBe('CATEGORIA_INCOMPATIVEL');
     await lotar('S1');
-    const cheia = await app.inject({ method: 'POST', url: `/api/tickets/${ticket.codigo}/estacionar`, payload: { regiaoId: 'S1' } });
+    const cheia = await app.inject({ method: 'POST', headers: OP, url: `/api/tickets/${ticket.codigo}/estacionar`, payload: { regiaoId: 'S1' } });
     expect(cheia.json().erro.codigo).toBe('REGIAO_LOTADA');
   });
 
@@ -142,7 +144,7 @@ describe('regras da distribuição', () => {
     const cap = (await regioes()).find((r) => r.id === 'N2')!.capacidade;
     await lotar('N2', cap - 5);                                  // sobram 5 vagas
     const tickets = await Promise.all(Array.from({ length: 12 }, () => entrar().then((r) => r.json().ticket.codigo as string)));
-    const res = await Promise.all(tickets.map((c) => app.inject({ method: 'POST', url: `/api/tickets/${c}/estacionar`, payload: { regiaoId: 'N2' } })));
+    const res = await Promise.all(tickets.map((c) => app.inject({ method: 'POST', headers: OP, url: `/api/tickets/${c}/estacionar`, payload: { regiaoId: 'N2' } })));
     expect(res.filter((r) => r.statusCode === 200)).toHaveLength(5);
     expect(res.filter((r) => r.statusCode === 409).every((r) => r.json().erro.codigo === 'REGIAO_LOTADA')).toBe(true);
     expect(await ocupadas('N2')).toBe(cap);
@@ -155,12 +157,12 @@ describe('validação e indicadores', () => {
     expect(r.statusCode).toBe(400);
     expect(r.json().erro.codigo).toBe('DADOS_INVALIDOS');
     expect((await app.inject({ method: 'POST', url: '/api/entradas', payload: { acessoId: 'X', categoria: 'MOTO' } })).statusCode).toBe(404);
-    expect((await app.inject({ method: 'PATCH', url: '/api/regioes/N1', payload: { ocupadas: 99999 } })).statusCode).toBe(400);
+    expect((await app.inject({ method: 'PATCH', headers: OP, url: '/api/regioes/N1', payload: { ocupadas: 99999 } })).statusCode).toBe(400);
   });
 
   it('indicadores refletem a ocupação e as recomendações', async () => {
     const { ticket } = (await entrar()).json();
-    await app.inject({ method: 'POST', url: `/api/tickets/${ticket.codigo}/estacionar` });
+    await app.inject({ method: 'POST', headers: OP, url: `/api/tickets/${ticket.codigo}/estacionar` });
     await entrar();
     const i = (await app.inject('/api/indicadores')).json();
     expect(i).toMatchObject({ capacidadeTotal: 1269, ocupadas: 1, livres: 1268, veiculosAguardando: 1, recomendacoesUltimaHora: 2 });

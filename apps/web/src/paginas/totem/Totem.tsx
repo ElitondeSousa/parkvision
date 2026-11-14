@@ -35,7 +35,9 @@ export function Totem() {
   const acessoId = params.get('acesso') ?? 'A_NE';
   const acesso = acessoPorId[acessoId];
   const [etapa, setEtapa] = useState<Etapa>({ tipo: 'inicio' });
+  const [demonstracao, setDemonstracao] = useState(false);
   const reiniciar = useCallback(() => setEtapa({ tipo: 'inicio' }), []);
+  useEffect(() => { api.saude().then((s) => setDemonstracao(s.modoDemonstracao)).catch(() => {}); }, []);
 
   // volta ao início depois de um tempo sem toque (outro motorista vai usar o totem)
   useEffect(() => {
@@ -68,6 +70,7 @@ export function Totem() {
         <div className="text-right text-sm" style={{ color: 'var(--pv-color-asfalto-300)' }}>
           <p className="m-0 font-semibold" style={{ color: '#fff' }}>Capim Dourado Shopping</p>
           <p className="m-0">{acesso ? nomeCurto(acesso.nome) : 'Acesso não configurado'}</p>
+          {demonstracao && <p className="m-0 mt-1 font-semibold" style={{ color: 'var(--pv-wayfinding-route)' }} data-testid="totem-demonstracao">Ambiente de demonstração</p>}
         </div>
       </header>
 
@@ -83,7 +86,7 @@ export function Totem() {
         ) : etapa.tipo === 'recomendacao' ? (
           <TelaRecomendacao dados={etapa.dados} regioes={etapa.regioes} aoEmitir={() => setEtapa({ tipo: 'ticket', dados: etapa.dados })} />
         ) : etapa.tipo === 'ticket' ? (
-          <TelaTicket dados={etapa.dados} aoConcluir={reiniciar} />
+          <TelaTicket dados={etapa.dados} aoConcluir={reiniciar} demonstracao={demonstracao} />
         ) : etapa.tipo === 'sem-vagas' ? (
           <TelaErro
             titulo={`Sem vagas para ${NOME_CATEGORIA[etapa.categoria].toLowerCase()} agora`}
@@ -222,14 +225,14 @@ function TelaRecomendacao({ dados, regioes, aoEmitir }: { dados: RespostaEntrada
   );
 }
 
-function TelaTicket({ dados, aoConcluir }: { dados: RespostaEntrada; aoConcluir: () => void }) {
+function TelaTicket({ dados, aoConcluir, demonstracao }: { dados: RespostaEntrada; aoConcluir: () => void; demonstracao: boolean }) {
   const { ticket, recomendacao, qrUrl } = dados;
-  const [svg, setSvg] = useState('');
+  const [svg, setSvg] = useState<string | null>('');
   const [restante, setRestante] = useState(RETORNO_TICKET_S);
   const concluirRef = useRef(aoConcluir);
   concluirRef.current = aoConcluir;
   useEffect(() => {
-    QRCode.toString(qrUrl, { type: 'svg', margin: 1, errorCorrectionLevel: 'M', color: { dark: '#0C111C', light: '#FFFFFF' } }).then(setSvg).catch(() => setSvg(''));
+    QRCode.toString(qrUrl, { type: 'svg', margin: 1, errorCorrectionLevel: 'M', color: { dark: '#0C111C', light: '#FFFFFF' } }).then(setSvg).catch(() => setSvg(null));
   }, [qrUrl]);
   useEffect(() => {
     const t = setInterval(() => setRestante((s) => { if (s <= 1) { concluirRef.current(); return 0; } return s - 1; }), 1000);
@@ -246,6 +249,7 @@ function TelaTicket({ dados, aoConcluir }: { dados: RespostaEntrada; aoConcluir:
           <span className="text-xs text-right leading-tight" style={{ color: 'var(--pv-color-asfalto-600)' }}>Capim Dourado<br />Shopping</span>
         </div>
         <div className="my-4 border-t-2 border-dashed" style={{ borderColor: 'var(--pv-color-asfalto-200)' }} />
+        {demonstracao && <p className="m-0 mb-2 text-xs font-semibold text-center rounded py-1" style={{ background: 'var(--pv-color-faixa-100)', color: 'var(--pv-color-asfalto-900)' }}>Demonstração: ticket sem validade</p>}
         <p className="m-0 text-xs" style={{ color: 'var(--pv-color-asfalto-600)' }}>Ticket</p>
         <p className="m-0 font-mono text-3xl tracking-wider" data-testid="codigo-ticket">{ticket.codigo}</p>
         <div className="flex items-center gap-4 mt-4">
@@ -262,8 +266,14 @@ function TelaTicket({ dados, aoConcluir }: { dados: RespostaEntrada; aoConcluir:
         <ol className="mt-4 pl-5 m-0 text-sm grid gap-1 list-decimal">{passos.map((p) => <li key={p}>{p}</li>)}</ol>
         <div className="my-4 border-t-2 border-dashed" style={{ borderColor: 'var(--pv-color-asfalto-200)' }} />
         <div className="flex items-center gap-4">
-          <div data-testid="qr-code" data-conteudo={qrUrl} role="img" aria-label="QR Code para localizar o veículo" className="size-32 shrink-0 [&>svg]:w-full [&>svg]:h-full" dangerouslySetInnerHTML={{ __html: svg }} />
-          <p className="m-0 text-sm leading-snug">Ao voltar, escaneie o QR Code para ver a região onde você estacionou.</p>
+          {svg === null ? (
+            <div data-testid="qr-falha" role="alert" className="size-32 shrink-0 grid place-items-center text-center text-xs p-2 rounded border-2 border-dashed" style={{ borderColor: 'var(--pv-color-asfalto-300)' }}>
+              QR Code indisponível
+            </div>
+          ) : (
+            <div data-testid="qr-code" data-conteudo={qrUrl} role="img" aria-label="QR Code para localizar o veículo" className="size-32 shrink-0 [&>svg]:w-full [&>svg]:h-full" dangerouslySetInnerHTML={{ __html: svg }} />
+          )}
+          <p className="m-0 text-sm leading-snug">{svg === null ? `Para localizar o veículo, informe o código ${ticket.codigo} no atendimento.` : 'Ao voltar, escaneie o QR Code para ver a região onde você estacionou.'}</p>
         </div>
       </article>
       <div className="flex flex-col gap-5 max-w-md text-center lg:text-left items-center lg:items-start">

@@ -9,6 +9,8 @@ import type { Indicadores, Recomendacao, Regiao, Ticket } from './tipos.ts';
 
 export const NAMESPACE_PAINEL = '/painel';
 export const NAMESPACE_SIMULADOR = '/simulador';
+/** Etapa 4: o localizador entra com o token do QR e recebe só os eventos do próprio ticket. */
+export const NAMESPACE_LOCALIZADOR = '/localizador';
 
 export interface EventoTempoReal<T = unknown> {
   /** UUID único do evento (clientes podem descartar repetidos). */
@@ -20,7 +22,17 @@ export interface EventoTempoReal<T = unknown> {
   entidadeId: string;
   /** true quando o evento foi gerado pelo simulador (dados de demonstração). */
   simulado: boolean;
+  /** Sequência crescente por processo da API (Etapa 4): permite descartar eventos atrasados do mesmo tipo/entidade. */
+  sequencia: number;
   dados: T;
+}
+
+/** Resumo público de um ticket para eventos (sem placa nem token). */
+export interface TicketAtualizado {
+  codigo: string;
+  status: Ticket['status'];
+  regiaoRecomendadaId: string;
+  regiaoEstacionadaId: string | null;
 }
 
 export interface EstadoSimulacaoResumo {
@@ -45,6 +57,8 @@ export interface DadosEventos {
   'simulador:cenario': { cenario: string; descricao: string };
   'simulador:sensor': { eventoId: string; tipo: string; regiaoId: string; resultado: string };
   'simulador:alerta': { codigo: string; mensagem: string; ticketCodigo?: string; regiaoId?: string };
+  // tickets (Etapa 4): qualquer mudança de status ou de recomendação
+  'ticket:atualizado': TicketAtualizado;
   // agregados
   'indicadores:atualizados': Indicadores;
 }
@@ -54,5 +68,5 @@ export const TIPOS_EVENTO = [
   'veiculo:entrou', 'veiculo:recomendado', 'veiculo:estacionou', 'veiculo:saiu',
   'regiao:ocupacao', 'regiao:fluxo', 'regiao:status',
   'simulador:estado', 'simulador:cenario', 'simulador:sensor', 'simulador:alerta',
-  'indicadores:atualizados',
+  'ticket:atualizado', 'indicadores:atualizados',
 ] as const satisfies readonly TipoEvento[];

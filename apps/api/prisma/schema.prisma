@@ -45,6 +45,7 @@ model Regiao {
   fluxoSensor            Int       @default(0) // veículos em circulação medidos pelos sensores de fluxo
   fluxoSensorAte         DateTime?
   fluxoSimulado          Boolean   @default(false)
+  versao                 Int       @default(0) // sobe a cada mudança da linha (ordem dos eventos em tempo real)
   atualizadoEm    DateTime          @default(now()) @updatedAt
   categorias      RegiaoCategoria[]
   eventos         EventoOcupacao[]

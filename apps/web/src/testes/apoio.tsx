@@ -66,7 +66,8 @@ export const socketFalso = {
 };
 let seq = 0;
 export function evento<T extends TipoEvento>(tipo: T, dados: unknown, entidadeId = 'x', simulado = true): EventoTempoReal {
-  return { id: `ev-${++seq}`, tipo, ocorridoEm: '2026-11-13T15:30:00.000Z', entidadeId, simulado, dados };
+  ++seq;
+  return { id: `ev-${seq}`, sequencia: seq, tipo, ocorridoEm: '2026-11-13T15:30:00.000Z', entidadeId, simulado, dados };
 }
 
 export function renderizarEm(caminho: string, rota: string, elemento: ReactNode) {

@@ -9,7 +9,7 @@ vi.mock('socket.io-client', async () => {
   return { io: () => s };
 });
 
-const estadoParado = { status: 'parado', modo: 'automatico', cenario: null, descricaoCenario: null, velocidade: 60, relogioSimuladoIso: '', decorridoSimuladoSeg: 0, estatisticas: {}, veiculos: { aguardando: 0, estacionados: 0, gerados: 0 }, veiculosSimuladosAtivos: 0 };
+const estadoParado = { status: 'parado', modo: 'automatico', cenario: null, descricaoCenario: null, velocidade: 60, relogioSimuladoIso: '', decorridoSimuladoSeg: 0, estatisticas: {}, veiculos: { aguardando: 0, estacionados: 0, gerados: 0 }, veiculosSimuladosAtivos: 0, modoDemonstracao: false };
 const cenarios = ['A', 'B', 'C', 'D', 'E'].map((id) => ({ id, nome: `Cenário ${id}`, descricao: `Descrição do cenário ${id}.`, ocupacaoInicial: 0.3, entradasPorMinuto: 2 }));
 
 function api(extra: Record<string, unknown> = {}, estado: object = estadoParado) {
@@ -20,6 +20,7 @@ function api(extra: Record<string, unknown> = {}, estado: object = estadoParado)
     '/recomendacoes': { corpo: [recomendacaoDeTeste('N3')] },
     '/simulacao': { corpo: estado },
     '/simulacao/cenarios': { corpo: cenarios },
+    '/historico': { corpo: [] },
     ...(extra as Record<string, { corpo: unknown }>),
   });
 }
@@ -102,7 +103,7 @@ describe('dashboard administrativo', () => {
     await waitFor(() => expect(chamadas.some((c) => c.metodo === 'POST' && c.url === '/api/simulacao/cenario')).toBe(true));
     const pedido = chamadas.find((c) => c.url === '/api/simulacao/cenario')!;
     expect(pedido.corpo).toEqual({ cenario: 'C' });
-    expect(pedido.headers['x-simulador-token']).toBe('segredo');
+    expect(pedido.headers['x-operador-token']).toBe('segredo');
   });
 
   it('com a simulação rodando oferece pausar e encerrar; token errado mostra o erro', async () => {

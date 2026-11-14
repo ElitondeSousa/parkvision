@@ -7,7 +7,7 @@ import { useState, type ReactNode } from 'react';
 import { Aviso, Botao, Cartao, EstadoVazio, Esqueleto, Medidor, Placa, Selo, type TomSelo } from '../../componentes/base.tsx';
 import { nomeDoNivel, regiaoDoMapa } from '../../mapa/dados.ts';
 import { NOME_CATEGORIA, ROTULO_FAIXA, ROTULO_FLUXO, ROTULO_FONTE, faixaDaRegiao, hora, percentual, type FaixaRegiao } from '../../mapa/estado.ts';
-import { api, mensagemDeErro, tokenOperador, type CenarioResumo, type EstadoSimulacao } from '../../servicos/api.ts';
+import { api, mensagemDeErro, type CenarioResumo, type ConsultaTicket, type EstadoSimulacao } from '../../servicos/api.ts';
 import type { EstadoConexao } from '../../servicos/tempo-real.ts';
 import type { ItemMovimentacao, TipoItem } from './eventos.ts';
 
@@ -110,13 +110,142 @@ export function DetalheRegiao({ regiao, aoFechar }: { regiao: Regiao | null; aoF
   );
 }
 
+// ── Acesso do operador (um token para operação de tickets e simulador) ──
+export function AcessoOperador({ pedindo, aoSalvar, aoTrocar }: { pedindo: boolean; aoSalvar: (token: string) => void; aoTrocar: () => void }) {
+  const [token, setToken] = useState('');
+  if (!pedindo) {
+    return (
+      <p className="m-0 flex items-center gap-2 text-sm text-ink-2">
+        <KeyRound size={15} aria-hidden /> Operador identificado nesta aba.
+        <button className="underline cursor-pointer" onClick={aoTrocar}>Trocar token</button>
+      </p>
+    );
+  }
+  return (
+    <Cartao titulo="Acesso do operador">
+      <form className="grid gap-1.5 text-sm" onSubmit={(e) => { e.preventDefault(); aoSalvar(token); setToken(''); }}>
+        <label htmlFor="token-operador" className="font-medium inline-flex items-center gap-1.5"><KeyRound size={14} aria-hidden /> Token do operador</label>
+        <div className="flex gap-2">
+          <input id="token-operador" type="password" autoComplete="off" value={token} onChange={(e) => setToken(e.target.value)} className="flex-1 min-w-0 h-10 px-3 rounded-md border border-line-strong bg-surface" placeholder="Token configurado na API" />
+          <Botao type="submit" variante="secundario">Salvar</Botao>
+        </div>
+        <p className="m-0 text-xs text-ink-3">Confirmar estacionamentos, registrar saídas e controlar o simulador exigem o token configurado na API. Ele fica guardado só nesta aba.</p>
+      </form>
+    </Cartao>
+  );
+}
+
+// ── Operação de tickets (confirmação e saída) ──
+const ROTULO_STATUS: Record<Ticket['status'], [string, TomSelo]> = {
+  AGUARDANDO: ['Aguardando confirmação', 'info'], ESTACIONADO: ['Estacionado', 'sucesso'], SAIU: ['Saiu', 'neutro'], CANCELADO: ['Cancelado', 'neutro'],
+};
+/**
+ * Registra a confirmação de estacionamento e a saída pelo código impresso no ticket.
+ * Equivale à leitura do ticket na região (confirmação) e na cancela de saída — as regras são as do backend:
+ * a confirmação revalida a disponibilidade; região cheia é recusada e o operador pede uma nova recomendação.
+ */
+export function OperacaoTicket({ regioes, aoSelecionar, aoNaoAutorizado }: { regioes: Regiao[] | null; aoSelecionar: (id: string) => void; aoNaoAutorizado: () => void }) {
+  const [codigo, setCodigo] = useState('');
+  const [consulta, setConsulta] = useState<ConsultaTicket | null>(null);
+  const [destino, setDestino] = useState('');
+  const [ocupado, setOcupado] = useState<string | null>(null);
+  const [aviso, setAviso] = useState<{ tom: 'sucesso' | 'erro'; titulo: string; texto?: string; lotada?: boolean } | null>(null);
+
+  const tratar = (e: unknown, titulo: string) => {
+    const err = e as { codigo?: string };
+    if (err.codigo === 'NAO_AUTORIZADO') aoNaoAutorizado();
+    setAviso({ tom: 'erro', titulo, texto: mensagemDeErro(e), lotada: err.codigo === 'REGIAO_LOTADA' || err.codigo === 'REGIAO_INDISPONIVEL' });
+  };
+  const consultar = async (c = codigo) => {
+    const cod = c.trim().toUpperCase();
+    if (!cod) return;
+    setOcupado('consultar');
+    try {
+      const r = await api.tickets.consultar(cod);
+      setConsulta(r); setCodigo(cod);
+      setDestino(r.ticket.regiaoRecomendadaId);
+    } catch (e) { setConsulta(null); tratar(e, 'Ticket não consultado'); }
+    finally { setOcupado(null); }
+  };
+  const executar = async (rotulo: string, acao: () => Promise<unknown>, sucesso: string) => {
+    if (!consulta) return;
+    setOcupado(rotulo); setAviso(null);
+    try {
+      await acao();
+      setAviso({ tom: 'sucesso', titulo: sucesso });
+      await consultar(consulta.ticket.codigo);
+    } catch (e) { tratar(e, 'Operação recusada'); }
+    finally { setOcupado(null); }
+  };
+  const pedirNovaRecomendacao = async () => {
+    if (!consulta) return;
+    setOcupado('recomendacao');
+    try {
+      const r = await api.tickets.novaRecomendacao(consulta.ticket.codigo);
+      setAviso({ tom: 'sucesso', titulo: `Nova recomendação: região ${r.recomendacao.regiaoId}`, texto: r.recomendacao.justificativa });
+      await consultar(consulta.ticket.codigo);
+      setDestino(r.recomendacao.regiaoId);
+    } catch (e) { tratar(e, 'Sem nova recomendação'); }
+    finally { setOcupado(null); }
+  };
+
+  const t = consulta?.ticket;
+  const compativeis = t && regioes ? regioes.filter((r) => r.categorias.includes(t.categoria)) : [];
+  return (
+    <Cartao titulo="Operação de tickets">
+      <div className="grid gap-3 text-sm" data-testid="operacao-ticket">
+        <p className="m-0 text-ink-2">Confirme o estacionamento e registre a saída pelo código do ticket. Equivale à leitura do ticket na região e na cancela.</p>
+        <form className="flex gap-2" onSubmit={(e) => { e.preventDefault(); void consultar(); }}>
+          <label htmlFor="codigo-ticket" className="sr-only-texto">Código do ticket</label>
+          <input id="codigo-ticket" value={codigo} onChange={(e) => setCodigo(e.target.value)} placeholder="PV-0001" autoComplete="off" className="flex-1 min-w-0 h-10 px-3 rounded-md border border-line-strong bg-surface font-mono uppercase" />
+          <Botao type="submit" variante="secundario" carregando={ocupado === 'consultar'}>Consultar</Botao>
+        </form>
+        {t && (
+          <div className="grid gap-2 rounded-md border border-line-subtle p-3">
+            <div className="flex items-center justify-between gap-2">
+              <span className="font-mono text-base font-semibold">{t.codigo}</span>
+              <span className="flex gap-1.5">{consulta?.simulado && <Selo tom="atencao">Simulado</Selo>}<Selo tom={ROTULO_STATUS[t.status][1]}>{ROTULO_STATUS[t.status][0]}</Selo></span>
+            </div>
+            <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 m-0">
+              <dt className="text-ink-2">Veículo</dt><dd className="m-0">{NOME_CATEGORIA[t.categoria]}</dd>
+              <dt className="text-ink-2">Recomendada</dt><dd className="m-0"><button className="cursor-pointer" onClick={() => aoSelecionar(t.regiaoRecomendadaId)}><Placa codigo={t.regiaoRecomendadaId} tamanho="sm" /></button></dd>
+              {t.regiaoEstacionadaId && <><dt className="text-ink-2">Estacionado em</dt><dd className="m-0"><button className="cursor-pointer" onClick={() => aoSelecionar(t.regiaoEstacionadaId!)}><Placa codigo={t.regiaoEstacionadaId} tamanho="sm" /></button></dd></>}
+            </dl>
+            {t.status === 'AGUARDANDO' && (
+              <div className="grid gap-2">
+                <label className="grid gap-1">
+                  <span className="font-medium">Região onde o veículo estacionou</span>
+                  <select value={destino} onChange={(e) => setDestino(e.target.value)} className="h-10 px-2 rounded-md border border-line-strong bg-surface">
+                    {compativeis.map((r) => <option key={r.id} value={r.id}>{r.id} — {r.nome} ({r.livres} livres){r.id === t.regiaoRecomendadaId ? ' · recomendada' : ''}</option>)}
+                  </select>
+                </label>
+                <div className="flex flex-wrap gap-2">
+                  <Botao icone={CircleParking} carregando={ocupado === 'estacionar'} onClick={() => executar('estacionar', () => api.tickets.estacionar(t.codigo, destino || undefined), `Estacionamento confirmado em ${destino}`)}>Confirmar estacionamento</Botao>
+                  <Botao variante="fantasma" carregando={ocupado === 'cancelar'} onClick={() => executar('cancelar', () => api.tickets.cancelar(t.codigo), 'Ticket cancelado')}>Cancelar ticket</Botao>
+                </div>
+              </div>
+            )}
+            {t.status === 'ESTACIONADO' && (
+              <Botao variante="secundario" icone={LogOut} carregando={ocupado === 'saida'} onClick={() => executar('saida', () => api.tickets.saida(t.codigo), 'Saída registrada')}>Registrar saída</Botao>
+            )}
+          </div>
+        )}
+        {aviso && (
+          <Aviso tom={aviso.tom} titulo={aviso.titulo}
+            acao={aviso.lotada && t?.status === 'AGUARDANDO' ? <Botao tamanho="sm" variante="secundario" icone={Route} carregando={ocupado === 'recomendacao'} onClick={pedirNovaRecomendacao}>Solicitar nova recomendação</Botao> : undefined}>
+            {aviso.texto}
+          </Aviso>
+        )}
+      </div>
+    </Cartao>
+  );
+}
+
 // ── Simulador ──
-export function ControleSimulador({ estado, cenarios, aoAtualizar }: { estado: EstadoSimulacao | null; cenarios: CenarioResumo[]; aoAtualizar: () => Promise<unknown> }) {
+export function ControleSimulador({ estado, cenarios, aoAtualizar, aoNaoAutorizado }: { estado: EstadoSimulacao | null; cenarios: CenarioResumo[]; aoAtualizar: () => Promise<unknown>; aoNaoAutorizado: () => void }) {
   const [cenario, setCenario] = useState<string>('A');
   const [ocupado, setOcupado] = useState<string | null>(null);
   const [erro, setErro] = useState<string | null>(null);
-  const [token, setToken] = useState(tokenOperador.ler());
-  const [pedirToken, setPedirToken] = useState(!tokenOperador.ler());
   const [confirmarReinicio, setConfirmarReinicio] = useState(false);
 
   const executar = async (rotulo: string, acao: () => Promise<unknown>) => {
@@ -124,7 +253,7 @@ export function ControleSimulador({ estado, cenarios, aoAtualizar }: { estado: E
     try { await acao(); await aoAtualizar(); }
     catch (e) {
       setErro(mensagemDeErro(e));
-      if ((e as { codigo?: string }).codigo === 'NAO_AUTORIZADO') setPedirToken(true);
+      if ((e as { codigo?: string }).codigo === 'NAO_AUTORIZADO') aoNaoAutorizado();
     } finally { setOcupado(null); setConfirmarReinicio(false); }
   };
 
@@ -143,16 +272,6 @@ export function ControleSimulador({ estado, cenarios, aoAtualizar }: { estado: E
                 {estado.cenario ? <>Cenário <strong className="text-ink">{estado.cenario}</strong> · </> : null}
                 {Math.floor(estado.decorridoSimuladoSeg / 60)} min simulados · {estado.veiculos.estacionados} estacionados · {estado.veiculos.aguardando} a caminho
               </p>
-            )}
-            {pedirToken && (
-              <form className="grid gap-1.5" onSubmit={(e) => { e.preventDefault(); tokenOperador.gravar(token); setPedirToken(false); setErro(null); }}>
-                <label htmlFor="token-operador" className="font-medium inline-flex items-center gap-1.5"><KeyRound size={14} aria-hidden /> Token do operador</label>
-                <div className="flex gap-2">
-                  <input id="token-operador" type="password" autoComplete="off" value={token} onChange={(e) => setToken(e.target.value)} className="flex-1 min-w-0 h-10 px-3 rounded-md border border-line-strong bg-surface" placeholder="SIMULADOR_TOKEN da API" />
-                  <Botao type="submit" variante="secundario">Salvar</Botao>
-                </div>
-                <p className="m-0 text-xs text-ink-3">Os controles exigem o token configurado na API. Ele fica guardado só nesta aba.</p>
-              </form>
             )}
             {status === 'parado' ? (
               <>
@@ -193,7 +312,6 @@ export function ControleSimulador({ estado, cenarios, aoAtualizar }: { estado: E
           </>
         )}
         {erro && <Aviso tom="erro" titulo="Ação não executada">{erro}</Aviso>}
-        {!pedirToken && <button className="justify-self-start text-xs text-ink-3 underline cursor-pointer" onClick={() => setPedirToken(true)}>Trocar token do operador</button>}
       </div>
     </Cartao>
   );

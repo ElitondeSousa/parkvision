@@ -19,6 +19,8 @@ const db = new PrismaClient({ datasources: { db: { url: process.env.DATABASE_URL
 const TOKEN = 'token-teste';
 const config = { ...lerConfig({}), simuladorToken: TOKEN, webUrl: 'http://web.teste' };
 const coletor = emissorColetor();
+/** Token do operador (rotas restritas desde a Etapa 4). */
+const OP = { 'x-operador-token': 'token-teste' };
 const app = criarApp({ db, emissor: coletor.emissor, config });
 const H = { 'x-simulador-token': TOKEN };
 
@@ -32,7 +34,7 @@ const sensor = (payload: object) => app.inject({ method: 'POST', url: '/api/sens
 const entradaSimulada = async (categoria = 'CARRO_PEQUENO', acessoId = 'A_NE') => (await manual({ acao: 'entrada', categoria, acessoId })).json();
 const lotar = async (id: string, livres = 0) => {
   const r = await regiao(id);
-  return app.inject({ method: 'PATCH', url: `/api/regioes/${id}`, payload: { ocupadas: r.capacidade - livres } });
+  return app.inject({ method: 'PATCH', headers: OP, url: `/api/regioes/${id}`, payload: { ocupadas: r.capacidade - livres } });
 };
 /** Inicia em modo manual (sem chegadas automáticas) — o relógio só anda com `avancar`. */
 const iniciarManual = () => sim('iniciar', { config: { modo: 'manual', entradasPorMinuto: 0 } });
@@ -150,10 +152,10 @@ describe('5. rejeição de estacionamento em região cheia', () => {
   it('pela API REST a confirmação em região cheia responde 409 e o ticket pode pedir nova recomendação', async () => {
     const { ticket, recomendacao } = (await app.inject({ method: 'POST', url: '/api/entradas', payload: { acessoId: 'A_NE', categoria: 'CARRO_PEQUENO' } })).json();
     await lotar(recomendacao.regiaoId);
-    const r = await app.inject({ method: 'POST', url: `/api/tickets/${ticket.codigo}/estacionar` });
+    const r = await app.inject({ method: 'POST', headers: OP, url: `/api/tickets/${ticket.codigo}/estacionar` });
     expect(r.statusCode).toBe(409);
     expect(r.json().erro.codigo).toBe('REGIAO_LOTADA');
-    const nova = (await app.inject({ method: 'POST', url: `/api/tickets/${ticket.codigo}/recomendacao` })).json();
+    const nova = (await app.inject({ method: 'POST', headers: OP, url: `/api/tickets/${ticket.codigo}/recomendacao` })).json();
     expect(nova.recomendacao.regiaoId).not.toBe(recomendacao.regiaoId);
     expect(nova.ticket.regiaoRecomendadaId).toBe(nova.recomendacao.regiaoId);
   });
@@ -163,7 +165,7 @@ describe('6. recomendação não altera a ocupação', () => {
   it('20 entradas e novas recomendações não ocupam nenhuma vaga (sem reserva temporária)', async () => {
     const codigos: string[] = [];
     for (let i = 0; i < 20; i++) codigos.push((await entradaSimulada(i % 3 === 0 ? 'MOTO' : 'CARRO_GRANDE')).ticket.codigo);
-    await app.inject({ method: 'POST', url: `/api/tickets/${codigos[1]}/recomendacao` });
+    await app.inject({ method: 'POST', headers: OP, url: `/api/tickets/${codigos[1]}/recomendacao` });
     expect(await totalOcupadas()).toBe(0);
     expect(await db.eventoOcupacao.count()).toBe(0);
     expect((await app.inject('/api/indicadores')).json()).toMatchObject({ ocupadas: 0, veiculosAguardando: 20 });
@@ -180,7 +182,7 @@ describe('7. rejeição de saída duplicada', () => {
 
     expect((await sensor({ tipo: 'VAGA_LIBERADA', regiaoId: 'N1', ticketCodigo: a.ticket.codigo })).json().resultado).toBe('APLICADO');
     expect((await sensor({ tipo: 'VAGA_LIBERADA', regiaoId: 'N1', ticketCodigo: a.ticket.codigo })).json().resultado).toBe('REJEITADO_TRANSICAO_INVALIDA');
-    expect((await app.inject({ method: 'POST', url: `/api/tickets/${a.ticket.codigo}/saida` })).statusCode).toBe(409);
+    expect((await app.inject({ method: 'POST', headers: OP, url: `/api/tickets/${a.ticket.codigo}/saida` })).statusCode).toBe(409);
 
     const b = await entradaSimulada();
     expect((await manual({ acao: 'saida', codigo: b.ticket.codigo })).json().resultado).toBe('REJEITADO_TRANSICAO_INVALIDA');
@@ -192,11 +194,11 @@ describe('8. ocupação nunca fica negativa', () => {
   it('saída em região já zerada é recusada e a ocupação continua em zero', async () => {
     const { ticket } = await entradaSimulada();
     await manual({ acao: 'confirmar', codigo: ticket.codigo, regiaoId: 'S1' });
-    await app.inject({ method: 'PATCH', url: '/api/regioes/S1', payload: { ocupadas: 0 } }); // ajuste manual inconsistente
+    await app.inject({ method: 'PATCH', headers: OP, url: '/api/regioes/S1', payload: { ocupadas: 0 } }); // ajuste manual inconsistente
     const r = (await manual({ acao: 'saida', codigo: ticket.codigo })).json();
     expect(r.resultado).toBe('REJEITADO_DADOS_INVALIDOS');
     expect((await regiao('S1')).ocupadas).toBe(0);
-    expect((await app.inject({ method: 'PATCH', url: '/api/regioes/S1', payload: { ocupadas: -1 } })).statusCode).toBe(400);
+    expect((await app.inject({ method: 'PATCH', headers: OP, url: '/api/regioes/S1', payload: { ocupadas: -1 } })).statusCode).toBe(400);
     expect((await regioes()).every((x) => x.ocupadas >= 0 && x.livres >= 0)).toBe(true);
   });
 });
@@ -314,9 +316,9 @@ describe('14. reinicialização segura', () => {
   it('apaga só o que é simulado e preserva tickets reais, ocupação real e ajustes do operador', async () => {
     // dados reais
     const real = (await app.inject({ method: 'POST', url: '/api/entradas', payload: { acessoId: 'A_S1', categoria: 'CARRO_PEQUENO' } })).json();
-    await app.inject({ method: 'POST', url: `/api/tickets/${real.ticket.codigo}/estacionar`, payload: { regiaoId: 'S1' } });
-    await app.inject({ method: 'PATCH', url: '/api/regioes/N2', payload: { ocupadas: 10 } });
-    await app.inject({ method: 'PATCH', url: '/api/regioes/S2', payload: { operacional: false } });
+    await app.inject({ method: 'POST', headers: OP, url: `/api/tickets/${real.ticket.codigo}/estacionar`, payload: { regiaoId: 'S1' } });
+    await app.inject({ method: 'PATCH', headers: OP, url: '/api/regioes/N2', payload: { ocupadas: 10 } });
+    await app.inject({ method: 'PATCH', headers: OP, url: '/api/regioes/S2', payload: { operacional: false } });
     // simulação com preenchimento, bloqueio, falha de sensor e fluxo
     await sim('cenario', { cenario: 'A' });
     await manual({ acao: 'disponibilidade', regiaoId: 'N3', disponivel: false });

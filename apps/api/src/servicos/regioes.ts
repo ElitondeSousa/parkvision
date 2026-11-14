@@ -41,6 +41,7 @@ export function regiaoDto(r: RegiaoDb, fluxo?: Record<string, number>): Regiao {
     atualizadoEm: r.atualizadoEm.toISOString(),
     statusSensores: r.statusSensores as StatusSensores,
     fluxo: { recente, vazaoReferencia: vazao, nivel: nivelFluxo(recente, vazao) },
+    versao: r.versao,
   };
 }
 
@@ -71,7 +72,7 @@ export async function atualizarRegiao(
   const ocupadas = dados.ocupadas ?? atual.ocupadas;
   if (ocupadas > capacidade) throw new ErroApi('DADOS_INVALIDOS', `Ocupação (${ocupadas}) maior que a capacidade (${capacidade})`);
   await db.$transaction([
-    db.regiao.update({ where: { id }, data: { ...dados } }),
+    db.regiao.update({ where: { id }, data: { ...dados, versao: { increment: 1 } } }),
     ...(dados.ocupadas !== undefined && dados.ocupadas !== atual.ocupadas
       ? [db.eventoOcupacao.create({ data: { regiaoId: id, tipo: 'AJUSTE', origem } })]
       : []),
