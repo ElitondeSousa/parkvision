@@ -6,90 +6,60 @@
 
 > O projeto se chamava **ParkVision** até a atualização de identidade visual; documentos das etapas anteriores mantêm o nome antigo como registro histórico. Identificadores técnicos (pacotes `@parkvision/*`, tokens `--pv-*`, URL do repositório) foram preservados por compatibilidade. Identidade, logos e temas: [docs/mvp/14-golden-park.md](docs/mvp/14-golden-park.md).
 
-Sistema que **organiza e distribui automaticamente os veículos** em estacionamentos de shopping centers: monitora as vagas em tempo real, recomenda a melhor zona na entrada, imprime um ticket com a orientação, guia o motorista por sinalização luminosa (sem exigir aplicativo) e permite pagar pelo QR Code do ticket.
+Sistema que **organiza e distribui automaticamente os veículos** no estacionamento do Capim Dourado Shopping:
+- recomenda a melhor região na entrada;
+- emite um ticket com QR Code;
+- guia o motorista pelo celular, sem aplicativo;
+- mostra a operação em tempo real no painel.
 
-### ▶ [Abrir o protótipo das telas](https://elitondesousa.github.io/golden-park/prototype/)
+> **Status atual: MVP funcional.** As três interfaces (totem, localizador pelo QR Code e painel administrativo) estão implementadas e integradas ao back-end real: API, banco, algoritmo, simulador e tempo real. Os números de ocupação nas demonstrações vêm do simulador e aparecem sempre marcados como dados simulados.
 
-As 6 telas (Visão geral, Mapa de vagas, Distribuição inteligente, Veículos e tickets, Pagamento por QR Code, Configurações) e a vitrine do Design System, direto no navegador.
+<p align="center">
+  <img src="docs/mvp/capturas/mvp-localizador-375-claro.png" alt="Localizador pelo QR Code no celular" height="420">
+  &nbsp;
+  <img src="docs/mvp/capturas/mvp-localizador-320-escuro.png" alt="Localizador no tema escuro" height="420">
+</p>
 
-> **Status atual: planejamento técnico inicial** (1ª entrega — 13/11/2026). Ainda não há MVP funcional; esta etapa entrega documentação, arquitetura, Design System e protótipo visual das telas.
->
-> 🗺️ **Planta recebida em 13/11/2026** (Capim Dourado Shopping): análise e proposta inicial de zonas em [docs/10-analise-planta.md](docs/10-analise-planta.md). Subsolo 1 com 140 vagas, Subsolo 2 com 216 vagas, pátios descobertos norte e sul (quantidade a contar). O mapa interativo do protótipo ainda usa uma simulação rotulada como exemplo.
+<p align="center">
+  <img src="docs/mvp/capturas/mvp-totem-1440-recomendacao.png" alt="Totem de entrada com a região recomendada" width="49%">
+  <img src="docs/mvp/capturas/mvp-painel-1440-claro.png" alt="Painel administrativo" width="49%">
+</p>
 
-## Equipe
+## As três interfaces
 
-- Eliton de Sousa Pereira
-- Marcos Feliphe Freitas Moraes
-- Gustavo Araújo Lopes
-- Arthur Santos Coelho
-
-## Objetivo
-
-Reduzir filas, congestionamentos internos e o tempo de procura por vaga fazendo com que **o próprio estacionamento** direcione cada veículo para a região mais adequada, considerando disponibilidade, distância, fluxo e a saúde dos sensores.
-
-## Funcionalidades previstas
-
-| # | Funcionalidade | Resumo |
+| Interface | Endereço | O que faz |
 |---|---|---|
-| 1 | Monitoramento de vagas | Sensores (ultrassônicos/magnéticos) informam vaga livre/ocupada em tempo real via MQTT |
-| 2 | Distribuição inteligente | Score por zona: disponibilidade (40%), distância pela rota (25%), fluxo (25%), saúde dos sensores (10%) |
-| 3 | Classificação de veículos | Moto, carro pequeno, carro grande (+ necessidade PcD/idoso) → vagas compatíveis |
-| 4 | Ticket de entrada | Impresso com zona, setor, orientação, QR Code e código curto |
-| 5 | Sinalização inteligente | Painéis de LED com zona, seta e vagas livres |
-| 6 | Painel administrativo | Ocupação geral e por zona, sensores, movimentação, histórico |
-| 7 | Localização do veículo | Zona/setor registrados no ticket e na página do QR |
-| 8 | Pagamento por QR Code | Página mobile com valor e Pix (simulado nesta etapa) |
-| 9 | Acessibilidade | Todo o fluxo funciona sem smartphone; caixa e sinalização física continuam |
+| **Totem de entrada** | `/totem?acesso=A_ROT` | O motorista escolhe o veículo e, se precisar, a vaga reservada (PcD ou pessoa idosa). Recebe a região recomendada, o motivo e o caminho, e emite o ticket com QR Code. |
+| **Localizador (QR Code)** | `/t/<token>` | Página mobile tipo app de navegação: mapa em tela cheia, rota pelos corredores até a região, painel inferior com orientações e ticket. Depois de estacionar, mostra a região registrada. |
+| **Painel administrativo** | `/painel` | Vagas livres em destaque, mapa interativo com ocupação por região, tabela de zonas (comuns, PcD, pessoa idosa), operação de tickets, simulador e vagas reservadas. |
 
-## Tecnologias
+As três seguem a identidade aprovada nos wireframes:
+- bronze como cor de ação e ouro no logo;
+- temas claro e escuro, com a preferência salva;
+- funcionam a partir de 320 px de largura.
 
-| Camada | Escolha |
-|---|---|
-| Linguagem | **TypeScript** (C++ no firmware ESP32) |
-| Frontend | React 19 + Vite · CSS Modules + tokens do Design System · Recharts · Lucide · Storybook |
-| Backend | Node.js 24 LTS + NestJS · Prisma |
-| Banco de dados | PostgreSQL 16 |
-| IoT | ESP32 + HC-SR04 (maquete) / magnetômetro QMC5883L (produção) · MQTT (Eclipse Mosquitto) |
-| Tempo real | WebSocket (Socket.IO) para as telas · MQTT para dispositivos |
-| Pagamentos | Interface `PaymentProvider` (mock) → gateway com Pix no MVP |
-| Infra | Docker Compose · deploy de demonstração em PaaS |
-| Gestão | Geproj (To Host) |
-| **Tecnologia sorteada** | **Design System** — tokens em 3 camadas, componentes, estados, governança |
+## O que o MVP já faz
 
-Justificativas em [docs/08-decisoes-tecnicas.md](docs/08-decisoes-tecnicas.md).
+- **Distribuição inteligente:** cada região recebe uma pontuação por disponibilidade (50%), distância pela rota (30%) e fluxo recente (20%). A recomendação vem com justificativa em português.
+- **Sem reserva:** recomendar não ocupa vaga. A ocupação só muda quando o estacionamento é confirmado e quando o veículo sai, com a capacidade revalidada no banco, também em operações simultâneas.
+- **Rotas:** menor caminho no grafo de vias do mapa digital, que foi feito a partir da planta real, nos três níveis (térreo, subsolo 1 e subsolo 2).
+- **Vagas PcD e para pessoa idosa:**
+  - mínimos legais calculados sobre o total (Lei 13.146/2015 e Lei 10.741/2003);
+  - quem pede vaga comum nunca recebe vaga reservada, e quem pede reservada só recebe do próprio tipo;
+  - a distribuição física das vagas é uma proposta simulada até a validação em campo.
+- **Tempo real:** o painel e o localizador se atualizam sozinhos (Socket.IO) e se recuperam depois de uma queda de conexão.
+- **Simulador:** gera entradas, confirmações, saídas, falhas de sensor e congestionamento, sempre marcados como simulados. Tem seis cenários (A–F) e carrinhos animados no mapa do painel.
+- **Honestidade nos dados:**
+  - sem GPS: o localizador não rastreia o veículo;
+  - nenhuma distância ou tempo inventado;
+  - nenhum caminho é chamado de acessível sem validação na planta.
 
-## Documentação
+Ainda **não** fazem parte do MVP:
+- sensores físicos (os eventos de sensor existem na API e são simulados);
+- painéis de LED;
+- pagamento por QR Code.
 
-| Documento | Conteúdo |
-|---|---|
-| [01 — Visão Geral](docs/01-visao-geral.md) | Problema, objetivo, solução, público-alvo, benefícios |
-| [02 — Requisitos](docs/02-requisitos.md) | Funcionais, não funcionais, regras de negócio, rastreabilidade |
-| [03 — Arquitetura Técnica](docs/03-arquitetura.md) | Stack, módulos, fluxos, MQTT/API, banco, IoT, QR, pagamentos, segurança |
-| [04 — Design System](docs/04-design-system.md) | Identidade, tokens, componentes, estados, regras, governança |
-| [05 — Estrutura das Telas](docs/05-telas.md) | As 6 telas, componentes, navegação |
-| [06 — Tecnologia Sorteada](docs/06-tecnologia-sorteada.md) | Design System: o que é, por que, como aplicar, exemplos |
-| [07 — Cronograma e Roadmap](docs/07-roadmap.md) | Fases até o MVP, riscos, uso do Geproj |
-| [08 — Decisões Técnicas](docs/08-decisoes-tecnicas.md) | Alternativas avaliadas, escolhas, limitações |
-| [09 — Distribuição Inteligente](docs/09-distribuicao-inteligente.md) | Fórmula, algoritmo, exemplo, concorrência, reserva × recomendação |
-| [10 — Análise da planta](docs/10-analise-planta.md) | Estrutura do Capim Dourado Shopping, proposta de zonas, pontos de sensores e painéis, limitações |
-| [Adaptação à planta](docs/adaptacao-planta.md) | O que ainda falta adaptar à planta real |
-| [Diagramas](docs/diagrams/) | Arquitetura, entrada, distribuição, pagamento, sensores, modelo de dados (Mermaid) |
-| [Checklist da 1ª entrega](docs/CHECKLIST-PRIMEIRA-ENTREGA.md) | Requisito → evidência → status |
-
-## Protótipo e Design System
-
-- **Protótipo navegável das telas:** abra [`prototype/index.html`](prototype/index.html) no navegador (não precisa de build). Inclui as 6 telas e a página **Design System** (vitrine viva), com tema claro/escuro.
-- **Tokens:** edite [`design-system/tokens/tokens.json`](design-system/tokens/tokens.json) e gere o CSS:
-
-```bash
-node design-system/scripts/build-tokens.mjs
-```
-
-```bash
-node design-system/scripts/check-contrast.mjs
-```
-
-## Como rodar o MVP (Etapas 1 a 3 — back-end, algoritmo, simulador e interfaces)
+## Como rodar
 
 Pré-requisitos: Node.js 22+, pnpm 10 e Docker Desktop.
 
@@ -113,84 +83,103 @@ pnpm db:push
 pnpm db:seed
 ```
 
+Em dois terminais, suba a API (`http://localhost:3333`) e a web (`http://localhost:5173`):
+
 ```bash
 pnpm dev:api
 ```
-
-A API sobe em `http://localhost:3333` (ex.: `GET /api/regioes`, `POST /api/entradas`). Para rodar todos os testes (o banco de testes `parkvision_teste` precisa estar no ar):
-
-```bash
-pnpm test
-```
-
-Contratos da API e dos eventos em tempo real: [docs/mvp/02-contratos.md](docs/mvp/02-contratos.md). Relatório da etapa: [docs/mvp/07-relatorio-etapa-1.md](docs/mvp/07-relatorio-etapa-1.md).
-
-### Simulador (Etapa 2)
-
-O simulador roda dentro da API e é controlado por `/api/simulacao/*`, com o cabeçalho `x-simulador-token`. Ele gera entradas, confirmações, saídas, falhas de sensor e congestionamento, sempre marcados como `simulado: true`, e tem cinco cenários reproduzíveis (A–E). Por exemplo, para iniciar o cenário de pico:
-
-```bash
-curl -X POST localhost:3333/api/simulacao/cenario -H "x-simulador-token: troque-este-token" -H "content-type: application/json" -d '{"cenario":"B"}'
-```
-
-Arquitetura, endpoints, eventos, configurações e limitações: [docs/mvp/08-simulador.md](docs/mvp/08-simulador.md). Relatório: [docs/mvp/09-relatorio-etapa-2.md](docs/mvp/09-relatorio-etapa-2.md).
-
-### Interfaces (Etapa 3)
-
-Com a API no ar, suba a web, que usa o proxy do Vite para falar com a API em `localhost:3333`:
 
 ```bash
 pnpm dev:web
 ```
 
-São três interfaces:
-- painel: `http://localhost:5173/painel`;
-- totem: `http://localhost:5173/totem?acesso=A_NE`;
-- localizador: `/t/<token>`, aberto pelo QR Code do ticket.
+Depois abra `http://localhost:5173/totem?acesso=A_ROT`, emita um ticket e escaneie o QR Code (ou abra o endereço dele) para ver o localizador. O painel fica em `http://localhost:5173/painel`. Para controlar o simulador, informe o token do operador no painel (o `SIMULADOR_TOKEN` do `.env`).
 
-Testes de componente rodam com `pnpm test`, e os ponta a ponta (Playwright com o Edge instalado, no banco de teste) com:
+### Testes
+
+Testes unitários e de integração (o banco de teste `parkvision_teste` precisa estar no ar):
+
+```bash
+pnpm test
+```
+
+Ponta a ponta, com Playwright usando o Edge instalado, no banco de teste:
 
 ```bash
 pnpm e2e
 ```
 
-Design System aplicado, construção do mapa e comparação com a planta: [docs/mvp/10-interfaces.md](docs/mvp/10-interfaces.md). Relatório: [docs/mvp/11-relatorio-etapa-3.md](docs/mvp/11-relatorio-etapa-3.md).
+## Documentação do MVP
+
+| Etapa | Documento |
+|---|---|
+| Etapa 0 — Arquitetura do MVP, contratos, mapa digital | [01-arquitetura-mvp](docs/mvp/01-arquitetura-mvp.md) · [02-contratos](docs/mvp/02-contratos.md) · [04-proposta-mapa](docs/mvp/04-proposta-mapa.md) · [06-revisao-planta](docs/mvp/06-revisao-planta.md) |
+| Etapa 1 — Back-end e algoritmo | [07-relatorio-etapa-1](docs/mvp/07-relatorio-etapa-1.md) |
+| Etapa 2 — Simulador | [08-simulador](docs/mvp/08-simulador.md) · [09-relatorio-etapa-2](docs/mvp/09-relatorio-etapa-2.md) |
+| Etapa 3 — Interfaces e mapa interativo | [10-interfaces](docs/mvp/10-interfaces.md) · [11-relatorio-etapa-3](docs/mvp/11-relatorio-etapa-3.md) |
+| Etapa 4 — Integração completa | [12-integracao](docs/mvp/12-integracao.md) · [13-relatorio-etapa-4](docs/mvp/13-relatorio-etapa-4.md) |
+| Identidade Golden Park | [14-golden-park](docs/mvp/14-golden-park.md) |
+| Navegação mobile e simulação | [15-evolucao-mapa-navegacao](docs/mvp/15-evolucao-mapa-navegacao.md) |
+| Vagas PcD e pessoa idosa | [16-vagas-reservadas](docs/mvp/16-vagas-reservadas.md) |
+| Telas MVP a partir dos wireframes | [17-telas-mvp](docs/mvp/17-telas-mvp.md) |
+
+Capturas de todas as etapas: [docs/mvp/capturas/](docs/mvp/capturas/).
+
+## Tecnologias
+
+| Camada | Escolha |
+|---|---|
+| Linguagem | **TypeScript** |
+| Frontend | React 19 + Vite · Tailwind 4 ligado aos tokens do Design System · Lucide · mapa em SVG próprio |
+| Backend | Node.js 24 + Fastify 5 · Socket.IO · Prisma 6 · Zod |
+| Banco de dados | PostgreSQL 16 (Docker) |
+| Algoritmo e rotas | Pacote `@parkvision/core` (funções puras, Dijkstra no grafo de vias) |
+| Testes | Vitest · Testing Library · Playwright |
+| **Tecnologia sorteada** | **Design System**: tokens em 3 camadas, componentes, estados, temas, governança |
 
 ## Estrutura de pastas
 
 ```
 .
-├── README.md
-├── package.json, pnpm-workspace.yaml, docker-compose.yml   # monorepo pnpm + PostgreSQL
 ├── apps/
-│   └── api/                      # Fastify + Socket.IO + Prisma (Etapa 1)
+│   ├── api/            # Fastify + Socket.IO + Prisma, simulador embutido
+│   └── web/            # totem, localizador (QR Code) e painel — React + Vite
 ├── packages/
-│   ├── shared/                   # contratos (tipos + Zod) e mapa digital oficial
-│   └── core/                     # algoritmo de distribuição e rotas (funções puras)
-├── docs/                         # documentação da 1ª entrega (01–10, checklist, diagramas)
-│   ├── mvp/                      # documentação do MVP (etapas, mapa, simulação 3D)
-│   ├── diagrams/                 # diagramas Mermaid
-│   └── planta/                   # planta recebida (PDF + imagens)
-├── design-system/
-│   ├── tokens/tokens.json        # fonte da verdade dos tokens (W3C Design Tokens)
-│   ├── tokens/build/             # CSS e JSON gerados
-│   ├── brand/                    # logotipo e símbolo (SVG)
-│   ├── components/README.md      # contratos dos componentes
-│   └── scripts/                  # build de tokens e verificação de contraste
-├── prototype/                    # protótipo HTML navegável (consome os tokens)
-└── backend/
-    └── prisma/schema.prisma      # modelo de dados inicial (validado)
+│   ├── shared/         # contratos (tipos + Zod), mapa digital oficial, vagas reservadas
+│   └── core/           # algoritmo de distribuição, rotas e distribuição das vagas reservadas
+├── design-system/      # tokens (fonte da verdade), logos, scripts de build e contraste
+├── docs/
+│   ├── mvp/            # documentação das etapas do MVP, mapa e capturas
+│   ├── diagrams/       # diagramas Mermaid
+│   └── planta/         # planta recebida (PDF + imagens)
+└── prototype/          # protótipo HTML da 1ª entrega (planejamento)
 ```
 
-Pastas `frontend/`, `simulator/` e `firmware/` serão criadas nas fases 1–3 (estrutura planejada em [docs/03-arquitetura.md §4](docs/03-arquitetura.md#4-organização-dos-módulos)).
+## Equipe
 
-## Como o projeto será desenvolvido
+- Eliton de Sousa Pereira
+- Marcos Feliphe Freitas Moraes
+- Gustavo Araújo Lopes
+- Arthur Santos Coelho
 
-1. **F0 — Planejamento técnico** (esta entrega).
-2. **F1 — Protótipo React** com os componentes do Design System documentados no Storybook e dados simulados.
-3. **F2 — Backend** NestJS + PostgreSQL: API, WebSocket, algoritmo de distribuição, tickets, pagamento mock.
-4. **F3 — Sensores e sinalização:** simulador MQTT → maquete com ESP32 + HC-SR04 e painel de LED.
-5. **F4 — Testes:** unitários, integração, simulação de carga do algoritmo, acessibilidade.
-6. **F5 — MVP:** demonstração ponta a ponta.
+## Histórico: 1ª entrega (planejamento)
 
-Cronograma, riscos e organização no Geproj: [docs/07-roadmap.md](docs/07-roadmap.md).
+Antes do MVP, a 1ª entrega (13/11/2026) reuniu documentação, arquitetura, Design System e um protótipo visual das telas.
+
+- **Protótipo:** pode ser aberto direto no navegador, mas é só visual, sem back-end.
+
+  ### [Abrir o protótipo da 1ª entrega](https://elitondesousa.github.io/golden-park/prototype/)
+
+- **Documentos de planejamento:**
+  [visão geral](docs/01-visao-geral.md) ·
+  [requisitos](docs/02-requisitos.md) ·
+  [arquitetura](docs/03-arquitetura.md) ·
+  [Design System](docs/04-design-system.md) ·
+  [telas](docs/05-telas.md) ·
+  [tecnologia sorteada](docs/06-tecnologia-sorteada.md) ·
+  [roadmap](docs/07-roadmap.md) ·
+  [decisões técnicas](docs/08-decisoes-tecnicas.md) ·
+  [distribuição inteligente](docs/09-distribuicao-inteligente.md) ·
+  [análise da planta](docs/10-analise-planta.md) ·
+  [checklist](docs/CHECKLIST-PRIMEIRA-ENTREGA.md)
+- **Diferenças em relação ao MVP:** algumas escolhas do planejamento mudaram na implementação, como Fastify em vez de NestJS, Tailwind em vez de CSS Modules e pesos do algoritmo de 50/30/20. Os relatórios das etapas registram cada mudança.
