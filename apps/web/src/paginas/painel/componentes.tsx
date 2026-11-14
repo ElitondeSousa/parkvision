@@ -1,7 +1,7 @@
 /** Blocos do dashboard administrativo (usam só componentes base do Design System). */
 import type { Indicadores, Recomendacao, Regiao, Ticket } from '@parkvision/shared';
 import {
-  Activity, Ban, CarFront, CircleCheck, CircleParking, KeyRound, LogIn, LogOut, Pause, Play, RotateCcw, Route, Square, TriangleAlert, Waves, WifiOff, X, type LucideIcon,
+  Activity, Ban, CarFront, CircleCheck, CircleParking, KeyRound, LogIn, LogOut, Pause, Play, Plus, RotateCcw, Route, Square, Sun, TriangleAlert, Waves, WifiOff, X, Zap, type LucideIcon,
 } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
 import { Aviso, Botao, Cartao, EstadoVazio, Esqueleto, Medidor, Placa, Selo, type TomSelo } from '../../componentes/base.tsx';
@@ -242,8 +242,19 @@ export function OperacaoTicket({ regioes, aoSelecionar, aoNaoAutorizado }: { reg
 }
 
 // ── Simulador ──
+/**
+ * Ritmos prontos da simulação (tudo marcado como dado simulado). O relógio é acelerado, mas o tempo de manobra é escolhido
+ * para o carrinho animado chegar à região mais ou menos quando a confirmação acontece no backend.
+ */
+export const RITMOS = {
+  livre: { velocidade: 10, entradasPorMinuto: 3, tempoManobraSeg: 60 },     // Iniciar
+  vazio: { velocidade: 10, entradasPorMinuto: 0, tempoManobraSeg: 60 },     // Adicionar veículo com a simulação parada
+  tranquilo: { cenario: 'A' as const, config: { velocidade: 10, tempoManobraSeg: 60 } },
+  pico: { cenario: 'B' as const, config: { velocidade: 3, tempoManobraSeg: 30 } },
+};
+
 export function ControleSimulador({ estado, cenarios, aoAtualizar, aoNaoAutorizado }: { estado: EstadoSimulacao | null; cenarios: CenarioResumo[]; aoAtualizar: () => Promise<unknown>; aoNaoAutorizado: () => void }) {
-  const [cenario, setCenario] = useState<string>('A');
+  const [cenario, setCenario] = useState<string>('C');
   const [ocupado, setOcupado] = useState<string | null>(null);
   const [erro, setErro] = useState<string | null>(null);
   const [confirmarReinicio, setConfirmarReinicio] = useState(false);
@@ -261,54 +272,68 @@ export function ControleSimulador({ estado, cenarios, aoAtualizar, aoNaoAutoriza
   const rotuloStatus = { parado: 'Parada', rodando: 'Rodando', pausado: 'Pausada' }[status];
   const tomStatus: TomSelo = status === 'rodando' ? 'sucesso' : status === 'pausado' ? 'atencao' : 'neutro';
   const descricao = cenarios.find((c) => c.id === cenario)?.descricao;
+  const nomeCenario = estado?.cenario ? cenarios.find((c) => c.id === estado.cenario)?.nome ?? `Cenário ${estado.cenario}` : null;
+
+  const iniciar = () => executar('iniciar', () => (status === 'pausado' ? api.simulacao.acao('retomar') : api.simulacao.iniciar(RITMOS.livre)));
+  const adicionar = () => executar('adicionar', async () => {
+    if (status === 'parado') await api.simulacao.iniciar(RITMOS.vazio); // sem chegadas automáticas: só o veículo pedido
+    await api.simulacao.evento({ acao: 'entrada' });
+  });
 
   return (
     <Cartao titulo="Simulação" acao={<span data-testid="status-simulacao"><Selo tom={tomStatus} icone={status === 'rodando' ? Play : status === 'pausado' ? Pause : Square}>{rotuloStatus}</Selo></span>}>
       <div className="grid gap-3 text-sm">
         {!estado ? <Esqueleto className="h-24" /> : (
           <>
-            {status !== 'parado' && (
-              <p className="m-0 text-ink-2">
-                {estado.cenario ? <>Cenário <strong className="text-ink">{estado.cenario}</strong> · </> : null}
-                {Math.floor(estado.decorridoSimuladoSeg / 60)} min simulados · {estado.veiculos.estacionados} estacionados · {estado.veiculos.aguardando} a caminho
-              </p>
-            )}
-            {status === 'parado' ? (
-              <>
-                <label htmlFor="cenario" className="font-medium">Cenário</label>
-                <select id="cenario" value={cenario} onChange={(e) => setCenario(e.target.value)} className="h-10 px-2 rounded-md border border-line-strong bg-surface">
-                  {cenarios.map((c) => <option key={c.id} value={c.id}>{c.id} — {c.nome}</option>)}
-                </select>
-                {descricao && <p className="m-0 text-ink-2">{descricao}</p>}
-                <Botao icone={Play} carregando={ocupado === 'iniciar'} onClick={() => executar('iniciar', () => api.simulacao.cenario(cenario as CenarioResumo['id']))}>Iniciar cenário {cenario}</Botao>
-              </>
-            ) : (
-              <div className="grid grid-cols-2 gap-2">
-                {status === 'rodando'
-                  ? <Botao variante="secundario" icone={Pause} carregando={ocupado === 'pausar'} onClick={() => executar('pausar', () => api.simulacao.acao('pausar'))}>Pausar</Botao>
-                  : <Botao icone={Play} carregando={ocupado === 'retomar'} onClick={() => executar('retomar', () => api.simulacao.acao('retomar'))}>Retomar</Botao>}
-                <Botao variante="secundario" icone={Square} carregando={ocupado === 'encerrar'} onClick={() => executar('encerrar', () => api.simulacao.acao('encerrar'))}>Encerrar</Botao>
-                <label className="col-span-2 flex items-center justify-between gap-2">
-                  <span className="font-medium">Velocidade</span>
-                  <select aria-label="Velocidade da simulação" value={estado.velocidade} onChange={(e) => executar('velocidade', () => api.simulacao.velocidade(Number(e.target.value)))} className="h-9 px-2 rounded-md border border-line-strong bg-surface">
-                    {[...new Set([1, 10, 30, 60, 120, estado.velocidade])].sort((a, b) => a - b).map((v) => <option key={v} value={v}>{v}× {v === 1 ? '(tempo real)' : ''}</option>)}
-                  </select>
-                </label>
-              </div>
-            )}
+            <p className="m-0 text-ink-2" data-testid="resumo-simulacao">
+              {status === 'parado'
+                ? 'Veículos simulados entram pelo totem virtual, seguem a rota no mapa e só ocupam vaga quando o estacionamento é confirmado.'
+                : <>{nomeCenario ? <><strong className="text-ink">{nomeCenario}</strong> · </> : null}{Math.floor(estado.decorridoSimuladoSeg / 60)} min simulados · {estado.veiculos.estacionados} estacionados · {estado.veiculos.aguardando} a caminho</>}
+            </p>
+            <div className="grid gap-2">
+              {status === 'rodando'
+                ? <Botao variante="secundario" icone={Pause} carregando={ocupado === 'pausar'} onClick={() => executar('pausar', () => api.simulacao.acao('pausar'))}>Pausar</Botao>
+                : <Botao icone={Play} carregando={ocupado === 'iniciar'} onClick={iniciar}>{status === 'pausado' ? 'Retomar' : 'Iniciar'}</Botao>}
+              <Botao variante="secundario" icone={Plus} carregando={ocupado === 'adicionar'} onClick={adicionar}>Adicionar veículo</Botao>
+              <Botao variante="secundario" icone={Zap} carregando={ocupado === 'pico'} onClick={() => executar('pico', () => api.simulacao.cenario(RITMOS.pico.cenario, RITMOS.pico.config))}>Simular horário de pico</Botao>
+              <Botao variante="secundario" icone={Sun} carregando={ocupado === 'tranquilo'} onClick={() => executar('tranquilo', () => api.simulacao.cenario(RITMOS.tranquilo.cenario, RITMOS.tranquilo.config))}>Simular estacionamento tranquilo</Botao>
+            </div>
+            <p className="m-0 text-xs text-ink-3">Os ritmos prontos começam do zero: apagam só os dados simulados anteriores (dados reais ficam).</p>
             <div className="border-t border-line-subtle pt-3">
               {confirmarReinicio ? (
                 <div className="grid gap-2">
-                  <p className="m-0">Apagar todos os dados simulados? Dados reais e ajustes do operador são mantidos.</p>
+                  <p className="m-0">Reiniciar apaga todos os dados simulados e para a simulação. Dados reais e ajustes do operador são mantidos.</p>
                   <div className="flex gap-2">
                     <Botao variante="perigo" tamanho="sm" carregando={ocupado === 'reiniciar'} onClick={() => executar('reiniciar', () => api.simulacao.acao('reiniciar'))}>Apagar dados simulados</Botao>
                     <Botao variante="fantasma" tamanho="sm" onClick={() => setConfirmarReinicio(false)}>Cancelar</Botao>
                   </div>
                 </div>
               ) : (
-                <Botao variante="fantasma" tamanho="sm" icone={RotateCcw} onClick={() => setConfirmarReinicio(true)} disabled={!estado.veiculosSimuladosAtivos && status === 'parado'}>Reiniciar dados simulados</Botao>
+                <Botao variante="fantasma" tamanho="sm" icone={RotateCcw} onClick={() => setConfirmarReinicio(true)} disabled={!estado.veiculosSimuladosAtivos && status === 'parado'}>Reiniciar</Botao>
               )}
             </div>
+            <details className="border-t border-line-subtle pt-3">
+              <summary className="cursor-pointer font-medium text-ink-2 select-none">Mais opções</summary>
+              <div className="grid gap-2 mt-3">
+                <label htmlFor="cenario" className="font-medium">Cenário</label>
+                <select id="cenario" value={cenario} onChange={(e) => setCenario(e.target.value)} className="h-10 px-2 rounded-md border border-line-strong bg-surface">
+                  {cenarios.map((c) => <option key={c.id} value={c.id}>{c.id} — {c.nome}</option>)}
+                </select>
+                {descricao && <p className="m-0 text-ink-2">{descricao}</p>}
+                <Botao variante="secundario" icone={Play} carregando={ocupado === 'cenario'} onClick={() => executar('cenario', () => api.simulacao.cenario(cenario as CenarioResumo['id']))}>Iniciar cenário {cenario}</Botao>
+                {status !== 'parado' && (
+                  <>
+                    <label className="flex items-center justify-between gap-2">
+                      <span className="font-medium">Velocidade do relógio</span>
+                      <select aria-label="Velocidade da simulação" value={estado.velocidade} onChange={(e) => executar('velocidade', () => api.simulacao.velocidade(Number(e.target.value)))} className="h-9 px-2 rounded-md border border-line-strong bg-surface">
+                        {[...new Set([1, 3, 10, 30, 60, 120, estado.velocidade])].sort((a, b) => a - b).map((v) => <option key={v} value={v}>{v}× {v === 1 ? '(tempo real)' : ''}</option>)}
+                      </select>
+                    </label>
+                    <Botao variante="fantasma" tamanho="sm" icone={Square} carregando={ocupado === 'encerrar'} onClick={() => executar('encerrar', () => api.simulacao.acao('encerrar'))}>Encerrar (mantém os dados simulados)</Botao>
+                  </>
+                )}
+              </div>
+            </details>
           </>
         )}
         {erro && <Aviso tom="erro" titulo="Ação não executada">{erro}</Aviso>}

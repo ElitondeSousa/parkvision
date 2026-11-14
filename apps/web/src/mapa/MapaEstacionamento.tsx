@@ -9,8 +9,9 @@
  *  5. rota (âmbar = orientação), sempre sobre as vias do grafo — nunca em linha reta;
  *  6. acessos.
  */
-import type { Nivel, Regiao } from '@parkvision/shared';
-import { useEffect, useId, useMemo, useState, type KeyboardEvent } from 'react';
+import type { Categoria, Nivel, Regiao } from '@parkvision/shared';
+import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent as EventoPonteiro } from 'react';
+import { caminhoSuave, janelasPorNivel, pontoNaRota, setasDaRota, zoomEm, type Camera, type Ponto } from './navegacao.ts';
 import {
   NIVEIS, acessoPorNo, areasForaDaDistribuicao, centro, ehLigacaoEntreNiveis, enquadramento, escalaDaArea, escalaDoNivel, mapa, nomeCurto, nomeDoNivel, nosPorId,
   regiaoDoMapa, tracadoPlanta, trechosDaRota,
@@ -38,7 +39,24 @@ export interface MapaEstacionamentoProps {
   enquadrarDestino?: boolean;
   mostrarLegenda?: boolean;
   className?: string;
+  /** Câmera controlada (viewBox). Sem ela, o mapa usa o enquadramento do nível (ou o zoom interno, se interativo). */
+  camera?: Camera | null;
+  aoMudarCamera?: (c: Camera) => void;
+  /** Gestos: arrastar (mouse/dedo), pinça e roda do mouse. */
+  interativo?: boolean;
+  /** Roda do mouse só com Ctrl/⌘ (para não brigar com a rolagem da página). */
+  zoomComCtrl?: boolean;
+  /** O SVG ocupa toda a altura do contêiner (tela de navegação). */
+  preencher?: boolean;
+  /** Abas de nível sobrepostas ao mapa (tela de navegação). */
+  abasSobrepostas?: boolean;
+  /** Pino de destino sobre a região de destino. */
+  pinoDestino?: boolean;
+  /** Veículos simulados percorrendo rotas (representação visual da simulação, nunca posição real). */
+  veiculos?: VeiculoAnimado[];
 }
+
+export interface VeiculoAnimado { id: string; nos: string[]; categoria: Categoria; inicio: number; duracao: number }
 
 const COR_FAIXA: Record<FaixaRegiao, string> = {
   livre: 'var(--pv-faixa-livre)',
@@ -64,13 +82,81 @@ export function MapaEstacionamento(props: MapaEstacionamentoProps) {
   const [aproximado, setAproximado] = useState(true);
   const nv = NIVEIS.find((n) => n.id === nivel)!;
   const zoom = enquadrarDestino && aproximado && destino && nivelDoDestino === nivel ? enquadramento(destino) : null;
-  const [vx, vy, vw, vh] = zoom ?? nv.viewBox;
-  const fs = zoom ? escalaDaArea(zoom) : escalaDoNivel(nivel);
+  // câmera: controlada > zoom interno (gestos) > aproximação do destino > nível inteiro
+  const [camInterna, setCamInterna] = useState<Camera | null>(null);
+  useEffect(() => { setCamInterna(null); }, [nivel]);
+  const cam: Camera = props.camera ?? camInterna ?? (zoom as Camera | null) ?? (nv.viewBox as Camera);
+  const mudarCamera = props.aoMudarCamera ?? setCamInterna;
+  const [vx, vy, vw, vh] = cam;
+  const base = escalaDoNivel(nivel);
+  const fs = Math.min(base * 1.2, Math.max(base * 0.12, escalaDaArea(cam))); // textos e traços com tamanho estável na tela
+
+  // gestos (arrastar, pinça, roda)
+  const svgRef = useRef<SVGSVGElement>(null);
+  const camRef = useRef(cam); camRef.current = cam;
+  const ponteiros = useRef(new Map<number, Ponto>());
+  const inicioGesto = useRef<{ cam: Camera; pts: Map<number, Ponto> } | null>(null);
+  const arrastou = useRef(false);
+  const quadro = useRef(0);
+  const escalaTela = (c: Camera) => { const r = svgRef.current!.getBoundingClientRect(); return Math.max(c[2] / (r.width || 1), c[3] / (r.height || 1)); };
+  const paraMapa = (x: number, y: number, c: Camera): Ponto => {
+    const r = svgRef.current!.getBoundingClientRect(), k = escalaTela(c);
+    return [c[0] + (c[2] - r.width * k) / 2 + (x - r.left) * k, c[1] + (c[3] - r.height * k) / 2 + (y - r.top) * k];
+  };
+  const aplicar = (c: Camera) => { cancelAnimationFrame(quadro.current); quadro.current = requestAnimationFrame(() => mudarCamera(c)); };
+  const reiniciarGesto = () => { inicioGesto.current = ponteiros.current.size ? { cam: camRef.current, pts: new Map(ponteiros.current) } : null; };
+  const aoApertar = (e: EventoPonteiro<SVGSVGElement>) => {
+    if (!props.interativo) return;
+    if (ponteiros.current.size === 0) arrastou.current = false;
+    ponteiros.current.set(e.pointerId, [e.clientX, e.clientY]); reiniciarGesto();
+  };
+  const aoMover = (e: EventoPonteiro<SVGSVGElement>) => {
+    if (!props.interativo || !ponteiros.current.has(e.pointerId) || !inicioGesto.current) return;
+    ponteiros.current.set(e.pointerId, [e.clientX, e.clientY]);
+    const { cam: c0, pts: p0 } = inicioGesto.current, ids = [...ponteiros.current.keys()].filter((id) => p0.has(id));
+    const k = escalaTela(c0);
+    if (ids.length === 1) {
+      const [a0, a1] = [p0.get(ids[0]!)!, ponteiros.current.get(ids[0]!)!];
+      const dx = a1[0] - a0[0], dy = a1[1] - a0[1];
+      if (Math.hypot(dx, dy) > 6) arrastou.current = true;
+      if (arrastou.current) aplicar([c0[0] - dx * k, c0[1] - dy * k, c0[2], c0[3]]);
+    } else if (ids.length >= 2) {
+      const [i, j] = ids as [number, number];
+      const d0 = Math.hypot(p0.get(i)![0] - p0.get(j)![0], p0.get(i)![1] - p0.get(j)![1]) || 1;
+      const a = ponteiros.current.get(i)!, b = ponteiros.current.get(j)!;
+      const m0: Ponto = [(p0.get(i)![0] + p0.get(j)![0]) / 2, (p0.get(i)![1] + p0.get(j)![1]) / 2];
+      const m1: Ponto = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
+      arrastou.current = true;
+      const z = zoomEm(c0, Math.hypot(a[0] - b[0], a[1] - b[1]) / d0, paraMapa(m0[0], m0[1], c0), nivel);
+      const kz = escalaTela(z);
+      aplicar([z[0] - (m1[0] - m0[0]) * kz, z[1] - (m1[1] - m0[1]) * kz, z[2], z[3]]);
+    }
+  };
+  const aoSoltar = (e: EventoPonteiro<SVGSVGElement>) => { ponteiros.current.delete(e.pointerId); reiniciarGesto(); };
+  useEffect(() => {
+    const el = svgRef.current;
+    if (!el || !props.interativo) return;
+    const roda = (e: WheelEvent) => {
+      if (props.zoomComCtrl && !e.ctrlKey && !e.metaKey) return;
+      e.preventDefault();
+      aplicar(zoomEm(camRef.current, Math.exp(-e.deltaY * 0.0015), paraMapa(e.clientX, e.clientY, camRef.current), nivel));
+    };
+    el.addEventListener('wheel', roda, { passive: false });
+    return () => el.removeEventListener('wheel', roda);
+  });
 
   return (
     <div className={className}>
-      <AbasDeNivel nivel={nivel} aoTrocar={trocarNivel} regioes={regioes} destino={destino} trechos={trechos.map((t) => t.nivel)} />
-      <div className="relative rounded-lg border border-line overflow-hidden" style={{ background: 'var(--pv-mapa-papel)' }}>
+      {!props.abasSobrepostas && <AbasDeNivel nivel={nivel} aoTrocar={trocarNivel} regioes={regioes} destino={destino} trechos={trechos.map((t) => t.nivel)} />}
+      <div className={props.preencher ? 'relative h-full overflow-hidden' : 'relative rounded-lg border border-line overflow-hidden'} style={{ background: 'var(--pv-mapa-papel)' }}>
+        {props.abasSobrepostas && (
+          <div className="absolute top-2 left-2 right-2 z-10 pointer-events-none [&>*]:pointer-events-auto">
+            <AbasDeNivel nivel={nivel} aoTrocar={trocarNivel} regioes={regioes} destino={destino} trechos={trechos.map((t) => t.nivel)} compactas />
+          </div>
+        )}
+        {props.interativo && camInterna && !props.camera && (
+          <button onClick={() => setCamInterna(null)} className="absolute bottom-2 right-2 z-10 h-9 px-3 rounded-md text-sm font-semibold border border-line bg-surface cursor-pointer">Reenquadrar</button>
+        )}
         {enquadrarDestino && destino && nivelDoDestino === nivel && (
           <button onClick={() => setAproximado((a) => !a)} className="absolute top-2 right-2 z-10 h-9 px-3 rounded-md text-sm font-semibold border border-line bg-surface cursor-pointer" aria-pressed={!aproximado}>
             {aproximado ? 'Ver nível inteiro' : 'Aproximar da região'}
@@ -79,11 +165,18 @@ export function MapaEstacionamento(props: MapaEstacionamentoProps) {
         <svg
           data-testid="mapa-estacionamento"
           data-nivel={nivel}
+          ref={svgRef}
           viewBox={`${vx} ${vy} ${vw} ${vh}`}
           preserveAspectRatio="xMidYMid meet"
-          className="block w-full h-auto"
+          className={props.preencher ? 'block w-full h-full' : 'block w-full h-auto'}
           role="group"
-          aria-label={`Mapa do estacionamento — ${nv.nome}`}
+          aria-label={`Mapa do estacionamento — ${nv.nome}${props.interativo ? '. Arraste para mover e use pinça ou a roda do mouse para aproximar.' : ''}`}
+          style={props.interativo ? { touchAction: 'none', cursor: 'grab' } : undefined}
+          onPointerDown={aoApertar}
+          onPointerMove={aoMover}
+          onPointerUp={aoSoltar}
+          onPointerCancel={aoSoltar}
+          onPointerLeave={aoSoltar}
         >
           <Padroes id={idBase} fs={fs} />
           {/* 1. planta */}
@@ -123,7 +216,7 @@ export function MapaEstacionamento(props: MapaEstacionamentoProps) {
             const descricao = vivo
               ? `Região ${r.id}, ${r.nome}: ${vivo.livres} de ${vivo.capacidade} vagas livres, ${ROTULO_FAIXA[faixa!].toLowerCase()}${cong ? ', fluxo elevado' : ''}`
               : `Região ${r.id}, ${r.nome}`;
-            const selecionar = () => aoSelecionar?.(r.id);
+            const selecionar = () => { if (!arrastou.current) aoSelecionar?.(r.id); }; // arrastar o mapa não seleciona
             const teclado = (e: KeyboardEvent) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selecionar(); } };
             return (
               <g
@@ -147,13 +240,17 @@ export function MapaEstacionamento(props: MapaEstacionamentoProps) {
                     <polygon points={pontos} fill="none" stroke="var(--pv-wayfinding-route)" strokeWidth={fs / 3} strokeLinejoin="round" />
                   </>
                 )}
-                <RotuloRegiao id={r.id} x={cx} y={cy} fs={fs} linha2={rotuloLinha2(vivo, faixa)} congestionada={Boolean(cong)} destaque={ehDestino ? rotuloDestino : undefined} apagada={Boolean(apagada)} />
+                <RotuloRegiao id={r.id} x={cx} y={cy} fs={fs} linha2={rotuloLinha2(vivo, faixa)} congestionada={Boolean(cong)} destaque={ehDestino && !props.pinoDestino ? rotuloDestino : undefined} apagada={Boolean(apagada)} semCodigo={ehDestino && props.pinoDestino} />
+                {ehDestino && props.pinoDestino && <PinoDestino x={cx} y={cy} fs={fs} codigo={r.id} rotulo={rotuloDestino} />}
               </g>
             );
           })}
 
           {/* 5. rota */}
-          {trechos.filter((t) => t.nivel === nivel).map((t, i) => <TrechoDeRota key={i} nos={t.nos} rotaCompleta={rota ?? []} fs={fs} idBase={idBase} />)}
+          {trechos.filter((t) => t.nivel === nivel).map((t) => <TrechoDeRota key={`${nivel}-${t.nos.join('-')}`} nos={t.nos} rotaCompleta={rota ?? []} fs={fs} idBase={idBase} />)}
+
+          {/* 5b. veículos simulados (demonstração) */}
+          {props.veiculos && props.veiculos.length > 0 && <CamadaVeiculos veiculos={props.veiculos} nivel={nivel} fs={fs} />}
 
           {/* 6. acessos */}
           <g data-camada="acessos" pointerEvents="none">
@@ -181,7 +278,7 @@ function rotuloLinha2(vivo: Regiao | undefined, faixa: FaixaRegiao | null) {
   return `${vivo.livres} livres`;
 }
 
-function RotuloRegiao({ id, x, y, fs, linha2, congestionada: cong, destaque, apagada }: { id: string; x: number; y: number; fs: number; linha2: string; congestionada: boolean; destaque?: string; apagada: boolean }) {
+function RotuloRegiao({ id, x, y, fs, linha2, congestionada: cong, destaque, apagada, semCodigo }: { id: string; x: number; y: number; fs: number; linha2: string; congestionada: boolean; destaque?: string; apagada: boolean; semCodigo?: boolean }) {
   const w = fs * (0.62 * id.length + 0.9), h = fs * 1.15;
   return (
     <g pointerEvents="none" aria-hidden="true">
@@ -191,8 +288,12 @@ function RotuloRegiao({ id, x, y, fs, linha2, congestionada: cong, destaque, apa
           <text x={x} y={y - h / 2 - fs * 0.66} textAnchor="middle" fontSize={fs * 0.58} fontWeight={700} fill="var(--pv-wayfinding-on)" style={{ fontFamily: 'var(--pv-font-family-sans)' }}>{destaque}</text>
         </g>
       )}
-      <rect x={x - w / 2} y={y - h / 2} width={w} height={h} rx={fs * 0.22} fill={apagada ? 'var(--pv-color-asfalto-400)' : 'var(--pv-color-vision-600)'} stroke="#fff" strokeWidth={fs * 0.08} />
-      <text x={x} y={y + fs * 0.33} textAnchor="middle" fontSize={fs * 0.9} fontWeight={700} fill="#fff" style={{ fontFamily: 'var(--pv-font-family-display)' }}>{id}</text>
+      {!semCodigo && (
+        <>
+          <rect x={x - w / 2} y={y - h / 2} width={w} height={h} rx={fs * 0.22} fill={apagada ? 'var(--pv-color-asfalto-400)' : 'var(--pv-color-vision-600)'} stroke="#fff" strokeWidth={fs * 0.08} />
+          <text x={x} y={y + fs * 0.33} textAnchor="middle" fontSize={fs * 0.9} fontWeight={700} fill="#fff" style={{ fontFamily: 'var(--pv-font-family-display)' }}>{id}</text>
+        </>
+      )}
       {linha2 && (
         <text x={x} y={y + h / 2 + fs * 0.82} textAnchor="middle" fontSize={fs * 0.62} fontWeight={600} fill="var(--pv-text-primary)" stroke="var(--pv-mapa-papel)" strokeWidth={fs / 5} style={{ paintOrder: 'stroke', fontFamily: 'var(--pv-font-family-sans)' }} className="num">{linha2}</text>
       )}
@@ -210,7 +311,7 @@ function RotuloRegiao({ id, x, y, fs, linha2, congestionada: cong, destaque, apa
 
 function TrechoDeRota({ nos, rotaCompleta, fs, idBase }: { nos: string[]; rotaCompleta: string[]; fs: number; idBase: string }) {
   const pts = nos.map((id) => nosPorId[id]!.xy);
-  const d = 'M' + pts.map((p) => p.join(' ')).join('L');
+  const d = caminhoSuave(pts, fs * 1.6);   // só os nós do grafo de vias, com as quinas arredondadas
   const primeiro = nos[0]!, ultimo = nos[nos.length - 1]!;
   const idx = rotaCompleta.indexOf(primeiro);
   const veioDeOutroNivel = idx > 0 && ehLigacaoEntreNiveis(rotaCompleta[idx - 1]!, primeiro);
@@ -220,13 +321,100 @@ function TrechoDeRota({ nos, rotaCompleta, fs, idBase }: { nos: string[]; rotaCo
     <g data-camada="rota" data-nos={nos.join(' ')} aria-label="Rota recomendada" role="img" pointerEvents="none">
       {pts.length > 1 && (
         <>
-          <path d={d} fill="none" stroke="var(--pv-color-asfalto-950)" strokeOpacity={0.55} strokeWidth={fs * 0.62} strokeLinecap="round" strokeLinejoin="round" />
-          <path d={d} fill="none" stroke="var(--pv-wayfinding-route)" strokeWidth={fs * 0.36} strokeLinecap="round" strokeLinejoin="round" markerEnd={`url(#${idBase}-seta)`} />
+          <path d={d} fill="none" stroke="var(--pv-color-asfalto-950)" strokeOpacity={0.6} strokeWidth={fs * 0.7} strokeLinecap="round" strokeLinejoin="round" />
+          <path className="gp-rota-traco" pathLength={1} d={d} fill="none" stroke="var(--pv-wayfinding-route)" strokeWidth={fs * 0.4} strokeLinecap="round" strokeLinejoin="round" markerEnd={`url(#${idBase}-seta)`} />
+          {setasDaRota(pts, fs * 4).map((s, i) => (
+            <path key={i} data-seta-rota d={`M${-fs * 0.18} ${-fs * 0.16}L${fs * 0.14} 0L${-fs * 0.18} ${fs * 0.16}`} transform={`translate(${s.x} ${s.y}) rotate(${s.angulo})`} fill="none" stroke="var(--pv-color-asfalto-950)" strokeWidth={fs * 0.09} strokeLinecap="round" strokeLinejoin="round" />
+          ))}
         </>
       )}
       {veioDeOutroNivel && <Chip x={pts[0]![0]} y={pts[0]![1]} fs={fs} texto="Chegada pela rampa" />}
       {vaiParaOutroNivel && <Chip x={pts[pts.length - 1]![0]} y={pts[pts.length - 1]![1]} fs={fs} texto={`Rampa para o ${nomeDoNivel(vaiParaOutroNivel).toLowerCase()}`} />}
-      {!veioDeOutroNivel && acessoPorNo[primeiro] && <circle cx={pts[0]![0]} cy={pts[0]![1]} r={fs * 0.55} fill="none" stroke="var(--pv-wayfinding-route)" strokeWidth={fs * 0.16} />}
+      {!veioDeOutroNivel && acessoPorNo[primeiro] && (
+        <g data-testid="partida-rota">
+          <circle cx={pts[0]![0]} cy={pts[0]![1]} r={fs * 0.6} fill="var(--pv-mapa-papel)" stroke="var(--pv-wayfinding-route)" strokeWidth={fs * 0.18} />
+          <circle cx={pts[0]![0]} cy={pts[0]![1]} r={fs * 0.22} fill="var(--pv-color-asfalto-950)" />
+        </g>
+      )}
+    </g>
+  );
+}
+
+function PinoDestino({ x, y, fs: fsBase, codigo, rotulo }: { x: number; y: number; fs: number; codigo: string; rotulo?: string }) {
+  const fs = fsBase * 1.45; // o pino é o elemento principal da navegação: maior que os rótulos comuns
+  const r = fs * 0.95, w = fs * (0.62 * codigo.length + 0.9);
+  return (
+    <g data-testid="pino-destino" pointerEvents="none" aria-hidden="true">
+      <path d={`M${x} ${y}c${-r * 0.55} ${-r * 0.9} ${-r * 1.05} ${-r * 1.4} ${-r * 1.05} ${-r * 2.1}a${r * 1.05} ${r * 1.05} 0 1 1 ${r * 2.1} 0c0 ${r * 0.7} ${-r * 0.5} ${r * 1.2} ${-r * 1.05} ${r * 2.1}z`}
+        fill="var(--pv-wayfinding-route)" stroke="var(--pv-color-asfalto-950)" strokeWidth={fs * 0.1} />
+      <rect x={x - w / 2} y={y - r * 2.62} width={w} height={fs * 1.05} rx={fs * 0.22} fill="var(--pv-color-vision-600)" stroke="#fff" strokeWidth={fs * 0.07} />
+      <text x={x} y={y - r * 2.62 + fs * 0.82} textAnchor="middle" fontSize={fs * 0.82} fontWeight={700} fill="#fff" style={{ fontFamily: 'var(--pv-font-family-display)' }}>{codigo}</text>
+      {rotulo && <text x={x} y={y - r * 3.3} textAnchor="middle" fontSize={fs * 0.62} fontWeight={700} fill="var(--pv-text-primary)" stroke="var(--pv-mapa-papel)" strokeWidth={fs / 5} style={{ paintOrder: 'stroke', fontFamily: 'var(--pv-font-family-sans)' }}>{rotulo}</text>}
+    </g>
+  );
+}
+
+const COR_VEICULO: Record<Categoria, string> = { CARRO_PEQUENO: '#F7F4EE', CARRO_GRANDE: '#9AA3AE', MOTO: '#F5A800' };
+/** Carrinho visto de cima, apontando para +x (o grupo é girado na direção do trajeto). */
+function Carrinho({ categoria, fs }: { categoria: Categoria; fs: number }) {
+  if (categoria === 'MOTO') return <ellipse rx={fs * 0.42} ry={fs * 0.17} fill={COR_VEICULO.MOTO} stroke="#0C111C" strokeWidth={fs * 0.06} />;
+  const L = categoria === 'CARRO_GRANDE' ? fs * 1.35 : fs * 1.1, W = categoria === 'CARRO_GRANDE' ? fs * 0.62 : fs * 0.55;
+  return (
+    <g>
+      <rect x={-L / 2} y={-W / 2} width={L} height={W} rx={W * 0.32} fill={COR_VEICULO[categoria]} stroke="#0C111C" strokeWidth={fs * 0.06} />
+      <rect x={L * 0.06} y={-W * 0.36} width={L * 0.2} height={W * 0.72} rx={W * 0.12} fill="#1B2330" />
+    </g>
+  );
+}
+
+/**
+ * Veículos da simulação percorrendo a rota (animação por requestAnimationFrame, sem re-renderizar o React).
+ * Em trajetos com rampa, cada nível só mostra o carrinho na sua janela de tempo (ex.: no Térreo até a rampa, depois no Subsolo).
+ */
+function CamadaVeiculos({ veiculos, nivel, fs }: { veiculos: VeiculoAnimado[]; nivel: Nivel; fs: number }) {
+  const refs = useRef(new Map<string, SVGGElement>());
+  const percursos = useMemo(() => veiculos.flatMap((v) => {
+    const janelas = janelasPorNivel(v.nos);
+    const ultima = janelas[janelas.length - 1];
+    return janelas.filter((j) => j.nivel === nivel && j.pts.length > 1).map((j) => ({ v, j, final: j === ultima }));
+  }), [veiculos, nivel]);
+  const posicao = (v: VeiculoAnimado, j: { pts: Ponto[]; a: number; b: number }, final: boolean, agora: number) => {
+    const t = (agora - v.inicio) / v.duracao;
+    const local = j.b > j.a ? (t - j.a) / (j.b - j.a) : 1;
+    // antes da janela: invisível; depois: some (ou, no destino, fica parado um instante e some)
+    const visivel = local >= 0 && (local <= 1 || (final && t <= 1.15));
+    return { ...pontoNaRota(j.pts, local), visivel };
+  };
+  useEffect(() => {
+    const raf = window.requestAnimationFrame?.bind(window) ?? ((f: FrameRequestCallback) => window.setTimeout(() => f(performance.now()), 16));
+    const cancelar = window.cancelAnimationFrame?.bind(window) ?? window.clearTimeout;
+    let id = 0;
+    const passo = () => {
+      const agora = performance.now();
+      for (const { v, j, final } of percursos) {
+        const g = refs.current.get(`${v.id}-${j.a}`);
+        if (!g) continue;
+        const p = posicao(v, j, final, agora);
+        g.setAttribute('transform', `translate(${p.x} ${p.y}) rotate(${p.angulo})`);
+        g.style.opacity = p.visivel ? '1' : '0';
+      }
+      id = raf(passo);
+    };
+    id = raf(passo);
+    return () => cancelar(id);
+  }, [percursos]);
+  return (
+    <g data-camada="veiculos" pointerEvents="none" aria-hidden="true">
+      {percursos.map(({ v, j, final }) => {
+        const p = posicao(v, j, final, performance.now());
+        const chave = `${v.id}-${j.a}`;
+        return (
+          <g key={chave} ref={(el) => { if (el) refs.current.set(chave, el); else refs.current.delete(chave); }} data-testid="veiculo-simulado" data-categoria={v.categoria}
+            transform={`translate(${p.x} ${p.y}) rotate(${p.angulo})`} style={{ opacity: p.visivel ? 1 : 0, transition: 'opacity 250ms' }}>
+            <Carrinho categoria={v.categoria} fs={fs} />
+          </g>
+        );
+      })}
     </g>
   );
 }
@@ -261,9 +449,9 @@ function Padroes({ id, fs }: { id: string; fs: number }) {
   );
 }
 
-function AbasDeNivel({ nivel, aoTrocar, regioes, destino, trechos }: { nivel: Nivel; aoTrocar: (n: Nivel) => void; regioes?: Regiao[]; destino?: string | null; trechos: Nivel[] }) {
+function AbasDeNivel({ nivel, aoTrocar, regioes, destino, trechos, compactas }: { nivel: Nivel; aoTrocar: (n: Nivel) => void; regioes?: Regiao[]; destino?: string | null; trechos: Nivel[]; compactas?: boolean }) {
   return (
-    <div role="tablist" aria-label="Nível do estacionamento" className="flex gap-1 mb-2 overflow-x-auto">
+    <div role="tablist" aria-label="Nível do estacionamento" className={compactas ? 'inline-flex gap-1 p-1 rounded-lg bg-surface border border-line shadow-[var(--pv-shadow-sm)]' : 'flex gap-1 mb-2 overflow-x-auto'}>
       {NIVEIS.map((n) => {
         const doNivel = (regioes ?? []).filter((r) => r.nivel === n.id);
         const livres = doNivel.reduce((s, r) => s + (r.operacional ? r.livres : 0), 0);

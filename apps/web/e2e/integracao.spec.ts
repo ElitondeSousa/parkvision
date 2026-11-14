@@ -182,6 +182,7 @@ test('o simulador atualiza todos os módulos: painel, mapa, totem e localizador 
   const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } });
   const painel = await ctx.newPage();
   await abrirPainel(painel);
+  await painel.getByText('Mais opções').click();
   await painel.getByLabel('Cenário').selectOption('C');
   await painel.getByRole('button', { name: 'Iniciar cenário C' }).click();
   await expect(painel.getByTestId('status-simulacao')).toHaveText('Rodando', { timeout: 15_000 });
@@ -212,11 +213,9 @@ test('reiniciar a demonstração não apaga dados fora do ambiente simulado [19]
   const { codigo, token } = await emitirNoTotem(totem, /Carro pequeno/, 'A_S1');
   await api.post(`/api/tickets/${codigo}/estacionar`, { data: { regiaoId: 'S1' } });
   // demonstração por cima
-  await painel.getByLabel('Cenário').selectOption('A');
-  await painel.getByRole('button', { name: 'Iniciar cenário A' }).click();
+  await painel.getByRole('button', { name: 'Simular estacionamento tranquilo' }).click();
   await expect(painel.getByTestId('status-simulacao')).toHaveText('Rodando', { timeout: 15_000 });
-  await painel.getByRole('button', { name: 'Encerrar' }).click();
-  await painel.getByRole('button', { name: 'Reiniciar dados simulados' }).click();
+  await painel.getByRole('button', { name: 'Reiniciar', exact: true }).click();
   await painel.getByRole('button', { name: 'Apagar dados simulados' }).click();
   await expect(painel.getByTestId('movimentacoes')).toContainText('Dados simulados reiniciados');
   // o real continua: ticket estacionado, ocupação de S1 = 1, localizador funcionando

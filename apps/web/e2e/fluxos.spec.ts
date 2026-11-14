@@ -33,7 +33,11 @@ test('totem → ticket → localizador: QR real, sem reserva, e a região regist
   const token = qrUrl.split('/t/')[1]!;
   await page.goto(`/t/${token}`);
   await expect(page.getByText('Estacionamento ainda não confirmado')).toBeVisible();
-  await expect(page.getByTestId('mapa-estacionamento')).toHaveCount(0);
+  // a caminho: o mapa mostra a região INDICADA e a rota pelo grafo, sem ocupar vaga
+  await expect(page.getByTestId('regiao-destino')).toBeVisible();
+  const destinoNoMapa = page.getByTestId('mapa-estacionamento').locator('[data-destino="true"]');
+  if (await destinoNoMapa.count()) await expect(destinoNoMapa).toHaveAttribute('data-regiao', regiaoIndicada!);
+  expect(await somaOcupadas()).toBe(antes);
 
   const api = await apiTeste();
   await api.post(`/api/tickets/${codigo}/estacionar`, { data: { regiaoId: 'S2' } }); // motorista parou em outra região
@@ -71,24 +75,31 @@ test('controles do simulador usam os endpoints reais', async ({ page }) => {
   await page.goto('/painel');
   await page.getByLabel(/Token do operador/).fill('troque-este-token');
   await page.getByRole('button', { name: 'Salvar' }).click();
-  await page.getByLabel('Cenário').selectOption('A');
-  await page.getByRole('button', { name: 'Iniciar cenário A' }).click();
+  // controles simplificados
+  await page.getByRole('button', { name: 'Iniciar', exact: true }).click();
   await expect(page.getByTestId('status-simulacao')).toHaveText('Rodando', { timeout: 15_000 });
   await expect(page.getByText(/Ambiente de demonstração/)).toBeVisible();
   await page.getByRole('button', { name: 'Pausar' }).click();
   await expect(page.getByTestId('status-simulacao')).toHaveText('Pausada');
   await page.getByRole('button', { name: 'Retomar' }).click();
   await expect(page.getByTestId('status-simulacao')).toHaveText('Rodando');
-  await page.getByRole('button', { name: 'Encerrar' }).click();
+  await page.getByRole('button', { name: 'Adicionar veículo' }).click();
+  await expect(page.getByTestId('movimentacoes')).toContainText('entrou');
+  // opções avançadas continuam disponíveis (cenários A–E, velocidade, encerrar)
+  await page.getByText('Mais opções').click();
+  await page.getByLabel('Cenário').selectOption('A');
+  await page.getByRole('button', { name: 'Iniciar cenário A' }).click();
+  await expect(page.getByTestId('resumo-simulacao')).toContainText('Movimento tranquilo', { timeout: 15_000 });
+  await page.getByRole('button', { name: /^Encerrar/ }).click();
   await expect(page.getByTestId('status-simulacao')).toHaveText('Parada');
-  await page.getByRole('button', { name: 'Reiniciar dados simulados' }).click();
+  await page.getByRole('button', { name: 'Reiniciar', exact: true }).click();
   await page.getByRole('button', { name: 'Apagar dados simulados' }).click();
   await expect(page.getByTestId('movimentacoes')).toContainText('Dados simulados reiniciados');
   const api = await apiTeste();
   expect((await (await api.get('/api/simulacao')).json()).veiculosSimuladosAtivos).toBe(0);
 });
 
-test('localizador no celular: cabe na tela, mapa aproximado e alvos de toque confortáveis', async ({ browser }) => {
+test('localizador no celular: mapa em tela cheia, painel inferior e alvos de toque confortáveis', async ({ browser }) => {
   const api = await apiTeste();
   const { ticket, token } = await entrar(api, 'CARRO_GRANDE', 'A_S1');
   await api.post(`/api/tickets/${ticket.codigo}/estacionar`, { data: { regiaoId: 'S1' } });
@@ -100,10 +111,15 @@ test('localizador no celular: cabe na tela, mapa aproximado e alvos de toque con
   const caixa = (await mapa.boundingBox())!;
   expect(caixa.width).toBeLessThanOrEqual(375);
   expect(caixa.width).toBeGreaterThan(300);
-  const botao = (await page.getByRole('button', { name: 'Ver nível inteiro' }).boundingBox())!;
-  expect(botao.height).toBeGreaterThanOrEqual(36);
-  await page.getByRole('button', { name: 'Ver nível inteiro' }).tap();
-  await expect(mapa).toHaveAttribute('viewBox', '405 50 1645 1331');
+  expect(caixa.height).toBeGreaterThan(812 * 0.6);                    // o mapa ocupa a maior parte da tela
+  const centralizar = page.getByRole('button', { name: 'Centralizar no veículo' });
+  const botao = (await centralizar.boundingBox())!;
+  expect(botao.height).toBeGreaterThanOrEqual(44);
+  const antes = await mapa.getAttribute('viewBox');
+  await page.getByRole('tab', { name: /^Subsolo 1/ }).tap();
+  await centralizar.tap();                                            // volta para o nível e a região do veículo
+  await expect(mapa).toHaveAttribute('data-nivel', 'terreo');
+  await expect(mapa).toHaveAttribute('viewBox', antes!);
   await page.close();
 });
 

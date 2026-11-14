@@ -12,6 +12,7 @@
     "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {
+    "@parkvision/core": "workspace:*",
     "@parkvision/shared": "workspace:*",
     "lucide-react": "^1.72.0",
     "qrcode": "^1.5.4",

@@ -114,7 +114,58 @@ describe('dashboard administrativo', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Pausar' }));
     expect(await screen.findByText(/Token do operador inválido/)).toBeInTheDocument();
     expect(chamadas.some((c) => c.url === '/api/simulacao/pausar')).toBe(true);
-    expect(screen.getByRole('button', { name: 'Encerrar' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Encerrar (mantém os dados simulados)' })).toBeInTheDocument();
+  });
+
+  it('controles simplificados: iniciar, adicionar veículo, pico e tranquilo usam os endpoints reais', async () => {
+    const rodando = { ...estadoParado, status: 'rodando' };
+    const { chamadas } = api({
+      'POST /simulacao/iniciar': { corpo: rodando }, 'POST /simulacao/eventos': { corpo: {} }, 'POST /simulacao/cenario': { corpo: rodando },
+    });
+    sessionStorage.setItem('pv-token-operador', 'segredo');
+    await abrir();
+    for (const nome of ['Iniciar', 'Adicionar veículo', 'Simular horário de pico', 'Simular estacionamento tranquilo', 'Reiniciar']) {
+      expect(screen.getByRole('button', { name: nome })).toBeInTheDocument();
+    }
+    // adicionar com a simulação parada: liga o relógio sem chegadas automáticas e registra UMA entrada
+    fireEvent.click(screen.getByRole('button', { name: 'Adicionar veículo' }));
+    await waitFor(() => expect(chamadas.some((c) => c.url === '/api/simulacao/eventos')).toBe(true));
+    const iniciar = chamadas.find((c) => c.url === '/api/simulacao/iniciar')!;
+    expect((iniciar.corpo as { config: { entradasPorMinuto: number } }).config.entradasPorMinuto).toBe(0);
+    expect(chamadas.find((c) => c.url === '/api/simulacao/eventos')!.corpo).toEqual({ acao: 'entrada' });
+    fireEvent.click(screen.getByRole('button', { name: 'Simular horário de pico' }));
+    await waitFor(() => expect(chamadas.some((c) => c.url === '/api/simulacao/cenario')).toBe(true));
+    expect((chamadas.find((c) => c.url === '/api/simulacao/cenario')!.corpo as { cenario: string }).cenario).toBe('B');
+  });
+
+  it('reiniciar pede confirmação antes de apagar os dados simulados', async () => {
+    api({}, { ...estadoParado, veiculosSimuladosAtivos: 3 });
+    await abrir();
+    fireEvent.click(screen.getByRole('button', { name: 'Reiniciar' }));
+    expect(screen.getByText(/Dados reais e ajustes do operador são mantidos/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Apagar dados simulados' })).toBeInTheDocument();
+  });
+
+  it('veículo simulado que entra percorre a rota no mapa (só visual); veículo real não é animado', async () => {
+    api();
+    await abrir();
+    const mapa = () => screen.getByTestId('mapa-estacionamento');
+    emitir(evento('veiculo:entrou', { ticket: { codigo: 'PV-0200', categoria: 'CARRO_GRANDE', status: 'AGUARDANDO', acessoId: 'A_NE' }, recomendacao: recomendacaoDeTeste('N3') }, 'PV-0200', false));
+    expect(mapa().querySelector('[data-testid="veiculo-simulado"]')).toBeNull();
+    emitir(evento('veiculo:entrou', { ticket: { codigo: 'PV-0201', categoria: 'MOTO', status: 'AGUARDANDO', acessoId: 'A_NE' }, recomendacao: recomendacaoDeTeste('N3') }, 'PV-0201', true));
+    const carro = mapa().querySelector('[data-testid="veiculo-simulado"]');
+    expect(carro).not.toBeNull();
+    expect(carro).toHaveAttribute('data-categoria', 'MOTO');
+    // a ocupação não muda por causa da animação
+    expect(within(screen.getByRole('row', { name: /Norte Leste/ })).queryByText('Lotada')).not.toBeInTheDocument();
+  });
+
+  it('com movimento reduzido não anima os veículos', async () => {
+    vi.stubGlobal('matchMedia', (q: string) => ({ matches: q.includes('reduce'), media: q, addEventListener() {}, removeEventListener() {} }));
+    api();
+    await abrir();
+    emitir(evento('veiculo:entrou', { ticket: { codigo: 'PV-0202', categoria: 'MOTO', status: 'AGUARDANDO', acessoId: 'A_NE' }, recomendacao: recomendacaoDeTeste('N3') }, 'PV-0202', true));
+    expect(screen.getByTestId('mapa-estacionamento').querySelector('[data-testid="veiculo-simulado"]')).toBeNull();
   });
 
   it('trata falha de conexão com a API e com o tempo real', async () => {

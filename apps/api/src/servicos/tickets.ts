@@ -277,5 +277,21 @@ export async function localizar(db: PrismaClient, token: string) {
       simulado: t.simulado,
     },
     regiao, recomendada, orientacao: orientacao.filter(Boolean),
+    // navegação (Etapa Golden Park mobile): acesso de entrada e a rota da recomendação vigente, só enquanto o veículo
+    // ainda está a caminho — depois de estacionar/sair não há rota ativa a mostrar
+    acesso: await acessoPublico(db, t.acessoId),
+    rota: t.status === 'AGUARDANDO' ? await rotaVigente(db, t.numero, t.regiaoRecomendadaId) : null,
   };
+}
+
+async function acessoPublico(db: PrismaClient, id: string) {
+  const a = await db.acesso.findUnique({ where: { id } });
+  return a ? { id: a.id, nome: a.nome } : null;
+}
+
+/** Rota (nós do grafo) da recomendação mais recente do ticket, se ela ainda aponta para a região recomendada. */
+async function rotaVigente(db: PrismaClient, ticketNumero: number, regiaoId: string) {
+  const rec = await db.recomendacao.findFirst({ where: { ticketNumero }, orderBy: { criadaEm: 'desc' } });
+  if (!rec || rec.regiaoId !== regiaoId) return null;
+  return rec.rota as unknown as Rota;
 }

@@ -91,12 +91,16 @@ describe('fluxo do veículo', () => {
   });
 
   it('localizador pelo token do QR Code', async () => {
-    const { ticket, qrUrl } = (await entrar()).json();
+    const { ticket, qrUrl, recomendacao } = (await entrar()).json();
     const token = qrUrl.split('/t/')[1];
+    const antes = (await app.inject(`/api/localizador/${token}`)).json();
+    expect(antes.rota.nos).toEqual(recomendacao.rota.nos); // a caminho: rota da recomendação para a navegação
     await app.inject({ method: 'POST', headers: OP, url: `/api/tickets/${ticket.codigo}/estacionar` });
     const r = (await app.inject(`/api/localizador/${token}`)).json();
     expect(r.ticket.codigo).toBe(ticket.codigo);
     expect(r.ticket.estacionadoEm).toMatch(/^\d{4}-/);
+    expect(r.acesso).toEqual({ id: 'A_NE', nome: expect.stringContaining('nordeste') });
+    expect(r.rota).toBeNull(); // estacionado: sem rota ativa
     expect(r.ticket.saidaEm).toBeNull();
     expect(r.regiao.id).toBe(ticket.regiaoRecomendadaId);
     expect(r.orientacao[0]).toContain(r.regiao.id);

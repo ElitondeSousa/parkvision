@@ -2,7 +2,7 @@
  * Camada de serviços: única porta de entrada da web para a API (docs/mvp/02-contratos.md e 08-simulador.md).
  * Componentes não chamam fetch direto — usam estas funções, que padronizam erros (ErroServico).
  */
-import type { Categoria, CenarioId, Indicadores, Recomendacao, Regiao, StatusTicket, Ticket } from '@parkvision/shared';
+import type { Categoria, CenarioId, ConfigSimulacao, EventoManual, Indicadores, Recomendacao, Regiao, StatusTicket, Ticket } from '@parkvision/shared';
 
 /** Cabeçalho do token do operador (operações restritas desde a Etapa 4). */
 export const CABECALHO_OPERADOR = 'x-operador-token';
@@ -50,6 +50,9 @@ export interface RespostaLocalizador {
   regiao: Regiao | null;
   recomendada: Regiao;
   orientacao: string[];
+  /** Acesso por onde o veículo entrou e a rota da recomendação vigente (só enquanto o veículo está a caminho). */
+  acesso: { id: string; nome: string } | null;
+  rota: { nos: string[]; custo: number } | null;
 }
 export interface EstadoSimulacao {
   status: 'parado' | 'rodando' | 'pausado';
@@ -63,6 +66,8 @@ export interface EstadoSimulacao {
   veiculos: { aguardando: number; estacionados: number; gerados: number };
   veiculosSimuladosAtivos: number;
   modoDemonstracao: boolean;
+  /** Configuração em uso (o painel usa o tempo de manobra para o ritmo dos carrinhos animados). */
+  config?: Partial<ConfigSimulacao>;
 }
 export interface Saude { ok: boolean; banco: 'ok' | 'indisponivel'; modoDemonstracao: boolean }
 export interface ItemHistorico {
@@ -105,7 +110,11 @@ export const api = {
     cenarios: () => pedir<CenarioResumo[]>('/simulacao/cenarios'),
     acao: (acao: 'iniciar' | 'pausar' | 'retomar' | 'encerrar' | 'reiniciar') =>
       pedir<unknown>(`/simulacao/${acao}`, { method: 'POST', operador: true, body: json({}) }),
-    cenario: (cenario: CenarioId) => pedir<EstadoSimulacao>('/simulacao/cenario', { method: 'POST', operador: true, body: json({ cenario }) }),
+    cenario: (cenario: CenarioId, config?: Partial<ConfigSimulacao>) => pedir<EstadoSimulacao>('/simulacao/cenario', { method: 'POST', operador: true, body: json(config ? { cenario, config } : { cenario }) }),
+    /** Inicia sem cenário (ocupação atual), opcionalmente com configuração própria. */
+    iniciar: (config?: Partial<ConfigSimulacao>) => pedir<EstadoSimulacao>('/simulacao/iniciar', { method: 'POST', operador: true, body: json(config ? { config } : {}) }),
+    /** Evento manual do simulador (ex.: um veículo simulado entra agora). */
+    evento: (evento: EventoManual) => pedir<unknown>('/simulacao/eventos', { method: 'POST', operador: true, body: json(evento) }),
     velocidade: (velocidade: number) => pedir<EstadoSimulacao>('/simulacao/config', { method: 'PATCH', operador: true, body: json({ velocidade }) }),
   },
 };

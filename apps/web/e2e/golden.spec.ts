@@ -47,11 +47,13 @@ test('abóbora só no escuro; a chuva atravessa a tela sem bloquear cliques e te
   await expect(chuva).toBeVisible();
   await expect(chuva).toHaveCSS('pointer-events', 'none');
   expect(await chuva.getByTestId('abobora-caindo').count()).toBeGreaterThan(15);
-  // abóboras realmente se movem (posição muda com o tempo)
-  const y = () => chuva.getByTestId('abobora-caindo').nth(3).evaluate((e) => e.getBoundingClientRect().top);
-  const antes = await y();
+  // abóboras realmente se movem (posição muda com o tempo); cada uma começa com um atraso aleatório de até 1,6 s,
+  // então a verificação olha o conjunto, não uma abóbora fixa
+  const tops = () => chuva.getByTestId('abobora-caindo').evaluateAll((es) => es.map((e) => e.getBoundingClientRect().top));
+  const antes = await tops();
   await page.waitForTimeout(700);
-  expect(await y()).toBeGreaterThan(antes);
+  const depois = await tops();
+  expect(depois.some((t, i) => t > antes[i]! + 5)).toBe(true);
   // clicar no mapa durante a chuva continua funcionando
   await page.locator('[data-regiao="N1"][role="button"]').click();
   await expect(page.getByTestId('detalhe-regiao')).toContainText('Norte Oeste');

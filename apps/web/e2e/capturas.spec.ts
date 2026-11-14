@@ -150,3 +150,38 @@ test('capturas golden park: temas claro e escuro e chuva de abóboras', async ({
   }
   await api.post('/api/simulacao/reiniciar');
 });
+
+test('capturas da evolução do mapa: navegação mobile e simulação visual', async ({ browser }) => {
+  test.setTimeout(120_000);
+  const api = await apiTeste();
+  await api.post('/api/simulacao/reiniciar');
+  const { token } = await entrar(api, 'CARRO_PEQUENO', 'A_ROT');
+  for (const tema of ['claro', 'escuro'] as const) {
+    const cel = await browser.newPage({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, deviceScaleFactor: 2 });
+    await cel.addInitScript((t) => localStorage.setItem('gp-tema', t), tema);
+    await cel.goto(`/t/${token}`);
+    await expect(cel.getByTestId('pino-destino')).toBeVisible();
+    await cel.waitForTimeout(1400); // a rota termina de ser desenhada
+    await cel.screenshot({ path: `${DESTINO}/mapa-nav-${tema}.png` });
+    if (tema === 'claro') {
+      await cel.getByRole('button', { name: 'Mostrar detalhes' }).tap();
+      await cel.waitForTimeout(500);
+      await cel.screenshot({ path: `${DESTINO}/mapa-nav-detalhes.png` });
+      await cel.getByRole('button', { name: 'Ver trajeto em demonstração' }).tap();
+      await cel.waitForTimeout(1500);
+      await cel.screenshot({ path: `${DESTINO}/mapa-nav-demonstracao.png` });
+    }
+    await cel.close();
+  }
+  const painel = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+  await painel.goto('/painel');
+  await painel.getByLabel(/Token do operador/).fill('troque-este-token');
+  await painel.getByRole('button', { name: 'Salvar' }).click();
+  await painel.getByRole('button', { name: 'Simular horário de pico' }).click();
+  await expect(painel.getByTestId('status-simulacao')).toHaveText('Rodando', { timeout: 15_000 });
+  await painel.waitForTimeout(6000);
+  await painel.getByTestId('mapa-estacionamento').screenshot({ path: `${DESTINO}/mapa-sim-veiculos.png` });
+  await painel.getByText('Simulação', { exact: true }).locator('xpath=ancestor::section[1]').screenshot({ path: `${DESTINO}/mapa-sim-controles.png` }).catch(() => {});
+  await api.post('/api/simulacao/reiniciar');
+  await painel.close();
+});

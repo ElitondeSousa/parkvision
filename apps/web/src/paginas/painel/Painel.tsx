@@ -14,7 +14,8 @@ import { CircleParking, LayoutDashboard, RefreshCw, ScanLine, Wifi, WifiOff } fr
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, NavLink } from 'react-router';
 import { Aviso, Botao, Cartao, Esqueleto, SeloDemonstracao } from '../../componentes/base.tsx';
-import { MapaEstacionamento } from '../../mapa/MapaEstacionamento.tsx';
+import { MapaEstacionamento, type VeiculoAnimado } from '../../mapa/MapaEstacionamento.tsx';
+import { acrescentarVeiculo, veiculoDeEntrada, veiculoDeSaida } from '../../mapa/veiculos.ts';
 import { congestionada } from '../../mapa/estado.ts';
 import { api, mensagemDeErro, tokenOperador, type CenarioResumo, type EstadoSimulacao } from '../../servicos/api.ts';
 import { useTempoReal, type EstadoConexao } from '../../servicos/tempo-real.ts';
@@ -43,6 +44,16 @@ export function Painel() {
   const [pedindoToken, setPedindoToken] = useState(() => !tokenOperador.ler());
   const pedirToken = useCallback(() => setPedindoToken(true), []);
   const regioesRef = useRef<Record<string, Regiao>>({});
+  // carrinhos da simulação no mapa (só visual: a ocupação vem do backend na confirmação e na saída)
+  const [veiculos, setVeiculos] = useState<VeiculoAnimado[]>([]);
+  const simulacaoRef = useRef<EstadoSimulacao | null>(null); simulacaoRef.current = simulacao;
+  const timersVeiculos = useRef<number[]>([]);
+  useEffect(() => () => timersVeiculos.current.forEach((t) => window.clearTimeout(t)), []);
+  const animar = useCallback((v: VeiculoAnimado | null) => {
+    if (!v || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return; // movimento reduzido: sem animação
+    setVeiculos((lista) => acrescentarVeiculo(lista, v));
+    timersVeiculos.current.push(window.setTimeout(() => setVeiculos((lista) => lista.filter((x) => x.id !== v.id || x.inicio !== v.inicio)), v.duracao * 1.15 + 600));
+  }, []);
   const seqIndicadores = useRef(0);
 
   /** Estado atual a partir do backend (ao abrir, ao reconectar e periodicamente). */
@@ -94,11 +105,17 @@ export function Painel() {
       setIndicadores(e.dados as Indicadores);
     } else if (e.tipo === 'veiculo:entrou' || e.tipo === 'veiculo:recomendado') {
       setRecomendacao(e.dados as { recomendacao: Recomendacao; ticket: Ticket });
+      if (e.tipo === 'veiculo:entrou' && e.simulado) {
+        const sim = simulacaoRef.current;
+        animar(veiculoDeEntrada(e.dados as { recomendacao: Recomendacao; ticket: Ticket }, performance.now(), { tempoManobraSeg: sim?.config?.tempoManobraSeg, velocidade: sim?.velocidade }));
+      }
+    } else if (e.tipo === 'veiculo:saiu' && e.simulado) {
+      animar(veiculoDeSaida(e.dados as { ticket: Ticket; regiao: { id: string } | null }, performance.now()));
     } else if (e.tipo === 'simulador:estado' || e.tipo === 'simulador:cenario') {
       void atualizarSimulacao();
-      if (e.tipo === 'simulador:estado' && (e.dados as { acao: string }).acao === 'reiniciado') { setEventoSimulado(false); void carregar(); }
+      if (e.tipo === 'simulador:estado' && (e.dados as { acao: string }).acao === 'reiniciado') { setEventoSimulado(false); setVeiculos([]); void carregar(); }
     }
-  }, [atualizarSimulacao, carregar]);
+  }, [atualizarSimulacao, carregar, animar]);
   // reconectou: busca o estado atual no backend em vez de confiar só nos eventos (os da queda se perderam)
   const conexao = useTempoReal(aoEvento, carregar);
 
@@ -154,6 +171,9 @@ export function Painel() {
                   rota={mostrarRota ? recomendacao?.recomendacao.rota.nos : null}
                   rotuloDestino="Última recomendação"
                   seguirDestino={false}
+                  interativo
+                  zoomComCtrl
+                  veiculos={veiculos}
                 />
               ) : !erro && <Esqueleto className="h-[480px] mt-3" />}
             </Cartao>

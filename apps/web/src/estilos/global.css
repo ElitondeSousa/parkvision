@@ -145,3 +145,8 @@ h1, h2, h3 { font-family: var(--pv-font-family-display); line-height: var(--pv-l
 @media (prefers-reduced-motion: reduce) {
   .gp-abobora, .gp-abobora-mexe { animation: none; }
 }
+
+/* rota: desenho animado ao carregar (uma vez); com movimento reduzido aparece pronta */
+@keyframes gp-rota-desenha { from { stroke-dasharray: 1; stroke-dashoffset: 1; } to { stroke-dasharray: 1; stroke-dashoffset: 0; } }
+.gp-rota-traco { animation: gp-rota-desenha 1.1s var(--pv-easing-standard) both; }
+@media (prefers-reduced-motion: reduce) { .gp-rota-traco { animation: none; } }

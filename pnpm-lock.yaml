@@ -51,6 +51,9 @@ importers:
 
   apps/web:
     dependencies:
+      '@parkvision/core':
+        specifier: workspace:*
+        version: link:../../packages/core
       '@parkvision/shared':
         specifier: workspace:*
         version: link:../../packages/shared
