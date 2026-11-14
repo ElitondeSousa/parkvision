@@ -35,6 +35,10 @@
 - **Testes:** `Localizador.test.tsx` (texto renomeado) e `e2e/capturas.spec.ts` (capturas dos temas).
 - **Documentação:** `README.md` e `docs/04-design-system.md` (nova identidade).
 - **Removido:** `apps/web/public/favicon.svg`, o símbolo antigo, substituído pelo favicon do Golden Park.
+- **Protótipo de telas da 1ª entrega** (`prototype/`, publicado no GitHub Pages), atualizado depois a pedido da equipe:
+  - `prototype/index.html`: nome Golden Park, logos por tema na barra lateral, na tela de pagamento no celular e no Design System; modo claro como padrão (chave `gp-tema`, a mesma do MVP); navegação que acompanha o tema; abóbora e chuva de abóboras no modo escuro; paleta Ouro e Grafite na vitrine de cores;
+  - `prototype/assets/tokens.css`: tokens dourados regenerados;
+  - `prototype/assets/marca/`: logos e favicon.
 
 ## 3. Alterações na identidade visual
 
@@ -172,7 +176,6 @@ contraste       → 26/26 pares ✔ nos dois temas
 - **Para a equipe validar:**
   - a navegação clara no modo claro (mudança em relação ao Design System anterior);
   - o ticket sempre com a logo dourada e preta (papel claro).
-- **Protótipo da 1ª entrega** (`prototype/`): mantido com a identidade antiga, como registro histórico. Se quiserem, dá para atualizar.
 - **Logos vetoriais:** as atuais são imagens geradas em JPG. Se a equipe tiver os arquivos em SVG, a qualidade em telas grandes e na impressão melhora sem nenhuma mudança de código, porque o `BrandLogo` já isola o arquivo.
 - **Data comemorativa (opcional):** o easter egg poderia aparecer automaticamente em sextas-feiras 13 ou no Halloween. Não foi feito, porque o pedido era aparecer no modo escuro.
 - **Pendências da Etapa 4 que continuam:** atualizar o `02-contratos.md`, o grafo de vias e as rampas (D4/D6).

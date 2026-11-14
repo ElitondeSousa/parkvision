@@ -3,15 +3,20 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Protótipo ParkVision</title>
-<meta name="description" content="Protótipo navegável de alta fidelidade do ParkVision (estacionamento inteligente). Dados de demonstração.">
+<title>Protótipo Golden Park</title>
+<meta name="description" content="Protótipo navegável de alta fidelidade do Golden Park (sistema inteligente de estacionamento). Dados de demonstração.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@500;600;700&family=IBM+Plex+Mono:wght@500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="icon" type="image/png" href="assets/marca/favicon.png">
+<script>
+  /* tema salvo antes de pintar; claro é o padrão (não segue o sistema operacional) */
+  try { document.documentElement.dataset.theme = localStorage.getItem('gp-tema') === 'escuro' ? 'dark' : 'light'; } catch (e) { document.documentElement.dataset.theme = 'light'; }
+</script>
 <link rel="stylesheet" href="assets/tokens.css">
 <style>
 /* =========================================================
-   ParkVision — protótipo. Todas as cores, espaços, raios,
+   Golden Park — protótipo. Todas as cores, espaços, raios,
    sombras e fontes vêm de assets/tokens.css (--pv-*).
    ========================================================= */
 *,*::before,*::after{box-sizing:border-box}
@@ -42,15 +47,17 @@ svg.ic{width:18px;height:18px;flex:none;stroke:currentColor;fill:none;stroke-wid
 .app{display:grid;grid-template-columns:var(--pv-sidebar-width) minmax(0,1fr);min-height:100vh}
 .sidebar{
   position:sticky;top:0;height:100vh;overflow-y:auto;
-  background:var(--pv-sidebar-bg);color:var(--pv-sidebar-fg);
+  background:var(--pv-sidebar-bg);color:var(--pv-sidebar-fg);border-right:var(--pv-border-width-hairline) solid var(--pv-border-default);
   display:flex;flex-direction:column;gap:var(--pv-space-6);
   padding:var(--pv-space-5) var(--pv-space-3);
 }
 .brand{display:flex;align-items:center;gap:var(--pv-space-3);padding:0 var(--pv-space-2);text-decoration:none;color:var(--pv-sidebar-fg-active)}
-.brand svg{width:36px;height:36px;flex:none}
-.brand-word{font-family:var(--pv-font-family-display);font-size:var(--pv-font-size-2xl);font-weight:var(--pv-font-weight-semibold);letter-spacing:-0.01em}
-.brand-word strong{font-weight:var(--pv-font-weight-bold);color:var(--pv-color-vision-300)}
-.lg-plate{fill:var(--pv-color-vision-600)} .lg-p{fill:var(--pv-color-white)} .lg-eye{fill:var(--pv-color-faixa-500)}
+.brand img{display:block;width:auto;flex:none}
+.brand-simbolo{height:38px}
+.brand-word{height:21px}
+/* logo oficial por tema: claro → dourada e preta · escuro → dourada e bege */
+[data-theme="dark"] .so-claro{display:none!important}
+:root:not([data-theme="dark"]) .so-escuro{display:none!important}
 .nav{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:var(--pv-space-1)}
 .nav a{
   position:relative;display:flex;align-items:center;gap:var(--pv-space-3);
@@ -58,11 +65,11 @@ svg.ic{width:18px;height:18px;flex:none;stroke:currentColor;fill:none;stroke-wid
   color:var(--pv-sidebar-fg);text-decoration:none;font-weight:var(--pv-font-weight-medium);
   transition:background var(--pv-duration-fast) var(--pv-easing-standard),color var(--pv-duration-fast);
 }
-.nav a:hover{background:color-mix(in srgb,var(--pv-color-white) 7%,transparent);color:var(--pv-sidebar-fg-active)}
+.nav a:hover{background:color-mix(in srgb,var(--pv-text-primary) 7%,transparent);color:var(--pv-sidebar-fg-active)}
 .nav a[aria-current="page"]{background:var(--pv-sidebar-item-bg-active);color:var(--pv-sidebar-fg-active)}
 .nav a[aria-current="page"]::before{content:"";position:absolute;left:calc(var(--pv-space-3) * -1);top:var(--pv-space-2);bottom:var(--pv-space-2);width:4px;border-radius:0 var(--pv-radius-xs) var(--pv-radius-xs) 0;background:var(--pv-sidebar-indicator)}
-.nav-sep{height:var(--pv-border-width-hairline);background:color-mix(in srgb,var(--pv-color-white) 10%,transparent);margin:var(--pv-space-3) var(--pv-space-2)}
-.sidebar-foot{margin-top:auto;padding:var(--pv-space-3);border-radius:var(--pv-radius-md);background:color-mix(in srgb,var(--pv-color-white) 5%,transparent);font-size:var(--pv-font-size-xs);line-height:var(--pv-line-height-snug)}
+.nav-sep{height:var(--pv-border-width-hairline);background:var(--pv-border-default);margin:var(--pv-space-3) var(--pv-space-2)}
+.sidebar-foot{margin-top:auto;padding:var(--pv-space-3);border-radius:var(--pv-radius-md);background:var(--pv-bg-subtle);font-size:var(--pv-font-size-xs);line-height:var(--pv-line-height-snug)}
 .sidebar-foot b{display:block;color:var(--pv-sidebar-fg-active);font-weight:var(--pv-font-weight-semibold);font-size:var(--pv-font-size-sm)}
 
 .main-col{min-width:0;display:flex;flex-direction:column}
@@ -476,7 +483,7 @@ details.summary-table summary{cursor:pointer;font-weight:var(--pv-font-weight-se
 .phone-notch{position:absolute;top:10px;left:50%;transform:translateX(-50%);width:110px;height:30px;border-radius:var(--pv-radius-pill);background:var(--pv-color-asfalto-950);z-index:2}
 .m-status{height:48px;flex:none}
 .m-head{display:flex;align-items:center;gap:var(--pv-space-2);padding:var(--pv-space-2) var(--pv-space-5) var(--pv-space-3);background:var(--pv-bg-surface);border-bottom:var(--pv-border-width-hairline) solid var(--pv-border-subtle)}
-.m-head svg{width:28px;height:28px}
+.m-head img{height:28px;width:auto}
 .m-head b{font-family:var(--pv-font-family-display);font-size:var(--pv-font-size-lg)}
 .m-head .badge{margin-left:auto}
 .m-sim{display:flex;align-items:center;gap:var(--pv-space-2);padding:var(--pv-space-2) var(--pv-space-5);background:var(--pv-feedback-warning-bg);color:var(--pv-feedback-warning-fg);font-weight:var(--pv-font-weight-semibold);font-size:var(--pv-font-size-xs)}
@@ -566,12 +573,33 @@ details.summary-table summary{cursor:pointer;font-weight:var(--pv-font-weight-se
 .spot-state span{font-size:var(--pv-font-size-xs);color:var(--pv-text-muted)}
 .logo-stage{display:flex;gap:var(--pv-space-5);flex-wrap:wrap}
 .logo-tile{flex:1;min-width:240px;border-radius:var(--pv-radius-lg);padding:var(--pv-space-8);display:flex;align-items:center;justify-content:center;border:var(--pv-border-width-hairline) solid var(--pv-border-default)}
-.logo-tile.light{background:var(--pv-color-white)}
-.logo-tile.dark{background:var(--pv-color-asfalto-950)}
+.logo-tile.light{background:var(--pv-color-creme)}
+.logo-tile.dark{background:var(--pv-color-grafite-950)}
+.logo-tile img{width:min(100%,300px);height:auto}
+.logo-tile figcaption{margin-top:var(--pv-space-3);font-size:var(--pv-font-size-xs);text-align:center}
+.logo-tile.light figcaption{color:var(--pv-color-asfalto-600)} .logo-tile.dark figcaption{color:var(--pv-color-asfalto-300)}
+.logo-tile{flex-direction:column}
 .logo-tile .wm{font-family:var(--pv-font-family-display);font-size:var(--pv-font-size-4xl);font-weight:var(--pv-font-weight-semibold);margin-left:var(--pv-space-3);letter-spacing:-0.01em}
 .logo-tile.light .wm{color:var(--pv-color-asfalto-900)} .logo-tile.light .wm b{color:var(--pv-color-vision-600)}
 .logo-tile.dark .wm{color:var(--pv-color-white)} .logo-tile.dark .wm b{color:var(--pv-color-vision-300)}
-.logo-tile svg{width:64px;height:64px}
+/* easter egg: abóbora (só no escuro) e chuva de abóboras */
+.gp-abobora{display:inline-grid;place-items:center;width:40px;height:40px;border-radius:999px;border:1px solid transparent;background:transparent;cursor:pointer;padding:0;animation:gp-abobora-entra 650ms var(--pv-easing-standard) both;transition:border-color 150ms,box-shadow 150ms}
+.gp-abobora[hidden]{display:none}
+.gp-abobora:hover{border-color:#F07A1A;box-shadow:0 0 14px rgba(240,122,26,.45)}
+.gp-abobora.mexe{animation:gp-abobora-mexe 600ms ease-in-out}
+@keyframes gp-abobora-entra{0%{opacity:0;transform:translateY(8px) scale(.3) rotate(-25deg)}70%{opacity:1;transform:translateY(0) scale(1.15) rotate(8deg)}100%{transform:scale(1) rotate(0)}}
+@keyframes gp-abobora-mexe{0%,100%{transform:rotate(0) scale(1)}25%{transform:rotate(-18deg) scale(1.12)}50%{transform:rotate(14deg) scale(1.18)}75%{transform:rotate(-8deg) scale(1.06)}}
+.gp-chuva{position:fixed;inset:0;z-index:9000;pointer-events:none;overflow:hidden}
+.gp-gota{position:absolute;top:-12vh;will-change:transform;animation-name:gp-queda;animation-timing-function:cubic-bezier(.45,.05,.75,.95);animation-fill-mode:both}
+.gp-gota-giro{display:inline-block;will-change:rotate,translate;animation-name:gp-giro,gp-balanco;animation-timing-function:linear,ease-in-out;animation-iteration-count:1,infinite;animation-direction:normal,alternate;animation-fill-mode:both}
+.gp-gota-giro svg{display:block;filter:drop-shadow(0 3px 4px rgba(0,0,0,.35))}
+@keyframes gp-queda{from{transform:translate3d(0,0,0)}to{transform:translate3d(var(--gp-desvio,0),125vh,0)}}
+@keyframes gp-giro{from{rotate:var(--gp-giro-ini,0deg)}to{rotate:var(--gp-giro-fim,360deg)}}
+@keyframes gp-balanco{from{translate:calc(var(--gp-balanco,12px)*-1) 0}to{translate:var(--gp-balanco,12px) 0}}
+.gp-gota-suave{animation-name:gp-surge;animation-timing-function:ease-in-out}
+@keyframes gp-surge{0%{opacity:0}25%,75%{opacity:1}100%{opacity:0}}
+.gp-parar{position:fixed;top:12px;left:50%;transform:translateX(-50%);pointer-events:auto;display:inline-flex;align-items:center;gap:4px;height:32px;padding:0 12px;border-radius:999px;font:600 13px var(--pv-font-family-sans);cursor:pointer;background:var(--pv-bg-surface);color:var(--pv-text-primary);border:1px solid #F07A1A}
+@media (prefers-reduced-motion: reduce){.gp-abobora,.gp-abobora.mexe{animation:none}}
 .dos{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--pv-space-3)}
 .modal-backdrop{position:fixed;inset:0;background:var(--pv-modal-overlay);z-index:var(--pv-z-modal);display:grid;place-items:center;padding:var(--pv-space-4)}
 .modal-backdrop[hidden]{display:none}
@@ -663,9 +691,9 @@ details.summary-table summary{cursor:pointer;font-weight:var(--pv-font-weight-se
 <div class="app">
   <!-- ===================== Navegação lateral ===================== -->
   <aside class="sidebar" id="sidebar" aria-label="Navegação principal">
-    <a class="brand" href="#dashboard" aria-label="ParkVision, ir para a visão geral">
-      <svg viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="14" class="lg-plate"/><rect x="17" y="13" width="8" height="38" rx="2" class="lg-p"/><path class="lg-p" fill-rule="evenodd" d="M21 13h14a14 14 0 0 1 0 28H21zM35 20.5a6.5 6.5 0 1 0 0 13 6.5 6.5 0 0 0 0-13z"/><circle cx="35" cy="27" r="3" class="lg-eye"/></svg>
-      <span class="brand-word">Park<strong>Vision</strong></span>
+    <a class="brand" href="#dashboard" aria-label="Golden Park, ir para a visão geral">
+      <img class="brand-simbolo so-claro" src="assets/marca/golden-park-claro-simbolo.png" alt="" height="38"><img class="brand-simbolo so-escuro" src="assets/marca/golden-park-escuro-simbolo.png" alt="" height="38">
+      <img class="brand-word so-claro" src="assets/marca/golden-park-claro-nome.png" alt="" height="21"><img class="brand-word so-escuro" src="assets/marca/golden-park-escuro-nome.png" alt="" height="21">
     </a>
     <nav aria-label="Telas">
       <ul class="nav">
@@ -699,6 +727,7 @@ details.summary-table summary{cursor:pointer;font-weight:var(--pv-font-weight-se
       <div class="top-actions">
         <span class="demo-pill" title="Todos os números desta tela são fictícios"><i data-ic="flask"></i><span class="txt">Dados de demonstração</span></span>
         <span class="live" aria-label="Atualização ao vivo simulada">Ao vivo, <span id="clock">11:42:08</span></span>
+        <button class="gp-abobora" id="abobora" type="button" hidden aria-label="Abóbora de Halloween: toque para uma surpresa" title="Sexta-feira 13…"></button>
         <button class="btn btn-secondary btn-sm theme-toggle" id="theme-toggle" aria-pressed="false"><i data-ic="moon"></i><span class="txt">Tema escuro</span></button>
       </div>
     </header>
@@ -999,8 +1028,8 @@ details.summary-table summary{cursor:pointer;font-weight:var(--pv-font-weight-se
         <div class="phone-notch" aria-hidden="true"></div>
         <div class="m-status" aria-hidden="true"></div>
         <div class="m-head">
-          <svg viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="14" class="lg-plate"/><rect x="17" y="13" width="8" height="38" rx="2" class="lg-p"/><path class="lg-p" fill-rule="evenodd" d="M21 13h14a14 14 0 0 1 0 28H21zM35 20.5a6.5 6.5 0 1 0 0 13 6.5 6.5 0 0 0 0-13z"/><circle cx="35" cy="27" r="3" class="lg-eye"/></svg>
-          <b>ParkVision</b><span class="badge badge-neutral">Shopping Exemplo</span>
+          <img class="m-logo so-claro" src="assets/marca/golden-park-claro-simbolo.png" alt="" height="28"><img class="m-logo so-escuro" src="assets/marca/golden-park-escuro-simbolo.png" alt="" height="28"><img class="m-logo so-claro" src="assets/marca/golden-park-claro-nome.png" alt="" height="16"><img class="m-logo so-escuro" src="assets/marca/golden-park-escuro-nome.png" alt="" height="16">
+          <span class="sr-only">Golden Park</span><span class="badge badge-neutral">Shopping Exemplo</span>
         </div>
         <div class="m-sim" role="note"><i data-ic="flask"></i>Simulação — sem pagamento real</div>
         <div class="m-body" id="m-body" aria-live="polite"></div>
@@ -1183,7 +1212,7 @@ details.summary-table summary{cursor:pointer;font-weight:var(--pv-font-weight-se
      ====================================================== -->
 <section class="view" id="view-design-system" data-title="Design System" aria-labelledby="page-title" hidden>
   <div>
-    <p class="view-intro">Vitrine viva dos tokens e componentes do ParkVision. Tudo aqui lê <span class="mono">assets/tokens.css</span>; troque o tema no cabeçalho para ver as duas versões.</p>
+    <p class="view-intro">Vitrine viva dos tokens e componentes do Golden Park. Tudo aqui lê <span class="mono">assets/tokens.css</span>; troque o tema no cabeçalho para ver as duas versões.</p>
     <nav class="ds-nav" aria-label="Seções do Design System" style="margin-top:var(--pv-space-4)">
       <a href="#ds-logo">Logo</a><a href="#ds-cores">Cores</a><a href="#ds-tipo">Tipografia</a><a href="#ds-espaco">Espaçamento, raios e sombras</a><a href="#ds-botoes">Botão</a><a href="#ds-badges">Badge</a><a href="#ds-campos">Campo de formulário</a><a href="#ds-alertas">Alerta</a><a href="#ds-modal">Modal</a><a href="#ds-card">Card e Tabela</a><a href="#ds-medidor">Medidor de ocupação</a><a href="#ds-vaga">Vaga</a><a href="#ds-skeleton">Skeleton</a><a href="#ds-sinal">Painel de sinalização</a>
     </nav>
@@ -1191,21 +1220,21 @@ details.summary-table summary{cursor:pointer;font-weight:var(--pv-font-weight-se
 
   <div>
   <section class="ds-section" id="ds-logo">
-    <header><h2>Logo</h2><p>Placa azul de estacionamento com um “P” cujo bojo é uma lente; a pupila âmbar é o sensor.</p><code>brand/logo-symbol.svg, brand/logo-horizontal.svg</code></header>
+    <header><h2>Logo</h2><p>Golden Park: monograma GP com a via e o carro, em dourado. Duas versões oficiais, uma por tema.</p><code>brand/golden-park-claro-*.png, brand/golden-park-escuro-*.png</code></header>
     <div class="ds-body">
       <div class="logo-stage">
-        <div class="logo-tile light"><svg viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="14" class="lg-plate"/><rect x="17" y="13" width="8" height="38" rx="2" class="lg-p"/><path class="lg-p" fill-rule="evenodd" d="M21 13h14a14 14 0 0 1 0 28H21zM35 20.5a6.5 6.5 0 1 0 0 13 6.5 6.5 0 0 0 0-13z"/><circle cx="35" cy="27" r="3" class="lg-eye"/></svg><span class="wm">Park<b>Vision</b></span></div>
-        <div class="logo-tile dark"><svg viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="14" class="lg-plate"/><rect x="17" y="13" width="8" height="38" rx="2" class="lg-p"/><path class="lg-p" fill-rule="evenodd" d="M21 13h14a14 14 0 0 1 0 28H21zM35 20.5a6.5 6.5 0 1 0 0 13 6.5 6.5 0 0 0 0-13z"/><circle cx="35" cy="27" r="3" class="lg-eye"/></svg><span class="wm">Park<b>Vision</b></span></div>
+        <figure class="logo-tile light"><img src="assets/marca/golden-park-claro-completo.png" alt="Golden Park — logo dourada e preta"><figcaption>Dourada e preta · modo claro (padrão)</figcaption></figure>
+        <figure class="logo-tile dark"><img src="assets/marca/golden-park-escuro-completo.png" alt="Golden Park — logo dourada e bege"><figcaption>Dourada e bege · modo escuro</figcaption></figure>
       </div>
       <div class="dos">
-        <div class="alert alert-success"><i data-ic="check"></i><div><strong>Faça</strong>Use o símbolo com área de respiro de ¼ da largura. Em fundo escuro, “Vision” passa para Vision 300.</div></div>
-        <div class="alert alert-danger"><i data-ic="ban"></i><div><strong>Evite</strong>Recolorir a placa, girar o símbolo ou usar o âmbar fora da pupila e das rotas.</div></div>
+        <div class="alert alert-success"><i data-ic="check"></i><div><strong>Faça</strong>Use a logo dourada e preta no modo claro e a dourada e bege no modo escuro, sempre com a proporção original e área de respiro.</div></div>
+        <div class="alert alert-danger"><i data-ic="ban"></i><div><strong>Evite</strong>Redesenhar, distorcer ou recolorir a logo, trocar a versão do tema ou usar o âmbar das rotas como cor de marca.</div></div>
       </div>
     </div>
   </section>
 
   <section class="ds-section" id="ds-cores">
-    <header><h2>Cores</h2><p>Primitivos nomeados pelo mundo do estacionamento: Asfalto (neutros), Vision (marca, azul de placa), Faixa (âmbar, só orientação e rotas) e cores de status. Os semânticos apontam para os primitivos e mudam por tema.</p><code>--pv-color-* → --pv-bg-*, --pv-status-*</code></header>
+    <header><h2>Cores</h2><p>Primitivos nomeados pelo mundo do estacionamento: Ouro (marca Golden Park), Asfalto e Grafite (neutros), Vision (azul das placas de região), Faixa (âmbar, só orientação e rotas) e cores de status. Os semânticos apontam para os primitivos e mudam por tema.</p><code>--pv-color-* → --pv-bg-*, --pv-status-*</code></header>
     <div class="ds-body" id="ds-colors"></div>
   </section>
 
@@ -1376,7 +1405,7 @@ details.summary-table summary{cursor:pointer;font-weight:var(--pv-font-weight-se
 (function () {
 'use strict';
 /* =========================================================
-   ParkVision — protótipo navegável (dados fictícios)
+   Golden Park — protótipo navegável (dados fictícios)
    ========================================================= */
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
@@ -1528,25 +1557,75 @@ function route() {
   route.started = true;
 }
 
+
+/* ---------- Easter egg: abóbora (só no modo escuro) e chuva de abóboras ----------
+   Camada própria com pointer-events:none (não bloqueia nada), uma chuva por vez, fim automático,
+   botão Parar / tecla Esc, e versão sem queda nem giro para prefers-reduced-motion. */
+const ABOBORA_SVG = (t) => `<svg viewBox="0 0 64 64" width="${t}" height="${t}" aria-hidden="true"><path d="M33 13c0-5 3-8 8-9" fill="none" stroke="var(--pv-color-ouro-600)" stroke-width="4" stroke-linecap="round"/><path d="M36 12c6-4 13-2 15 3-6 2-11 1-15-3z" fill="#5E8C2F"/><ellipse cx="32" cy="38" rx="28" ry="22" fill="#F07A1A"/><ellipse cx="20" cy="38" rx="11" ry="21" fill="#E2660F"/><ellipse cx="44" cy="38" rx="11" ry="21" fill="#E2660F"/><ellipse cx="32" cy="38" rx="10" ry="22" fill="#F7902E"/><path d="M18 33l7-6 6 6zM46 33l-7-6-6 6z" fill="#3A1A04"/><path d="M19 44c4 6 22 6 26 0l-4 1-3 3-3-3-3 3-3-3-3 3-3-3z" fill="#3A1A04"/></svg>`;
+let chuvaAtiva = null;
+function pararChuva() {
+  if (!chuvaAtiva) return;
+  clearTimeout(chuvaAtiva.timer);
+  window.removeEventListener('keydown', chuvaAtiva.tecla);
+  chuvaAtiva.el.remove();
+  chuvaAtiva = null;
+}
+function chuvaDeAboboras() {
+  if (chuvaAtiva) return; // uma chuva por vez
+  const reduzido = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const n = reduzido ? 8 : window.innerWidth < 640 ? 16 : 26;
+  const el = document.createElement('div');
+  el.className = 'gp-chuva'; el.setAttribute('aria-hidden', 'true');
+  let fim = 0, html = '';
+  for (let i = 0; i < n; i++) {
+    const faixa = 100 / n, esq = Math.min(96, i * faixa + Math.random() * faixa);
+    const tam = Math.round(18 + Math.random() * 30), dur = 3.2 + Math.random() * 3, atraso = Math.random() * 1.6;
+    const g0 = Math.round(-40 + Math.random() * 80), g1 = Math.round((Math.random() < .5 ? -1 : 1) * (180 + Math.random() * 360));
+    const desvio = Math.round(-60 + Math.random() * 120), balanco = Math.round(8 + Math.random() * 22);
+    fim = Math.max(fim, (atraso + dur) * 1000);
+    html += reduzido
+      ? `<span class="gp-gota gp-gota-suave" style="left:${esq}%;top:${10 + (i * 37) % 70}%;animation-duration:2s;animation-delay:${(i % 4) * .08}s">${ABOBORA_SVG(tam)}</span>`
+      : `<span class="gp-gota" style="left:${esq}%;animation-duration:${dur.toFixed(2)}s;animation-delay:${atraso.toFixed(2)}s;--gp-desvio:${desvio}px"><span class="gp-gota-giro" style="animation-duration:${dur.toFixed(2)}s,${(dur / 3).toFixed(2)}s;animation-delay:${atraso.toFixed(2)}s;--gp-giro-ini:${g0}deg;--gp-giro-fim:${g1}deg;--gp-balanco:${balanco}px">${ABOBORA_SVG(tam)}</span></span>`;
+  }
+  el.innerHTML = html + `<button type="button" class="gp-parar" aria-hidden="false" aria-label="Parar a chuva de abóboras">✕ Parar</button>`;
+  el.querySelector('.gp-parar').addEventListener('click', pararChuva);
+  document.body.appendChild(el);
+  const tecla = (e) => { if (e.key === 'Escape') pararChuva(); };
+  window.addEventListener('keydown', tecla);
+  chuvaAtiva = { el, tecla, timer: setTimeout(pararChuva, reduzido ? 2200 : fim + 150) };
+}
+function initAbobora() {
+  const b = $('#abobora');
+  if (!b) return;
+  if (!b.innerHTML) {
+    b.innerHTML = ABOBORA_SVG(30);
+    b.addEventListener('click', () => { if (chuvaAtiva) return; b.classList.add('mexe'); chuvaDeAboboras(); });
+    b.addEventListener('animationend', (e) => { if (e.animationName === 'gp-abobora-mexe') b.classList.remove('mexe'); });
+  }
+  b.hidden = !isDark();
+  if (!isDark()) pararChuva();
+}
+
 /* ---------- Tema ---------- */
-const mq = window.matchMedia('(prefers-color-scheme: dark)');
-const isDark = () => (document.documentElement.dataset.theme ? document.documentElement.dataset.theme === 'dark' : mq.matches);
+/* claro é o padrão; a escolha fica salva (gp-tema) e vale para o protótipo e para o MVP no mesmo navegador */
+const isDark = () => document.documentElement.dataset.theme === 'dark';
 function paintThemeBtn() {
   const b = $('#theme-toggle'), d = isDark();
   b.setAttribute('aria-pressed', String(d));
   b.innerHTML = icon(d ? 'sun' : 'moon') + `<span class="txt">${d ? 'Tema claro' : 'Tema escuro'}</span>`;
 }
 function initTheme() {
-  try { const t = localStorage.getItem('pv-theme'); if (t) document.documentElement.dataset.theme = t; } catch (e) { /* sem storage */ }
+  try { document.documentElement.dataset.theme = localStorage.getItem('gp-tema') === 'escuro' ? 'dark' : 'light'; } catch (e) { document.documentElement.dataset.theme = 'light'; }
   paintThemeBtn();
+  initAbobora();
   $('#theme-toggle').addEventListener('click', () => {
-    const t = isDark() ? 'light' : 'dark';
-    document.documentElement.dataset.theme = t;
-    try { localStorage.setItem('pv-theme', t); } catch (e) { /* ignora */ }
+    const escuro = !isDark();
+    document.documentElement.dataset.theme = escuro ? 'dark' : 'light';
+    try { localStorage.setItem('gp-tema', escuro ? 'escuro' : 'claro'); } catch (e) { /* ignora */ }
     paintThemeBtn();
     renderColors();
+    initAbobora();
   });
-  mq.addEventListener?.('change', () => { paintThemeBtn(); renderColors(); });
 }
 
 /* ---------- Menu mobile ---------- */
@@ -1940,7 +2019,8 @@ function initConfig() {
    ========================================================= */
 const cssv = (n) => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
 function renderColors() {
-  const fams = [['asfalto', [25, 50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 950], 'Neutros frios'], ['vision', [50, 100, 200, 300, 400, 500, 600, 700, 800, 900], 'Marca'],
+  const fams = [['ouro', [50, 100, 200, 300, 400, 500, 600, 700, 800, 900], 'Marca Golden Park'], ['asfalto', [25, 50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 950], 'Neutros frios'],
+    ['grafite', [600, 700, 800, 900, 950], 'Modo escuro'], ['vision', [50, 100, 200, 300, 400, 500, 600, 700, 800, 900], 'Placas de região'],
     ['faixa', [100, 300, 500, 700, 900], 'Só orientação e rotas'], ['verde', [100, 300, 500, 700, 900], 'Livre'], ['vermelho', [100, 300, 500, 700, 900], 'Ocupada'],
     ['violeta', [100, 300, 500, 700, 900], 'Reservada'], ['laranja', [100, 300, 500, 700, 900], 'Manutenção'], ['magenta', [100, 300, 500, 700, 900], 'Erro']];
   const sem = [['bg-canvas', 'Fundo da página'], ['bg-surface', 'Cards e painéis'], ['text-primary', 'Texto principal'], ['text-secondary', 'Texto de apoio'], ['border-default', 'Bordas'],
